@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Para vibrar quando chega oferta verde (opcional) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Só para o envio de logs (opcional, desligado por padrão) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Para enxergar os apps de corrida ao listar pacotes (Android 11+) -->
+    <queries>
+        <package android:name="com.ubercab.driver" />
+        <package android:name="com.app99.driver" />
+        <package android:name="sinet.startup.inDriver" />
+        <package android:name="br.com.ifood.driver.app" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_launcher"
+        android:roundIcon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.DeviceDefault">
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- O coração do app: lê a tela dos apps de corrida e desenha o cartão. -->
+        <service
+            android:name=".service.OfferReaderService"
+            android:exported="false"
+            android:label="@string/service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_config" />
+        </service>
+
+        <!-- Botão liga/desliga nas Configurações rápidas -->
+        <service
+            android:name=".service.FarolTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile"
+            android:label="Farol"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

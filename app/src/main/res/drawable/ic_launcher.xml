@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ícone: semáforo simples -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#1F2933" android:pathData="M8,0h32a8,8 0 0 1 8,8v32a8,8 0 0 1 -8,8h-32a8,8 0 0 1 -8,-8v-32a8,8 0 0 1 8,-8z" />
+    <path android:fillColor="#3E4C59" android:pathData="M17,5h14a4,4 0 0 1 4,4v30a4,4 0 0 1 -4,4h-14a4,4 0 0 1 -4,-4v-30a4,4 0 0 1 4,-4z" />
+    <path android:fillColor="#E53935" android:pathData="M24,13m-5,0a5,5 0 1,0 10,0a5,5 0 1,0 -10,0" />
+    <path android:fillColor="#FBC02D" android:pathData="M24,24m-5,0a5,5 0 1,0 10,0a5,5 0 1,0 -10,0" />
+    <path android:fillColor="#43A047" android:pathData="M24,35m-5,0a5,5 0 1,0 10,0a5,5 0 1,0 -10,0" />
+</vector>

@@ -1,0 +1,39 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.farol.app"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.farol.app"
+        minSdk = 26          // Android 8.0
+        targetSdk = 35
+        versionCode = 4
+        versionName = "1.3"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            // Uso pessoal: assina com a chave de debug para instalar direto.
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = "17" }
+}
+
+dependencies {
+    // OCR on-device (modelo latino embutido, funciona offline). Usado só como plano B.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("androidx.annotation:annotation:1.9.1")
+
+    testImplementation("junit:junit:4.13.2")
+}

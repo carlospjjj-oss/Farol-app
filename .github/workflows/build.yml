@@ -1,0 +1,49 @@
+name: Build APK
+
+on:
+  push:
+    paths-ignore:
+      - "logs/**"      # lotes de log enviados pelo celular não geram build
+      - "tools/**"
+      - "**.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # para publicar o APK na Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Testes + APK
+        run: gradle --no-daemon testDebugUnitTest assembleDebug
+
+      - name: Renomear APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk Farol.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: farol-apk
+          path: Farol.apk
+
+      # Link fixo para baixar no celular: github.com/<você>/Farol/releases/latest
+      - name: Publicar na Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.${{ github.run_number }}
+          name: Farol v1.${{ github.run_number }}
+          body: "APK gerado automaticamente a partir de ${{ github.sha }}."
+          files: Farol.apk
+          make_latest: true
