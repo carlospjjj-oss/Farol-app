@@ -11,15 +11,28 @@ android {
         applicationId = "com.farol.app"
         minSdk = 26          // Android 8.0
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.3.1"
+    }
+
+    // Chave FIXA: sem ela, cada build do GitHub assinaria com uma chave nova e o Android
+    // recusaria instalar a atualização por cima ("App não instalado").
+    signingConfigs {
+        create("farol") {
+            storeFile = file("farol.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "oD1blIXG1_JUQjmumWXzcCE8"
+            keyAlias = "farol"
+            keyPassword = System.getenv("KEYSTORE_PASSWORD") ?: "oD1blIXG1_JUQjmumWXzcCE8"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("farol")
+        }
         release {
             isMinifyEnabled = false
-            // Uso pessoal: assina com a chave de debug para instalar direto.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("farol")
         }
     }
 
