@@ -33,6 +33,11 @@
         </activity>
 
         <activity
+            android:name=".ui.HistoryActivity"
+            android:exported="false"
+            android:label="Histórico de ofertas" />
+
+        <activity
             android:name=".ui.SettingsActivity"
             android:exported="false"
             android:label="Configurações"

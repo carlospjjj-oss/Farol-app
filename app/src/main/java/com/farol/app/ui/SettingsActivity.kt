@@ -333,6 +333,9 @@ class SettingsActivity : Activity() {
         val cHist = card("Histórico de ofertas")
         tvHistSummary = k.text("", 14, Palette.TEXT, k.medium).also { cHist.addView(it, k.lp(top = 10)) }
         boxHist = k.vbox().also { cHist.addView(it, k.lp(top = 6)) }
+        buttons(cHist, "Abrir histórico completo" to {
+            startActivity(Intent(this, HistoryActivity::class.java))
+        }, primaryFirst = true)
         buttons(cHist,
             "Copiar CSV" to { copyText("farol.csv", history.toCsv(), "Histórico copiado — cole numa planilha") },
             "Limpar" to { confirm("Apagar o histórico de ofertas?") { history.clear(); refreshStatus() } })

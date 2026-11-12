@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 2.0.1**
+**Versão atual: 2.1**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -85,6 +85,9 @@ Toque no atalho **🛵 Moto** e ajuste:
 - **Turno** com um botão só (iniciar → encerrar), com checagem de km suspeito.
 - **Ganhos por app** com barras. O selo verde **"auto 14:32"** indica que o valor veio do painel do próprio app.
 - **Ofertas lidas hoje:** quantas verdes, amarelas e vermelhas, a média ofertada e as 3 últimas.
+- **📋 Histórico de ofertas** (botão no cartão de ofertas): todas as ofertas lidas, agrupadas por dia,
+  com filtros **Hoje / 7 dias / 30 dias**, por **app** e por **cor**, resumo (R$/km e preço médios, cores, por app)
+  e os detalhes de cada oferta ao tocar (busca, nota, custo, líquido, avisos).
 - **⏱️ Tempo por pedido** *(Keeta)*: média até coletar e para entregar, e os **restaurantes mais demorados**.
 - **🕐 Melhores horários:** R$/km médio ofertado por hora do dia (14 dias) e as 3 melhores faixas.
 - **Combustível:** consumo real (tanque cheio → tanque cheio), preço do litro e gasto no mês;
@@ -155,7 +158,7 @@ app/src/main/java/com/farol/app/
   core/      OfferParser, ProfitCalculator, EarningsReader, Insights, Journal, LogSanitizer  ← Kotlin puro
   data/      Settings, JournalStore, History, CaptureLog, RemoteLog
   service/   OfferReaderService, ScreenTextCollector, OcrFallback, FarolTileService
-  ui/        DashboardActivity, SettingsActivity, OverlayCard, Kit
+  ui/        DashboardActivity, HistoryActivity, SettingsActivity, OverlayCard, Kit
 app/src/test/  64 testes, quase todos com textos REAIS de ofertas e telas dos logs
 ```
 
@@ -168,6 +171,7 @@ app/src/test/  64 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 2.1 | Tela de Histórico de ofertas com filtros, resumo e detalhes |
 | 2.0.1 | iFood: "Promo R$ 5,00" não é mais lido como preço |
 | 2.0 | Tempo por pedido (Keeta) e restaurantes mais demorados; melhores horários |
 | 1.9.x | Ganhos automáticos pelo painel dos apps; Keeta "km total" e "extra incluído"; checagem de km do turno e hodômetro com décimo |

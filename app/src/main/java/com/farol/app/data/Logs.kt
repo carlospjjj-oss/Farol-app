@@ -16,17 +16,25 @@ class History(context: Context) {
     private val maxLines = 5000
 
     @Synchronized
-    fun add(r: OfferResult) {
+    fun add(r: OfferResult, source: String = "") {
         val o = JSONObject()
             .put("t", System.currentTimeMillis())
             .put("app", r.offer.app)
             .put("price", r.offer.price)
             .put("km", r.offer.totalKm)
             .put("min", r.minutes)
+            .put("estimated", r.timeEstimated)
             .put("perKm", r.perKm)
             .put("perHour", r.perHour)
+            .put("cost", r.cost)
             .put("net", r.net)
             .put("rating", r.rating.name)
+            .put("ratingKm", r.ratingKm.name)
+            .put("ratingHour", r.ratingHour.name)
+            .put("source", source)
+        r.offer.pickupKm?.let { o.put("pickup", it) }
+        r.offer.passengerRating?.let { o.put("stars", it) }
+        if (r.warnings.isNotEmpty()) o.put("warnings", org.json.JSONArray(r.warnings))
         file.appendText(o.toString() + "\n")
         trimIfNeeded()
     }

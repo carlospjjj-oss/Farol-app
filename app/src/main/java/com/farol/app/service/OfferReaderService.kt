@@ -243,7 +243,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
 
         val result = ProfitCalculator.evaluate(offer, profile)
         overlay.show(result)
-        runCatching { history.add(result) }
+        runCatching { history.add(result, source) }
         runCatching { remote.offer(pkg, source, raw, result) }
         if (result.rating == Rating.GREEN && settings.vibrateOnGreen) vibrate()
         speak(result)

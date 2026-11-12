@@ -291,6 +291,9 @@ class DashboardActivity : Activity() {
                 }, k.lp(top = 10))
             }
         }
+        card.addView(k.ghost("📋  Ver histórico de ofertas") {
+            startActivity(Intent(this@DashboardActivity, HistoryActivity::class.java))
+        }, k.lp(top = 16))
         add(card)
     }
 
