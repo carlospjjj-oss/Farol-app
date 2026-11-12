@@ -140,7 +140,9 @@ class SettingsActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(18), dp(18), dp(40))
         }
-        setContentView(ScrollView(this).apply { addView(col) })
+        window.statusBarColor = Palette.BG
+        window.navigationBarColor = Palette.BG
+        setContentView(ScrollView(this).apply { setBackgroundColor(Palette.BG); addView(col) })
 
         col.addView(TextView(this).apply {
             text = "⚙️ Configurações"
@@ -288,6 +290,12 @@ class SettingsActivity : Activity() {
             maxPickupKm = etMaxPickup.num(0.0),
             minPassengerRating = etMinRating.num(0.0),
         )
+        if (p.greenPerKm > 20 || p.yellowPerKm > 20) {
+            toast("Meta por km muito alta. Use vírgula: 1,80 e 1,40"); return
+        }
+        if (p.otherCostPerKm > 5 || p.kmPerLiter > 120) {
+            toast("Confira os custos: use vírgula (ex.: 0,15)"); return
+        }
         if (p.yellowPerKm > p.greenPerKm || p.yellowPerHour > p.greenPerHour) {
             toast("O limite do amarelo precisa ser menor que o do verde"); return
         }
