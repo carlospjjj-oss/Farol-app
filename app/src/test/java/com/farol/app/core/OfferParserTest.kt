@@ -176,4 +176,16 @@ class OfferParserTest {
         val o = p("Recusar | 9 de olho | R$ 12,60 | R$ 2,00 Inclui extra de entrega caprichada | Inclui incentivo | 1,6 km total | Coleta | Espeto Paulista | +R$ 2,00 | Pegar | (54s)", "Keeta")!!
         assertEquals(12.60, o.price, 0.001); assertEquals(1.6, o.totalKm, 0.001)
     }
+
+    // ---- 12/11 tarde: iFood com promoção (a promo era lida como preço) ----
+
+    @Test fun realIfood_promoNaoEPreco() {
+        val o = p("R$ 12,96 | Valor da rota + Extras | Promo R$ 5,00 | Distância | 3,15 km | Tempo | 17 min | Padaria Kennedy | [endereço] | 1 | [endereço], Centro | Rejeitar | Aceitar | 88", "iFood")!!
+        assertEquals(12.96, o.price, 0.001); assertEquals(3.15, o.totalKm, 0.001); assertEquals(17.0, o.totalMin!!, 0.001)
+    }
+
+    @Test fun realIfood_promo10() {
+        val o = p("R$ 22,58 | Valor da rota + Extras | Promo R$ 10,00 | Distância | 4,47 km | Tempo | 35 min | Popeyes | Rejeitar | Aceitar | 88", "iFood")!!
+        assertEquals(22.58, o.price, 0.001)
+    }
 }

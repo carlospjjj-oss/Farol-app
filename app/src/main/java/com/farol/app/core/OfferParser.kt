@@ -59,7 +59,7 @@ object OfferParser {
 
     /** Valores em R$ precedidos por isto não são o preço da oferta (ganhos do dia, saldo...). */
     private val MONEY_EXCLUDE_CONTEXT = Regex(
-        """(hoje|ganhos?|ganhou|ganhe|saldo|semana|carteira|meta|gorjeta|ped[aá]gio|inclui|incluso|at[eé]|economiz\w*)\W{0,6}$""",
+        """(hoje|ganhos?|ganhou|ganhe|saldo|semana|carteira|meta|gorjeta|ped[aá]gio|inclui|incluso|at[eé]|economiz\w*|promo\w*|extras?|b[oô]nus|incentivo)\W{0,6}$""",
         RegexOption.IGNORE_CASE
     )
 
