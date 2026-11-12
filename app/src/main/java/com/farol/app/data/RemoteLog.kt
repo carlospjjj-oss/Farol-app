@@ -139,7 +139,32 @@ class RemoteLog private constructor(context: Context) {
     fun test() = enqueue(base("teste", ctx.packageName, "app", "Teste de envio do Farol | R$ 10,00 | 5 km | Aceitar")
         .put("pacotes_vistos", JSONArray(synchronized(com.farol.app.service.OfferReaderService.recentPackages) {
             com.farol.app.service.OfferReaderService.recentPackages.toList()
-        })))
+        }))
+        .put("ajustes", settingsSnapshot()))
+
+    /** Ajustes atuais para conferência remota. Nunca inclui o token nem a URL/senha do webhook. */
+    private fun settingsSnapshot(): JSONObject {
+        val p = settings.profile
+        return JSONObject()
+            .put("combustivel", p.fuelPrice).put("consumo", p.kmPerLiter).put("outros_km", p.otherCostPerKm)
+            .put("custo_km", Math.round(p.costPerKm * 1000) / 1000.0)
+            .put("verde_km", p.greenPerKm).put("amarelo_km", p.yellowPerKm)
+            .put("verde_h", p.greenPerHour).put("amarelo_h", p.yellowPerHour)
+            .put("nota_verde", p.greenStars).put("nota_min", p.minPassengerRating)
+            .put("velocidade", p.avgSpeedKmh)
+            .put("busca_max", p.maxPickupKm).put("dist_max", p.maxTotalKm).put("tempo_max", p.maxMinutes)
+            .put("valor_min", p.minPrice).put("lucro_min", p.minNet).put("lucro_min_pct", p.minNetPct)
+            .put("meta_dia", settings.dailyGoal)
+            .put("bairros_alerta", p.alertWords.size).put("bairros_favoritos", p.favoriteWords.size)
+            .put("cartao_tamanho", listOf("P", "M", "G")[settings.cardSize]).put("cartao_compacto", settings.cardCompact)
+            .put("esconder_s", settings.autoHideSec)
+            .put("ligado", settings.enabled).put("ocr", settings.ocrFallback).put("so_com_botao", settings.requireHint)
+            .put("ganhos_auto", settings.autoEarnings).put("registrar_telas", settings.logScreens)
+            .put("vibrar", settings.vibrateOnGreen).put("voz", settings.speak)
+            .put("notif_turno", settings.shiftNotification).put("resumo_semana", settings.weeklySummary)
+            .put("mascarar", settings.maskAddresses)
+            .put("apps", JSONArray(settings.targets.values.toList()))
+    }
 
     private fun base(type: String, pkg: String, source: String, raw: String) = JSONObject()
         .put("t", iso(Date()))
