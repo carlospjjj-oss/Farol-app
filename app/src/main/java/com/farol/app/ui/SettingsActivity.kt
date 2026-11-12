@@ -58,6 +58,13 @@ class SettingsActivity : Activity() {
     // filtros
     private lateinit var etMaxPickup: EditText
     private lateinit var etMinRating: EditText
+    private lateinit var etGreenStars: EditText
+    private lateinit var etMinPrice: EditText
+    private lateinit var etMinNet: EditText
+    private lateinit var etMinNetPct: EditText
+    private lateinit var etMaxKm: EditText
+    private lateinit var etMaxMin: EditText
+    private lateinit var bandsBox: LinearLayout
     private lateinit var etAlerts: EditText
     // cartão / leitura
     private lateinit var etHide: EditText
@@ -103,7 +110,13 @@ class SettingsActivity : Activity() {
         loadValues()
     }
 
-    override fun onResume() { super.onResume(); refreshStatus() }
+    private var firstResume = true
+    override fun onResume() {
+        super.onResume()
+        if (!firstResume) loadValues()   // volta da calculadora de custos com valores novos
+        firstResume = false
+        refreshStatus()
+    }
 
     /** Salva sozinho ao sair, se estiver tudo válido (sem avisos). */
     override fun onPause() { super.onPause(); save(silent = true) }
@@ -241,9 +254,14 @@ class SettingsActivity : Activity() {
         }
         cCost.addView(tvCost, k.lp(top = 14))
         onChange(etFuel, etKml, etOther) { showCost() }
+        cCost.addView(k.ghost("🧮  Calcular custos do mês") {
+            save(silent = true)
+            startActivity(Intent(this, CostsActivity::class.java))
+        }, k.lp(top = 12))
 
         // Semáforo
-        val cLight = card("Semáforo", "A cor final é a pior entre R$/km e R$/h")
+        val cLight = card("Suas faixas", "A cor final é a pior entre R$/km, R$/h e nota")
+        bandsBox = k.vbox().also { cLight.addView(it, k.lp(top = 14)) }
         fun lightHeader(color: Int, label: String) = cLight.addView(k.hbox().apply {
             addView(k.dot(color, 12))
             addView(k.text(label, 14, color, k.bold), k.lp(w = -2).apply { marginStart = k.dp(8) })
@@ -255,12 +273,26 @@ class SettingsActivity : Activity() {
         etYellowKm = numRow(cLight, "Por km", "R$/km")
         etYellowH = numRow(cLight, "Por hora", "R$/h")
         lightHeader(Palette.RED, "Vermelho: abaixo do amarelo")
+        cLight.addView(k.text("Nota do passageiro (quando o app mostra)", 13, Palette.MUTED, k.medium), k.lp(top = 16))
+        etGreenStars = numRow(cLight, "Aceitar a partir de", "★", "0 = não usa")
+        etMinRating = numRow(cLight, "Atenção a partir de", "★", "abaixo disso é vermelho")
         etSpeed = numRow(cLight, "Velocidade média", "km/h", "usada quando a oferta não mostra o tempo (~)")
+        onChange(etGreenKm, etYellowKm, etGreenH, etYellowH, etGreenStars, etMinRating) { renderBands() }
+
+        // Condições mínimas
+        val cMin = card("Condições mínimas", "Abaixo disso o cartão fica vermelho (0 = não usa)")
+        etMinPrice = numRow(cMin, "Valor da corrida", "R$")
+        etMinNet = numRow(cMin, "Lucro líquido mínimo", "R$")
+        etMinNetPct = numRow(cMin, "Lucro mínimo", "%", "do valor da corrida")
+
+        // Tempo e distância
+        val cTD = card("Tempo e distância", "Acima disso o cartão fica vermelho (0 = não usa)")
+        etMaxPickup = numRow(cTD, "Busca máxima", "km", "até o restaurante ou passageiro")
+        etMaxKm = numRow(cTD, "Distância total máxima", "km")
+        etMaxMin = numRow(cTD, "Tempo total máximo", "min")
 
         // Filtros
-        val cFilter = card("Filtros", "Deixam o cartão vermelho com o motivo escrito")
-        etMaxPickup = numRow(cFilter, "Busca máxima", "km", "0 = sem limite")
-        etMinRating = numRow(cFilter, "Nota mínima", "★", "0 = sem filtro")
+        val cFilter = card("Bairros de alerta", "Deixam o cartão vermelho com o motivo escrito")
         etAlerts = textField("ex.: Jardim Exemplo, Vila Tal", multi = true)
         labeledText(cFilter, "Bairros ou ruas de alerta (separados por vírgula)", etAlerts)
 
@@ -397,6 +429,8 @@ class SettingsActivity : Activity() {
         etGreenH.setText(fmt(p.greenPerHour)); etYellowH.setText(fmt(p.yellowPerHour))
         etSpeed.setText(fmt(p.avgSpeedKmh))
         etMaxPickup.setText(fmt(p.maxPickupKm)); etMinRating.setText(fmt(p.minPassengerRating))
+        etGreenStars.setText(fmt(p.greenStars)); etMinPrice.setText(fmt(p.minPrice)); etMinNet.setText(fmt(p.minNet))
+        etMinNetPct.setText(fmt(p.minNetPct)); etMaxKm.setText(fmt(p.maxTotalKm)); etMaxMin.setText(fmt(p.maxMinutes))
         etAlerts.setText(settings.alertWordsText)
         etHide.setText(settings.autoHideSec.toString())
         etTargets.setText(settings.targetsText)
@@ -415,6 +449,7 @@ class SettingsActivity : Activity() {
         swMask.isChecked = settings.maskAddresses
         renderSegment()
         showCost()
+        renderBands()
     }
 
     private fun currentProfile(): CostProfile {
@@ -430,6 +465,12 @@ class SettingsActivity : Activity() {
             avgSpeedKmh = etSpeed.num(d.avgSpeedKmh),
             maxPickupKm = etMaxPickup.num(0.0),
             minPassengerRating = etMinRating.num(0.0),
+            greenStars = etGreenStars.num(0.0),
+            minPrice = etMinPrice.num(0.0),
+            minNet = etMinNet.num(0.0),
+            minNetPct = etMinNetPct.num(0.0),
+            maxTotalKm = etMaxKm.num(0.0),
+            maxMinutes = etMaxMin.num(0.0),
         )
     }
 
@@ -438,6 +479,8 @@ class SettingsActivity : Activity() {
         p.greenPerKm > 20 || p.yellowPerKm > 20 -> "Meta por km muito alta. Use vírgula: 1,80 e 1,40"
         p.otherCostPerKm > 5 || p.kmPerLiter > 120 || p.fuelPrice > 30 -> "Confira os custos: use vírgula (ex.: 0,15)"
         p.yellowPerKm > p.greenPerKm || p.yellowPerHour > p.greenPerHour -> "O amarelo precisa ser menor que o verde"
+        p.greenStars > 5 || p.minPassengerRating > 5 -> "A nota vai até 5 (ex.: 4,90)"
+        p.greenStars > 0 && p.minPassengerRating > p.greenStars -> "Na nota, 'atenção' precisa ser menor que 'aceitar'"
         else -> null
     }
 
@@ -470,6 +513,55 @@ class SettingsActivity : Activity() {
     private fun showCost() {
         val p = currentProfile()
         tvCost.text = "Seu custo: ${Fmt.money(p.costPerKm)}/km   (combustível ${Fmt.money(p.fuelCostPerKm)} + outros ${Fmt.money(p.otherCostPerKm)})"
+    }
+
+    /** Tabela "Suas faixas": Ruim | Atenção | Aceitar para R$/km, R$/h e nota. */
+    private fun renderBands() {
+        if (!::bandsBox.isInitialized) return
+        val p = currentProfile()
+        bandsBox.removeAllViews()
+        fun n(v: Double, d: Int = 2) = Fmt.dec(v, d)
+        val colW = LinearLayout.LayoutParams(0, -1, 1f)
+        fun cell(text: String, bg: Int, color: Int = Palette.TEXT, size: Number = 14, bold: Boolean = true) =
+            k.text(text, size, color, if (bold) k.bold else k.medium).apply {
+                gravity = Gravity.CENTER
+                setPadding(k.dp(4), k.dp(12), k.dp(4), k.dp(12))
+                setBackgroundColor(bg)
+            }
+        val red = Palette.alpha(Palette.RED, 0x22); val yel = Palette.alpha(Palette.YELLOW, 0x22); val grn = Palette.alpha(Palette.GREEN, 0x22)
+        val table = k.vbox().apply {
+            background = k.rounded(Palette.SURFACE2, 16, Palette.STROKE)
+            clipToOutline = true
+        }
+        table.addView(k.hbox().apply {
+            addView(cell("Faixa", Palette.SURFACE2, Palette.MUTED, 12, false), LinearLayout.LayoutParams(0, -1, 1.15f))
+            addView(cell("● Ruim", red, Palette.RED, 13), colW)
+            addView(cell("● Atenção", yel, Palette.YELLOW, 13), LinearLayout.LayoutParams(0, -1, 1f))
+            addView(cell("● Aceitar", grn, Palette.GREEN, 13), LinearLayout.LayoutParams(0, -1, 1f))
+        })
+        fun line(label: String, sub: String, a: String, b: String, c: String) {
+            table.addView(View(this).apply { setBackgroundColor(Palette.STROKE) }, LinearLayout.LayoutParams(-1, k.dp(1)))
+            table.addView(k.hbox().apply {
+                addView(k.vbox().apply {
+                    gravity = Gravity.CENTER; setPadding(k.dp(6), k.dp(10), k.dp(6), k.dp(10))
+                    addView(k.text(label, 14, Palette.TEXT, k.bold).apply { gravity = Gravity.CENTER })
+                    addView(k.text(sub, 11, Palette.MUTED).apply { gravity = Gravity.CENTER }, k.lp(top = 2))
+                }, LinearLayout.LayoutParams(0, -1, 1.15f))
+                addView(cell(a, red), LinearLayout.LayoutParams(0, -1, 1f))
+                addView(cell(b, yel, Palette.TEXT, if (b.length > 9) 12 else 14), LinearLayout.LayoutParams(0, -1, 1f))
+                addView(cell(c, grn), LinearLayout.LayoutParams(0, -1, 1f))
+            })
+        }
+        line("R$/km", "por km", "< ${n(p.yellowPerKm)}", "${n(p.yellowPerKm)} – ${n(p.greenPerKm)}", "≥ ${n(p.greenPerKm)}")
+        line("R$/hora", "por hora", "< ${n(p.yellowPerHour, 0)}", "${n(p.yellowPerHour, 0)} – ${n(p.greenPerHour, 0)}", "≥ ${n(p.greenPerHour, 0)}")
+        when {
+            p.greenStars > 0 && p.minPassengerRating > 0 ->
+                line("Nota", "passageiro", "< ${n(p.minPassengerRating)}", "${n(p.minPassengerRating)} – ${n(p.greenStars)}", "≥ ${n(p.greenStars)}")
+            p.minPassengerRating > 0 -> line("Nota", "passageiro", "< ${n(p.minPassengerRating)}", "—", "≥ ${n(p.minPassengerRating)}")
+            p.greenStars > 0 -> line("Nota", "passageiro", "—", "< ${n(p.greenStars)}", "≥ ${n(p.greenStars)}")
+            else -> line("Nota", "passageiro", "—", "não usa", "—")
+        }
+        bandsBox.addView(table)
     }
 
     private fun applyPreset(kind: String) {

@@ -33,6 +33,12 @@
         </activity>
 
         <activity
+            android:name=".ui.CostsActivity"
+            android:exported="false"
+            android:label="Custos do mês"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.HistoryActivity"
             android:exported="false"
             android:label="Histórico de ofertas" />

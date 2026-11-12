@@ -72,4 +72,37 @@ class ProfitCalculatorTest {
         val r = ProfitCalculator.evaluate(full("4,10 ★ | R$ 40,00 | 10 min (6 km) | Viagem 15 min (10 km) | Aceitar"), profile)
         assertTrue(r.warnings.isEmpty())
     }
+
+    // ---- condições mínimas e faixa de nota ----
+
+    private val boa = "4,95 ★ | R$ 30,00 | 3 min (1 km) | Viagem 15 min (10 km) | Aceitar"   // 2,73/km, 100/h
+
+    @Test fun notaEntreMinimoEVerde_ficaAmarelo() {
+        val r = ProfitCalculator.evaluate(full(boa.replace("4,95", "4,60")), profile.copy(minPassengerRating = 4.3, greenStars = 4.9))
+        assertEquals(Rating.YELLOW, r.rating)
+        assertTrue(r.warnings.isEmpty())
+    }
+
+    @Test fun notaAcimaDoVerde_continuaVerde() {
+        val r = ProfitCalculator.evaluate(full(boa), profile.copy(minPassengerRating = 4.3, greenStars = 4.9))
+        assertEquals(Rating.GREEN, r.rating)
+    }
+
+    @Test fun valorMinimo() {
+        val r = ProfitCalculator.evaluate(full(boa), profile.copy(minPrice = 35.0))
+        assertEquals(Rating.RED, r.rating); assertTrue(r.warnings.first().startsWith("valor"))
+    }
+
+    @Test fun lucroMinimoEmReaisEPorcentagem() {
+        // custo 0,90/km x 11 km = 9,90 -> lucro 20,10 (67%)
+        assertEquals(Rating.RED, ProfitCalculator.evaluate(full(boa), profile.copy(minNet = 25.0)).rating)
+        assertEquals(Rating.RED, ProfitCalculator.evaluate(full(boa), profile.copy(minNetPct = 70.0)).rating)
+        assertEquals(Rating.GREEN, ProfitCalculator.evaluate(full(boa), profile.copy(minNet = 20.0, minNetPct = 60.0)).rating)
+    }
+
+    @Test fun distanciaETempoMaximos() {
+        assertEquals(Rating.RED, ProfitCalculator.evaluate(full(boa), profile.copy(maxTotalKm = 8.0)).rating)
+        assertEquals(Rating.RED, ProfitCalculator.evaluate(full(boa), profile.copy(maxMinutes = 15.0)).rating)
+        assertEquals(Rating.GREEN, ProfitCalculator.evaluate(full(boa), profile.copy(maxTotalKm = 12.0, maxMinutes = 20.0)).rating)
+    }
 }

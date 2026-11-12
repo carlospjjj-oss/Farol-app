@@ -18,6 +18,12 @@ data class CostProfile(
     val avgSpeedKmh: Double = 25.0,      // para estimar o tempo quando a tela não mostra
     val maxPickupKm: Double = 0.0,       // busca acima disto = vermelho (0 = desligado)
     val minPassengerRating: Double = 0.0,// nota abaixo disto = vermelho (0 = desligado)
+    val greenStars: Double = 0.0,        // nota a partir disto = verde; entre as duas = amarelo (0 = desligado)
+    val minPrice: Double = 0.0,          // valor da corrida abaixo disto = vermelho
+    val minNet: Double = 0.0,            // lucro líquido abaixo disto = vermelho
+    val minNetPct: Double = 0.0,         // lucro abaixo deste % do valor = vermelho
+    val maxTotalKm: Double = 0.0,        // distância total acima disto = vermelho
+    val maxMinutes: Double = 0.0,        // tempo total acima disto = vermelho
     val alertWords: List<String> = emptyList(), // bairros/ruas que você não quer
 ) {
     val fuelCostPerKm: Double get() = if (kmPerLiter > 0) fuelPrice / kmPerLiter else 0.0
@@ -60,12 +66,22 @@ object ProfitCalculator {
             if (p.maxPickupKm > 0 && pk != null && pk > p.maxPickupKm) add("busca ${Fmt.km(pk)}")
             val st = offer.passengerRating
             if (p.minPassengerRating > 0 && st != null && st < p.minPassengerRating) add("nota ${Fmt.dec(st, 2)}★")
+            if (p.minPrice > 0 && offer.price < p.minPrice) add("valor < ${Fmt.money(p.minPrice)}")
+            val netNow = offer.price - km * p.costPerKm
+            if (p.minNet > 0 && netNow < p.minNet) add("lucro < ${Fmt.money(p.minNet)}")
+            if (p.minNetPct > 0 && offer.price > 0 && netNow / offer.price * 100 < p.minNetPct)
+                add("lucro ${(netNow / offer.price * 100).toInt()}% < ${p.minNetPct.toInt()}%")
+            if (p.maxTotalKm > 0 && offer.totalKm > p.maxTotalKm) add("distância ${Fmt.km(offer.totalKm)}")
+            if (p.maxMinutes > 0 && minutes > p.maxMinutes) add("tempo ${Fmt.min(minutes)}")
             if (p.alertWords.isNotEmpty()) {
                 val hay = fold(offer.rawText)
                 p.alertWords.firstOrNull { w -> w.length >= 3 && hay.contains(fold(w)) }?.let { add(it) }
             }
         }
-        val base = if (rKm.ordinal <= rHour.ordinal) rKm else rHour
+        var base = if (rKm.ordinal <= rHour.ordinal) rKm else rHour
+        // Nota entre o mínimo e o "verde": no máximo amarelo
+        val st = offer.passengerRating
+        if (st != null && p.greenStars > 0 && st < p.greenStars && base == Rating.GREEN) base = Rating.YELLOW
 
         return OfferResult(
             offer = offer,

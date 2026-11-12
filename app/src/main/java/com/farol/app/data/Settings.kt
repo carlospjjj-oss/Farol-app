@@ -35,6 +35,12 @@ com.sankuai.sailor.courier=Keeta"""
                 avgSpeedKmh = d("avgSpeedKmh", def.avgSpeedKmh),
                 maxPickupKm = d("maxPickupKm", def.maxPickupKm),
                 minPassengerRating = d("minPassengerRating", def.minPassengerRating),
+                greenStars = d("greenStars", def.greenStars),
+                minPrice = d("minPrice", def.minPrice),
+                minNet = d("minNet", def.minNet),
+                minNetPct = d("minNetPct", def.minNetPct),
+                maxTotalKm = d("maxTotalKm", def.maxTotalKm),
+                maxMinutes = d("maxMinutes", def.maxMinutes),
                 alertWords = alertWordsText.split(',', '\n').map { it.trim() }.filter { it.length >= 3 },
             )
         }
@@ -50,6 +56,12 @@ com.sankuai.sailor.courier=Keeta"""
                 .putString("avgSpeedKmh", p.avgSpeedKmh.toString())
                 .putString("maxPickupKm", p.maxPickupKm.toString())
                 .putString("minPassengerRating", p.minPassengerRating.toString())
+                .putString("greenStars", p.greenStars.toString())
+                .putString("minPrice", p.minPrice.toString())
+                .putString("minNet", p.minNet.toString())
+                .putString("minNetPct", p.minNetPct.toString())
+                .putString("maxTotalKm", p.maxTotalKm.toString())
+                .putString("maxMinutes", p.maxMinutes.toString())
                 .apply()
         }
 
@@ -85,6 +97,19 @@ com.sankuai.sailor.courier=Keeta"""
             val label = t.substringAfter('=', pkg).trim().ifEmpty { pkg }
             pkg to label
         }.toMap()
+
+    /** Custos mensais da calculadora (Ajustes → Calcular custos do mês). */
+    var monthlyCosts: com.farol.app.core.MonthlyCosts
+        get() {
+            val o = runCatching { org.json.JSONObject(prefs.getString("monthlyCosts", "{}")!!) }.getOrNull() ?: org.json.JSONObject()
+            val d = com.farol.app.core.MonthlyCosts()
+            fun g(k: String, def: Double) = if (o.has(k)) o.optDouble(k, def) else def
+            return com.farol.app.core.MonthlyCosts(g("km", d.kmPerMonth), o.optString("vehicle", d.vehicle), g("fin", d.financing),
+                g("dep", d.depreciation), g("man", d.maintenance), g("ipva", d.ipva), g("seg", d.insurance), g("out", d.other))
+        }
+        set(c) = prefs.edit().putString("monthlyCosts", org.json.JSONObject()
+            .put("km", c.kmPerMonth).put("vehicle", c.vehicle).put("fin", c.financing).put("dep", c.depreciation)
+            .put("man", c.maintenance).put("ipva", c.ipva).put("seg", c.insurance).put("out", c.other).toString()).apply()
 
     /** Bairros/ruas separados por vírgula ou linha. */
     var alertWordsText: String

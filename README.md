@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 2.1**
+**Versão atual: 2.2**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -58,6 +58,12 @@ Toque no atalho **🛵 Moto** e ajuste:
 | Busca máxima | **3** km | opcional |
 
 - **Use vírgula** nos decimais (`1,80`). O Farol avisa se aparecer algo como `180`.
+- **Suas faixas:** uma tabela mostra de uma vez onde começa o Ruim, a Atenção e o Aceitar para R$/km, R$/hora
+  e nota do passageiro, e se atualiza enquanto você digita.
+- **Condições mínimas:** valor da corrida, lucro líquido mínimo (R$) e lucro mínimo (%).
+  **Tempo e distância:** busca máxima, distância total máxima e tempo máximo. Tudo com 0 = não usa.
+- **🧮 Calcular custos do mês:** financiamento/aluguel, depreciação, manutenção, IPVA, seguro e outros, mais os km
+  do mês → custo por km e % de cada item. **Aplicar ao semáforo** grava o "outros custos".
 - **Hodômetro com décimo:** se o último número do painel for décimo de km, digite com vírgula: `58081,7`.
   Se esquecer, o Farol percebe (ex.: "947 km" em um dia) e oferece corrigir para 94,7 km com um toque.
 
@@ -155,11 +161,11 @@ ou rode `python3 tools/analisar_logs.py --dias 7` dentro do repositório de logs
 
 ```
 app/src/main/java/com/farol/app/
-  core/      OfferParser, ProfitCalculator, EarningsReader, Insights, Journal, LogSanitizer  ← Kotlin puro
+  core/      OfferParser, ProfitCalculator, EarningsReader, Insights, Journal, CostBreakdown, LogSanitizer  ← Kotlin puro
   data/      Settings, JournalStore, History, CaptureLog, RemoteLog
   service/   OfferReaderService, ScreenTextCollector, OcrFallback, FarolTileService
-  ui/        DashboardActivity, HistoryActivity, SettingsActivity, OverlayCard, Kit
-app/src/test/  64 testes, quase todos com textos REAIS de ofertas e telas dos logs
+  ui/        DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OverlayCard, Kit
+app/src/test/  71 testes, quase todos com textos REAIS de ofertas e telas dos logs
 ```
 
 - Build local: abra no Android Studio, ou `gradle testDebugUnitTest assembleDebug`.
@@ -171,6 +177,7 @@ app/src/test/  64 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 2.2 | "Suas faixas" em tabela; nota em 3 faixas; condições mínimas; tempo e distância máximos; calculadora de custos do mês |
 | 2.1 | Tela de Histórico de ofertas com filtros, resumo e detalhes |
 | 2.0.1 | iFood: "Promo R$ 5,00" não é mais lido como preço |
 | 2.0 | Tempo por pedido (Keeta) e restaurantes mais demorados; melhores horários |

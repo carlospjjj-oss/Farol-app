@@ -11,8 +11,8 @@ android {
         applicationId = "com.farol.app"
         minSdk = 26          // Android 8.0
         targetSdk = 35
-        versionCode = 17
-        versionName = "2.1"
+        versionCode = 18
+        versionName = "2.2"
     }
 
     // Chave FIXA: sem ela, cada build do GitHub assinaria com uma chave nova e o Android
