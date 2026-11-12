@@ -21,21 +21,22 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Cartão flutuante compacto:
+ * Cartão flutuante.
  *
- *  ┌──┬──────────────────────────────────┐
- *  │✓ │ R$ 6,56  ★ 4,97            iFood │
- *  │  │ Tempo     Km       Busca         │
- *  │  │ 9 min     2,1 km   0,4 km        │
- *  │  │ R$/km     R$/h     Lucro         │
- *  │  │ 2,48      34,70    5,21 (79%)    │
+ * Normal:                                      Compacto:
+ *  ┌──┬──────────────────────────────────┐      ┌──┬──────────────┐
+ *  │✓ │ R$ 6,56  ★ 4,97            IFOOD │      │✓ │ 2,48 /km     │
+ *  │  │ Tempo     Km       Busca         │      │  │ R$ 6,56 IFOOD│
+ *  │  │ R$/km     R$/h     Lucro         │      └──┴──────────────┘
+ *  │  │ ⚠ avisos · ⭐ favoritos · meta    │
  *  └──┴──────────────────────────────────┘
  *
- * Faixa lateral e borda na cor do veredito; R$/km e R$/h coloridos individualmente.
- * Toque = fecha. Arraste = muda de lugar (posição fica salva).
- * Desenhado pelo serviço de acessibilidade (TYPE_ACCESSIBILITY_OVERLAY).
+ * Tamanho P/M/G e modo compacto nos Ajustes. Toque = fecha; arraste = move (posição salva).
  */
 class OverlayCard(private val svc: AccessibilityService, private val settings: Settings) {
+
+    /** Linha extra embaixo do cartão: texto e cor. */
+    data class Extra(val text: String, val color: Int)
 
     private val wm = svc.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val handler = Handler(Looper.getMainLooper())
@@ -44,25 +45,18 @@ class OverlayCard(private val svc: AccessibilityService, private val settings: S
 
     private var root: LinearLayout? = null
     private lateinit var params: WindowManager.LayoutParams
-    private lateinit var stripe: LinearLayout
-    private lateinit var stripeIcon: TextView
-    private lateinit var body: LinearLayout
-    private lateinit var tvPrice: TextView
-    private lateinit var tvStar: TextView
-    private lateinit var tvApp: TextView
-    private lateinit var vTime: TextView
-    private lateinit var vKm: TextView
-    private lateinit var vPickup: TextView
-    private lateinit var vPerKm: TextView
-    private lateinit var vPerHour: TextView
-    private lateinit var vNet: TextView
-    private lateinit var tvWarn: TextView
+    private var builtScale = 0f
+    private var builtCompact = false
 
     val isShowing: Boolean get() = root != null
 
-    fun show(r: OfferResult) {
-        ensureView()
-        bind(r)
+    fun show(r: OfferResult, extras: List<Extra> = emptyList()) {
+        val scale = settings.cardScale
+        val compact = settings.cardCompact
+        // Se o tamanho/modo mudou nos Ajustes, recria o cartão
+        if (root != null && (scale != builtScale || compact != builtCompact)) hide()
+        val card = root ?: create().also { root = it; builtScale = scale; builtCompact = compact }
+        bind(card, r, extras, scale, compact)
         keepAlive()
     }
 
@@ -84,67 +78,14 @@ class OverlayCard(private val svc: AccessibilityService, private val settings: S
         return Rect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
     }
 
-    // ---------------------------------------------------------------- layout
+    // ---------------------------------------------------------------- janela
 
-    private fun cell(label: String): Pair<LinearLayout, TextView> {
-        val value = k.text("—", 17, Palette.TEXT, k.bold)
-        val box = k.vbox().apply {
-            addView(k.text(label, 11, Palette.MUTED, k.medium))
-            addView(value, k.lp(w = -2, top = 2))
-        }
-        return box to value
-    }
-
-    private fun gridRow(vararg cells: LinearLayout) = k.hbox().apply {
-        gravity = Gravity.TOP
-        cells.forEachIndexed { i, c ->
-            addView(c, LinearLayout.LayoutParams(k.dp(78), -2).apply { if (i > 0) marginStart = k.dp(6) })
-        }
-    }
-
-    private fun ensureView() {
-        if (root != null) return
-
-        stripeIcon = k.text("✓", 22, Palette.ON_ACCENT, k.black).apply { gravity = Gravity.CENTER }
-        stripe = k.vbox().apply {
-            gravity = Gravity.CENTER
-            addView(stripeIcon)
-        }
-
-        tvPrice = k.text("", 26, Palette.TEXT, k.black)
-        tvStar = k.text("", 14, Palette.ACCENT, k.bold)
-        tvApp = k.text("", 12, Palette.MUTED, k.bold).apply { letterSpacing = 0.05f }
-        val top = k.hbox().apply {
-            addView(tvPrice)
-            addView(tvStar, k.lp(w = -2).apply { marginStart = k.dp(8) })
-            addView(View(svc), LinearLayout.LayoutParams(0, 1, 1f))
-            addView(tvApp, k.lp(w = -2).apply { marginStart = k.dp(10) })
-        }
-
-        val (cTime, t1) = cell("Tempo"); vTime = t1
-        val (cKm, t2) = cell("Km"); vKm = t2
-        val (cPick, t3) = cell("Busca"); vPickup = t3
-        val (cPerKm, t4) = cell("R$/km"); vPerKm = t4
-        val (cPerH, t5) = cell("R$/h"); vPerHour = t5
-        val (cNet, t6) = cell("Lucro"); vNet = t6
-
-        tvWarn = k.text("", 13, Palette.ACCENT, k.bold)
-
-        body = k.vbox(14, 12).apply {
-            addView(top)
-            addView(gridRow(cTime, cKm, cPick), k.lp(w = -2, top = 10))
-            addView(gridRow(cPerKm, cPerH, cNet), k.lp(w = -2, top = 8))
-            addView(tvWarn, k.lp(w = -2, top = 8))
-        }
-
+    private fun create(): LinearLayout {
         val card = k.hbox().apply {
             gravity = Gravity.FILL_VERTICAL
-            addView(stripe, LinearLayout.LayoutParams(k.dp(34), -1))
-            addView(body, LinearLayout.LayoutParams(-2, -2))
             elevation = k.dp(10).toFloat()
             clipToOutline = true
         }
-
         params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -156,10 +97,9 @@ class OverlayCard(private val svc: AccessibilityService, private val settings: S
             x = settings.cardX
             y = settings.cardY
         }
-
         attachDrag(card)
         wm.addView(card, params)
-        root = card
+        return card
     }
 
     private fun attachDrag(v: View) {
@@ -187,7 +127,7 @@ class OverlayCard(private val svc: AccessibilityService, private val settings: S
         }
     }
 
-    // ------------------------------------------------------------------ bind
+    // ---------------------------------------------------------------- conteúdo
 
     private fun colorOf(r: Rating) = when (r) {
         Rating.GREEN -> Palette.GREEN
@@ -197,36 +137,72 @@ class OverlayCard(private val svc: AccessibilityService, private val settings: S
 
     private fun num(v: Double) = Fmt.dec(v, 2)
 
-    private fun bind(r: OfferResult) {
+    private fun bind(card: LinearLayout, r: OfferResult, extras: List<Extra>, sc: Float, compact: Boolean) {
+        card.removeAllViews()
         val o = r.offer
         val main = colorOf(r.rating)
+        fun t(text: String, sp: Float, color: Int, face: android.graphics.Typeface? = k.bold) = k.text(text, sp * sc, color, face)
+        fun d(v: Float) = k.dp(v * sc)
 
-        // Faixa e borda na cor do veredito
-        stripe.background = k.rounded(main, 0)
-        stripeIcon.text = when (r.rating) { Rating.GREEN -> "✓"; Rating.YELLOW -> "!"; Rating.RED -> "✕" }
-        stripeIcon.setTextColor(if (r.rating == Rating.YELLOW) Palette.ON_ACCENT else 0xFFFFFFFF.toInt())
-        root!!.background = k.rounded(Palette.alpha(0xFF12161C.toInt(), 0xF5), 16, main).apply { setStroke(k.dp(2), main) }
+        card.background = k.rounded(Palette.alpha(0xFF12161C.toInt(), 0xF5), 16 * sc, main).apply { setStroke(k.dp(2), main) }
 
-        tvPrice.text = Fmt.money(o.price)
-        tvStar.text = o.passengerRating?.let { "★ ${Fmt.dec(it, 2)}" } ?: ""
-        tvStar.visibility = if (o.passengerRating != null) View.VISIBLE else View.GONE
-        tvApp.text = o.app.uppercase()
+        // faixa lateral
+        val icon = when (r.rating) { Rating.GREEN -> "✓"; Rating.YELLOW -> "!"; Rating.RED -> "✕" }
+        val stripe = k.vbox().apply {
+            gravity = Gravity.CENTER
+            background = k.rounded(main, 0)
+            addView(t(icon, 22f, if (r.rating == Rating.YELLOW) Palette.ON_ACCENT else 0xFFFFFFFF.toInt(), k.black)
+                .apply { gravity = Gravity.CENTER })
+        }
+        card.addView(stripe, LinearLayout.LayoutParams(d(34f), -1))
 
-        vTime.text = (if (r.timeEstimated) "~" else "") + Fmt.min(r.minutes)
-        vKm.text = Fmt.km(o.totalKm)
-        vPickup.text = o.pickupKm?.let { Fmt.km(it) } ?: "—"
+        val body = k.vbox().apply { setPadding(d(14f), d(12f), d(14f), d(12f)) }
+        card.addView(body, LinearLayout.LayoutParams(-2, -2))
 
-        vPerKm.text = num(r.perKm)
-        vPerKm.setTextColor(colorOf(r.ratingKm))
-        vPerHour.text = num(r.perHour)
-        vPerHour.setTextColor(colorOf(r.ratingHour))
+        if (compact) {
+            body.addView(k.hbox().apply {
+                addView(t(num(r.perKm), 34f, colorOf(r.ratingKm), k.black))
+                addView(t(" /km", 14f, Palette.MUTED, k.medium))
+            })
+            body.addView(k.hbox().apply {
+                addView(t(Fmt.money(o.price), 15f, Palette.TEXT))
+                addView(t("  ${o.app.uppercase()}", 12f, Palette.MUTED))
+            }, k.lp(w = -2, top = 2))
+        } else {
+            body.addView(k.hbox().apply {
+                addView(t(Fmt.money(o.price), 26f, Palette.TEXT, k.black))
+                o.passengerRating?.let { addView(t("★ ${Fmt.dec(it, 2)}", 14f, Palette.ACCENT), k.lp(w = -2).apply { marginStart = d(8f) }) }
+                addView(View(svc), LinearLayout.LayoutParams(0, 1, 1f))
+                addView(t(o.app.uppercase(), 12f, Palette.MUTED).apply { letterSpacing = 0.05f }, k.lp(w = -2).apply { marginStart = d(10f) })
+            })
+            fun cell(label: String, value: String, color: Int = Palette.TEXT) = k.vbox().apply {
+                addView(t(label, 11f, Palette.MUTED, k.medium))
+                addView(t(value, 17f, color).apply {
+                    if (value.length > 11) setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f * sc)
+                }, k.lp(w = -2, top = 2))
+            }
+            fun row(vararg cells: LinearLayout) = k.hbox().apply {
+                gravity = Gravity.TOP
+                cells.forEachIndexed { i, c -> addView(c, LinearLayout.LayoutParams(d(78f), -2).apply { if (i > 0) marginStart = d(6f) }) }
+            }
+            val margin = if (o.price > 0) (r.net / o.price * 100).roundToInt() else 0
+            body.addView(row(
+                cell("Tempo", (if (r.timeEstimated) "~" else "") + Fmt.min(r.minutes)),
+                cell("Km", Fmt.km(o.totalKm)),
+                cell("Busca", o.pickupKm?.let { Fmt.km(it) } ?: "—"),
+            ), k.lp(w = -2, top = d(10f)))
+            body.addView(row(
+                cell("R$/km", num(r.perKm), colorOf(r.ratingKm)),
+                cell("R$/h", num(r.perHour), colorOf(r.ratingHour)),
+                cell("Lucro", "${num(r.net)} ($margin%)", if (r.net >= 0) Palette.GREEN else Palette.RED),
+            ), k.lp(w = -2, top = d(8f)))
+        }
 
-        val margin = if (o.price > 0) (r.net / o.price * 100).roundToInt() else 0
-        vNet.text = "${num(r.net)} ($margin%)"
-        vNet.setTextColor(if (r.net >= 0) Palette.GREEN else Palette.RED)
-        vNet.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, if (vNet.text.length > 11) 14f else 17f)
-
-        tvWarn.text = if (r.warnings.isEmpty()) "" else "⚠ " + r.warnings.joinToString(" • ")
-        tvWarn.visibility = if (r.warnings.isEmpty()) View.GONE else View.VISIBLE
+        // linhas extras: avisos, favoritos, recusas, meta
+        if (r.warnings.isNotEmpty()) body.addView(t("⚠ " + r.warnings.joinToString(" • "), 13f, Palette.ACCENT), k.lp(w = -2, top = d(8f)))
+        if (r.favorites.isNotEmpty()) body.addView(t("⭐ " + r.favorites.joinToString(" • "), 13f, Palette.GREEN), k.lp(w = -2, top = d(6f)))
+        extras.forEach { body.addView(t(it.text, 12f, it.color, k.medium), k.lp(w = -2, top = d(6f))) }
     }
+
+    @Suppress("unused") private val keepTv: Class<TextView> = TextView::class.java
 }

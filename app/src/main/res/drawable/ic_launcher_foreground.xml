@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Semáforo dentro da área segura (66dp centrais) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#2A3342" android:pathData="M44,26h20a7,7 0 0 1 7,7v42a7,7 0 0 1 -7,7h-20a7,7 0 0 1 -7,-7v-42a7,7 0 0 1 7,-7z" />
+    <path android:fillColor="#EF4444" android:pathData="M54,39m-7,0a7,7 0 1,0 14,0a7,7 0 1,0 -14,0" />
+    <path android:fillColor="#F5B014" android:pathData="M54,54m-7,0a7,7 0 1,0 14,0a7,7 0 1,0 -14,0" />
+    <path android:fillColor="#22C55E" android:pathData="M54,69m-7,0a7,7 0 1,0 14,0a7,7 0 1,0 -14,0" />
+    <path android:fillColor="#33FFFFFF" android:pathData="M51,36m-2,0a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#33FFFFFF" android:pathData="M51,51m-2,0a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#33FFFFFF" android:pathData="M51,66m-2,0a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+</vector>

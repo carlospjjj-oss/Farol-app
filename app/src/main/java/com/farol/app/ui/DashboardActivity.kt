@@ -81,8 +81,21 @@ class DashboardActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // Primeira abertura: guia. Quem já usa (leitor ligado) pula direto.
+        if (!settings.onboarded) {
+            if (serviceOn()) settings.onboarded = true
+            else { startActivity(Intent(this, OnboardingActivity::class.java)); settings.onboarded = true }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 33 && !askedNotif &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            askedNotif = true
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 9)
+        }
         render()
+        runCatching { com.farol.app.service.ShiftNotifier.refresh(this) }
     }
+
+    private var askedNotif = false
 
     // ============================== render ==============================
 
@@ -167,6 +180,15 @@ class DashboardActivity : Activity() {
         if (n == 0) sub.addView(heroPill("Toque para lançar"), k.lp(w = -2).apply { marginStart = k.dp(8) })
         card.addView(sub, k.lp(top = 14))
 
+        val goal = settings.dailyGoal
+        if (goal > 0) {
+            val frac = (s.earnings / goal).toFloat()
+            val left = goal - s.earnings
+            card.addView(k.bar(frac, dark).apply { background = k.rounded(Palette.alpha(0xFFFFFFFF.toInt(), 0x55), 999) },
+                k.lp(h = k.dp(8), top = 16))
+            card.addView(k.text(if (left <= 0) "🎯 Meta de ${Fmt.money(goal)} batida!" else "🎯 Meta ${Fmt.money(goal)} · faltam ${Fmt.money(left)}",
+                13, dark, k.bold), k.lp(top = 8))
+        }
         card.isClickable = true
         card.setOnClickListener { editEarnings() }
         add(card, 8)
@@ -502,7 +524,9 @@ class DashboardActivity : Activity() {
             .setTitle(title).setView(wrap)
             .setPositiveButton(ok, null).setNegativeButton("Cancelar", null).create()
         d.setOnShowListener {
-            d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { if (onOk()) { d.dismiss(); render() } }
+            d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                if (onOk()) { d.dismiss(); render(); runCatching { com.farol.app.service.ShiftNotifier.refresh(this) } }
+            }
         }
         d.show()
     }

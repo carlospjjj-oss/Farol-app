@@ -42,6 +42,7 @@ com.sankuai.sailor.courier=Keeta"""
                 maxTotalKm = d("maxTotalKm", def.maxTotalKm),
                 maxMinutes = d("maxMinutes", def.maxMinutes),
                 alertWords = alertWordsText.split(',', '\n').map { it.trim() }.filter { it.length >= 3 },
+                favoriteWords = favoriteWordsText.split(',', '\n').map { it.trim() }.filter { it.length >= 3 },
             )
         }
         set(p) {
@@ -115,6 +116,56 @@ com.sankuai.sailor.courier=Keeta"""
     var alertWordsText: String
         get() = prefs.getString("alertWords", "") ?: ""
         set(v) = prefs.edit().putString("alertWords", v).apply()
+
+    var favoriteWordsText: String
+        get() = prefs.getString("favoriteWords", "") ?: ""
+        set(v) = prefs.edit().putString("favoriteWords", v).apply()
+
+    /** Meta de ganhos do dia em R$ (0 = sem meta). */
+    var dailyGoal: Double
+        get() = prefs.getString("dailyGoal", null)?.toDoubleOrNull() ?: 0.0
+        set(v) = prefs.edit().putString("dailyGoal", v.toString()).apply()
+
+    /** Tamanho do cartão: 0 = P, 1 = M, 2 = G. */
+    var cardSize: Int
+        get() = prefs.getInt("cardSize", 1)
+        set(v) = prefs.edit().putInt("cardSize", v.coerceIn(0, 2)).apply()
+    val cardScale: Float get() = when (cardSize) { 0 -> 0.85f; 2 -> 1.2f; else -> 1f }
+
+    /** Modo compacto: só a cor, o R$/km grande e o preço. */
+    var cardCompact: Boolean
+        get() = prefs.getBoolean("cardCompact", false)
+        set(v) = prefs.edit().putBoolean("cardCompact", v).apply()
+
+    /** Notificação fixa com o resumo do turno. */
+    var shiftNotification: Boolean
+        get() = prefs.getBoolean("shiftNotification", true)
+        set(v) = prefs.edit().putBoolean("shiftNotification", v).apply()
+
+    var weeklySummary: Boolean
+        get() = prefs.getBoolean("weeklySummary", true)
+        set(v) = prefs.edit().putBoolean("weeklySummary", v).apply()
+
+    var lastWeeklySent: String
+        get() = prefs.getString("lastWeeklySent", "") ?: ""
+        set(v) = prefs.edit().putString("lastWeeklySent", v).apply()
+
+    var onboarded: Boolean
+        get() = prefs.getBoolean("onboarded", false)
+        set(v) = prefs.edit().putBoolean("onboarded", v).apply()
+
+    /** Último aviso de recusas lido de cada app (para mostrar no cartão). */
+    fun setRejection(app: String, streak: Int?, paused: Boolean) {
+        val e = prefs.edit().putLong("rej_at_$app", System.currentTimeMillis()).putBoolean("rej_paused_$app", paused)
+        if (streak != null) e.putInt("rej_n_$app", streak)
+        e.apply()
+    }
+    /** (recusas seguidas, pausada?) se o aviso for das últimas 3 horas. */
+    fun rejection(app: String): Pair<Int, Boolean>? {
+        val at = prefs.getLong("rej_at_$app", 0L)
+        if (System.currentTimeMillis() - at > 3 * 3_600_000L) return null
+        return prefs.getInt("rej_n_$app", 0) to prefs.getBoolean("rej_paused_$app", false)
+    }
 
     var speak: Boolean
         get() = prefs.getBoolean("speak", false)

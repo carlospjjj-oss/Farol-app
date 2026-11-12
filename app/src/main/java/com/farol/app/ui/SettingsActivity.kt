@@ -65,6 +65,13 @@ class SettingsActivity : Activity() {
     private lateinit var etMaxKm: EditText
     private lateinit var etMaxMin: EditText
     private lateinit var bandsBox: LinearLayout
+    private lateinit var etGoal: EditText
+    private lateinit var etFavorites: EditText
+    private lateinit var segSize: LinearLayout
+    private var cardSize = 1
+    private lateinit var swCompact: Switch
+    private lateinit var swShiftNotif: Switch
+    private lateinit var swWeekly: Switch
     private lateinit var etAlerts: EditText
     // cartão / leitura
     private lateinit var etHide: EditText
@@ -259,6 +266,10 @@ class SettingsActivity : Activity() {
             startActivity(Intent(this, CostsActivity::class.java))
         }, k.lp(top = 12))
 
+        // Meta
+        val cGoal = card("Meta do dia", "Aparece no dashboard, no cartão de cada oferta, na notificação e no widget")
+        etGoal = numRow(cGoal, "Quero ganhar por dia", "R$", "0 = sem meta")
+
         // Semáforo
         val cLight = card("Suas faixas", "A cor final é a pior entre R$/km, R$/h e nota")
         bandsBox = k.vbox().also { cLight.addView(it, k.lp(top = 14)) }
@@ -292,12 +303,18 @@ class SettingsActivity : Activity() {
         etMaxMin = numRow(cTD, "Tempo total máximo", "min")
 
         // Filtros
-        val cFilter = card("Bairros de alerta", "Deixam o cartão vermelho com o motivo escrito")
+        val cFilter = card("Bairros", "Alerta deixa o cartão vermelho; favorito ganha uma ⭐")
         etAlerts = textField("ex.: Jardim Exemplo, Vila Tal", multi = true)
-        labeledText(cFilter, "Bairros ou ruas de alerta (separados por vírgula)", etAlerts)
+        labeledText(cFilter, "🔴 Bairros ou ruas de alerta (separados por vírgula)", etAlerts)
+        etFavorites = textField("ex.: São Caetano, Vila Tal", multi = true)
+        labeledText(cFilter, "⭐ Bairros favoritos: perto de casa ou bons (só destaca, não muda a cor)", etFavorites)
 
         // Cartão
         val cCard = card("Cartão flutuante")
+        cCard.addView(k.text("Tamanho", 12, Palette.MUTED, k.medium), k.lp(top = 12))
+        segSize = k.hbox().apply { background = k.rounded(Palette.SURFACE2, 12); setPadding(k.dp(4), k.dp(4), k.dp(4), k.dp(4)) }
+        cCard.addView(segSize, k.lp(top = 6))
+        swCompact = toggle(cCard, "Modo compacto", "Só a cor, o R$/km bem grande e o preço: para ler de relance no guidão")
         swEnabled = toggle(cCard, "Farol ligado", "Pausa a leitura sem desligar a acessibilidade")
         swVibrate = toggle(cCard, "Vibrar na oferta verde")
         swSpeak = toggle(cCard, "Falar o resumo", "\"Verde. R$ 2,10 por quilômetro...\"")
@@ -348,8 +365,29 @@ class SettingsActivity : Activity() {
             "Enviar teste" to { save(); RemoteLog.get(this).test(); flushRemote() },
             "Enviar agora" to { save(); flushRemote() })
 
+        // Notificações
+        val cNotif = card("Notificações")
+        swShiftNotif = toggle(cNotif, "Resumo do turno na barra", "Tempo, ganhos, meta e ofertas; com botão de pausar o Farol")
+        swWeekly = toggle(cNotif, "Resumo da semana", "Domingo à noite: ganhos, km, melhor dia e melhor horário")
+
+        // Backup
+        val cBackup = card("Backup", "Turnos, ganhos, abastecimentos, histórico e ajustes num arquivo")
+        buttons(cBackup,
+            "Exportar" to {
+                save(silent = true)
+                val name = "farol-backup-" + java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()) + ".json"
+                startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("application/json").putExtra(Intent.EXTRA_TITLE, name), REQ_EXPORT)
+            },
+            "Restaurar" to {
+                startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("*/*"), REQ_IMPORT)
+            }, primaryFirst = true)
+        hint(cBackup, "Faça antes de reinstalar ou trocar de celular. O arquivo inclui o token do GitHub: guarde num lugar só seu.")
+
         // Acesso
         val cAccess = card("Permissões", "Se o leitor parar de funcionar")
+        buttons(cAccess, "📖 Guia de instalação" to { startActivity(Intent(this, OnboardingActivity::class.java)) }, primaryFirst = true)
         buttons(cAccess,
             "Acessibilidade" to { startActivity(Intent(AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS)) },
             "Restritas" to {
@@ -432,6 +470,12 @@ class SettingsActivity : Activity() {
         etGreenStars.setText(fmt(p.greenStars)); etMinPrice.setText(fmt(p.minPrice)); etMinNet.setText(fmt(p.minNet))
         etMinNetPct.setText(fmt(p.minNetPct)); etMaxKm.setText(fmt(p.maxTotalKm)); etMaxMin.setText(fmt(p.maxMinutes))
         etAlerts.setText(settings.alertWordsText)
+        etFavorites.setText(settings.favoriteWordsText)
+        etGoal.setText(fmt(settings.dailyGoal))
+        cardSize = settings.cardSize; renderSize()
+        swCompact.isChecked = settings.cardCompact
+        swShiftNotif.isChecked = settings.shiftNotification
+        swWeekly.isChecked = settings.weeklySummary
         etHide.setText(settings.autoHideSec.toString())
         etTargets.setText(settings.targetsText)
         swEnabled.isChecked = settings.enabled
@@ -488,6 +532,12 @@ class SettingsActivity : Activity() {
         val p = currentProfile()
         problem(p)?.let { if (!silent) toast(it); return }
         settings.alertWordsText = etAlerts.text.toString()  // antes do profile: profile lê as palavras
+        settings.favoriteWordsText = etFavorites.text.toString()
+        settings.dailyGoal = etGoal.num(0.0).coerceAtLeast(0.0)
+        settings.cardSize = cardSize
+        settings.cardCompact = swCompact.isChecked
+        settings.shiftNotification = swShiftNotif.isChecked
+        settings.weeklySummary = swWeekly.isChecked
         settings.profile = p
         settings.autoHideSec = etHide.num(15.0).toInt()
         settings.targetsText = etTargets.text.toString()
@@ -513,6 +563,43 @@ class SettingsActivity : Activity() {
     private fun showCost() {
         val p = currentProfile()
         tvCost.text = "Seu custo: ${Fmt.money(p.costPerKm)}/km   (combustível ${Fmt.money(p.fuelCostPerKm)} + outros ${Fmt.money(p.otherCostPerKm)})"
+    }
+
+    private fun renderSize() {
+        segSize.removeAllViews()
+        listOf("P", "M", "G").forEachIndexed { i, label ->
+            val on = i == cardSize
+            segSize.addView(k.text(label, 14, if (on) Palette.ON_ACCENT else Palette.MUTED, k.bold).apply {
+                gravity = Gravity.CENTER; setPadding(0, k.dp(9), 0, k.dp(9))
+                if (on) background = k.rounded(Palette.ACCENT, 10)
+                isClickable = true; setOnClickListener { cardSize = i; renderSize() }
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+    }
+
+    companion object { private const val REQ_EXPORT = 31; private const val REQ_IMPORT = 32 }
+
+    @Deprecated("startActivityForResult é suficiente aqui (sem AndroidX)")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data ?: return
+        if (resultCode != RESULT_OK) return
+        runCatching {
+            when (requestCode) {
+                REQ_EXPORT -> {
+                    contentResolver.openOutputStream(uri)?.use { it.write(com.farol.app.data.Backup.export(this).toByteArray()) }
+                    toast("Backup salvo ✓")
+                }
+                REQ_IMPORT -> {
+                    val json = contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: return
+                    confirm("Restaurar este backup? Os dados atuais do Farol serão substituídos.") {
+                        runCatching { com.farol.app.data.Backup.restore(this, json) }
+                            .onSuccess { msg -> toast(msg); loadValues(); refreshStatus() }
+                            .onFailure { toast("Não deu: ${it.message}") }
+                    }
+                }
+            }
+        }.onFailure { toast("Erro: ${it.message}") }
     }
 
     /** Tabela "Suas faixas": Ruim | Atenção | Aceitar para R$/km, R$/h e nota. */

@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 2.2**
+**Versão atual: 3.0**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -16,6 +16,20 @@ Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** 
 │  │ 2,48     34,70    5,21 (79%)   │
 └──┴────────────────────────────────┘   toque = fecha · arraste = move
 ```
+
+## ✨ Novidades da 3.0
+
+- **⚠ Aviso de recusas:** o Farol lê os avisos da 99 ("rejeitou 7 vezes") e do iFood ("parada técnica") e mostra
+  no cartão "⚠ 7 recusas seguidas: risco de pausa" ou "⛔ conta pausada".
+- **🎯 Meta do dia:** barra de progresso no dashboard e "faltam R$ X" no cartão, na notificação e no widget.
+- **💾 Backup:** exportar e restaurar tudo (turnos, ganhos, abastecimentos, histórico e ajustes) num arquivo.
+- **🔔 Notificação do turno:** "⏱ 3h12 · 💰 R$ 86,40 · 🎯 48%" com botão para pausar o Farol.
+- **⭐ Bairros favoritos:** destacam a oferta quando o destino é perto de casa ou de uma região boa.
+- **📅 Resumo da semana:** domingo à noite, com ganhos, km, melhor dia e melhor horário.
+- **🔠 Cartão P / M / G** e **modo compacto** (só a cor, o R$/km grande e o preço).
+- **🏠 Widget** na tela inicial com ganhos do dia, meta e turno.
+- **📖 Guia de instalação** na primeira abertura (e em Ajustes → Permissões).
+- **🚦 Ícone novo** no padrão do Android.
 
 ---
 
@@ -161,11 +175,11 @@ ou rode `python3 tools/analisar_logs.py --dias 7` dentro do repositório de logs
 
 ```
 app/src/main/java/com/farol/app/
-  core/      OfferParser, ProfitCalculator, EarningsReader, Insights, Journal, CostBreakdown, LogSanitizer  ← Kotlin puro
-  data/      Settings, JournalStore, History, CaptureLog, RemoteLog
-  service/   OfferReaderService, ScreenTextCollector, OcrFallback, FarolTileService
-  ui/        DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OverlayCard, Kit
-app/src/test/  71 testes, quase todos com textos REAIS de ofertas e telas dos logs
+  core/      OfferParser, ProfitCalculator, EarningsReader, Insights, Journal, CostBreakdown, Rejections, LogSanitizer  ← Kotlin puro
+  data/      Settings, JournalStore, History, CaptureLog, RemoteLog, Backup
+  service/   OfferReaderService, ScreenTextCollector, OcrFallback, ShiftNotifier, FarolTileService
+  ui/        DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OnboardingActivity, OverlayCard, FarolWidget, Kit
+app/src/test/  76 testes, quase todos com textos REAIS de ofertas e telas dos logs
 ```
 
 - Build local: abra no Android Studio, ou `gradle testDebugUnitTest assembleDebug`.
@@ -177,6 +191,7 @@ app/src/test/  71 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 3.0 | Aviso de recusas, meta do dia, backup, notificação do turno, bairros favoritos, resumo da semana, cartão P/M/G e compacto, widget, guia de instalação e ícone novo |
 | 2.2 | "Suas faixas" em tabela; nota em 3 faixas; condições mínimas; tempo e distância máximos; calculadora de custos do mês |
 | 2.1 | Tela de Histórico de ofertas com filtros, resumo e detalhes |
 | 2.0.1 | iFood: "Promo R$ 5,00" não é mais lido como preço |

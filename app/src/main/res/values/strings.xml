@@ -3,4 +3,5 @@
     <string name="app_name">Farol</string>
     <string name="service_label">Farol – leitor de ofertas</string>
     <string name="service_description">Lê as ofertas de corrida/entrega na tela (Uber, 99, inDrive, iFood) e mostra um cartão com R$/km, R$/h e lucro líquido. Nada sai do aparelho e o Farol nunca toca em botões dos outros apps.</string>
+    <string name="widget_description">Ganhos do dia, meta e turno</string>
 </resources>

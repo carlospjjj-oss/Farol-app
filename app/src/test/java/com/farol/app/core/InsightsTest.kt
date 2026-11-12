@@ -71,4 +71,29 @@ class InsightsTest {
         assertEquals(12, best.first().hour)
         assertTrue(best.none { it.hour == 13 })
     }
+
+    // ---- avisos de recusa (textos reais de 12/11) ----
+
+    @Test fun recusas99() {
+        val s = RejectionReader.read("Recusar | X | rejeitou 7 vez(es) seguidas | Se rejeitar novamente, sua conta ficará restrita | de receber novos ped")!!
+        assertEquals(7, s.streak); assertTrue(!s.paused)
+    }
+
+    @Test fun contaPausada99() {
+        val s = RejectionReader.read("Entregas disponíveis apenas nas Solicitações de Pedidos | Conta pausada por excesso de rejeições | 18:33")!!
+        assertTrue(s.paused)
+    }
+
+    @Test fun paradaTecnicaIfood() {
+        assertTrue(RejectionReader.read("Aceitar(53s) | Muitas rotas rejeitadas | Parada técnica de 14 minutos")!!.paused)
+    }
+
+    @Test fun telaNormal_semAviso() = assertNull(RejectionReader.read("Painel | R$ 42,60 | Pedidos hoje"))
+
+    @Test fun bairroFavorito_soDestaca() {
+        val o = OfferParser.parse("R$ 10,00 | 4 km | 10 min | Rua X, São Caetano do Sul | Aceitar", "Keeta")!!
+        val r = ProfitCalculator.evaluate(o, CostProfile(favoriteWords = listOf("sao caetano")))
+        assertEquals(listOf("sao caetano"), r.favorites)
+        assertTrue(r.warnings.isEmpty())
+    }
 }

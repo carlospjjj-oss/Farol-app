@@ -15,6 +15,8 @@ import com.farol.app.core.OfferResult
 import java.util.Locale
 import com.farol.app.core.CostProfile
 import com.farol.app.core.EarningsReader
+import com.farol.app.core.RejectionReader
+import com.farol.app.ui.Palette
 import com.farol.app.core.DeliveryTracker
 import com.farol.app.core.PhaseDetector
 import com.farol.app.data.JournalStore
@@ -89,9 +91,41 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         reload()
         settings.prefs.registerOnSharedPreferenceChangeListener(this)
         instance = this
+        handler.post(tick)
     }
 
     override fun onSharedPreferenceChanged(p: SharedPreferences?, key: String?) = reload()
+
+    /** A cada minuto: notificação do turno, widget e resumo da semana (domingo à noite). */
+    private val tick = object : Runnable {
+        override fun run() {
+            runCatching { ShiftNotifier.refresh(this@OfferReaderService) }
+            runCatching { ShiftNotifier.maybeWeekly(this@OfferReaderService) }
+            handler.postDelayed(this, 60_000)
+        }
+    }
+
+    /** Guarda o aviso de recusas que o app mostrou (99: "rejeitou 7 vezes", iFood: "parada técnica"). */
+    private fun readRejections(label: String, text: String) {
+        val sig = RejectionReader.read(text) ?: return
+        settings.setRejection(label, sig.streak, sig.paused)
+    }
+
+    /** Linhas extras do cartão: recusas seguidas e meta do dia. */
+    private fun extrasFor(label: String): List<com.farol.app.ui.OverlayCard.Extra> = buildList {
+        settings.rejection(label)?.let { (n, paused) ->
+            when {
+                paused -> add(com.farol.app.ui.OverlayCard.Extra("⛔ $label pausou sua conta por recusas", Palette.RED))
+                n >= 5 -> add(com.farol.app.ui.OverlayCard.Extra("⚠ $n recusas seguidas: risco de pausa", Palette.YELLOW))
+            }
+        }
+        val goal = settings.dailyGoal
+        if (goal > 0) {
+            val left = goal - journal.day().totalEarnings
+            add(com.farol.app.ui.OverlayCard.Extra(if (left <= 0) "🎯 Meta do dia batida!" else "🎯 Faltam ${com.farol.app.core.Fmt.money(left)} para a meta",
+                if (left <= 0) Palette.GREEN else Palette.MUTED))
+        }
+    }
 
     private fun reload() {
         profile = settings.profile
@@ -137,6 +171,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         if (settings.captureMode) capture.append(snap.pkg, "acessibilidade", snap.text)
 
         val offer = OfferParser.parse(snap.text, label, settings.requireHint)
+        readRejections(label, snap.text)
         if (offer == null) { logScreen(snap); autoEarnings(label, snap.text); trackPhase(label, snap.text) }
         if (offer != null) {
             accessibleApps += snap.pkg
@@ -176,6 +211,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         if (v <= 0.0 && cur == null) return
         journal.putDay(day.copy(earnings = day.earnings + (label to v)))
         settings.markAuto(day.date, label)
+        runCatching { ShiftNotifier.refresh(this) }
     }
 
     /** Acompanha as etapas do pedido (coleta → entrega → livre) para medir o tempo de cada um. */
@@ -208,6 +244,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
                 return@run
             }
             autoEarnings(label, text)
+            readRejections(label, text)
             val hint = hasHint || OfferParser.OFFER_HINTS.containsMatchIn(text)
             if (hint && ocrRetries < 4) {
                 ocrRetries++
@@ -242,7 +279,8 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         lastSigAt = now
 
         val result = ProfitCalculator.evaluate(offer, profile)
-        overlay.show(result)
+        overlay.show(result, extrasFor(offer.app))
+        runCatching { ShiftNotifier.refresh(this) }
         runCatching { history.add(result, source) }
         runCatching { remote.offer(pkg, source, raw, result) }
         if (result.rating == Rating.GREEN && settings.vibrateOnGreen) vibrate()
@@ -281,7 +319,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         lastSig = null
         handler.post {
             val r = ProfitCalculator.evaluate(offer, profile)
-            overlay.show(r)
+            overlay.show(r, extrasFor("Teste"))
             speak(r)
             lastOfferSeenAt = SystemClock.elapsedRealtime() + 10_000
         }
@@ -294,6 +332,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         if (::settings.isInitialized) settings.prefs.unregisterOnSharedPreferenceChangeListener(this)
         if (::overlay.isInitialized) overlay.hide()
         if (::ocr.isInitialized) ocr.close()
+        handler.removeCallbacks(tick)
         tts?.shutdown(); tts = null
         super.onDestroy()
     }

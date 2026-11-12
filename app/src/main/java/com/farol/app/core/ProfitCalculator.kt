@@ -25,6 +25,7 @@ data class CostProfile(
     val maxTotalKm: Double = 0.0,        // distância total acima disto = vermelho
     val maxMinutes: Double = 0.0,        // tempo total acima disto = vermelho
     val alertWords: List<String> = emptyList(), // bairros/ruas que você não quer
+    val favoriteWords: List<String> = emptyList(), // bairros bons / perto de casa (só destaca, não muda a cor)
 ) {
     val fuelCostPerKm: Double get() = if (kmPerLiter > 0) fuelPrice / kmPerLiter else 0.0
     val costPerKm: Double get() = fuelCostPerKm + otherCostPerKm
@@ -43,6 +44,7 @@ data class OfferResult(
     val ratingHour: Rating,
     val rating: Rating,         // o pior dos dois (ou vermelho, se houver alerta)
     val warnings: List<String> = emptyList(),
+    val favorites: List<String> = emptyList(),
 )
 
 object ProfitCalculator {
@@ -96,6 +98,10 @@ object ProfitCalculator {
             ratingHour = rHour,
             rating = if (warnings.isEmpty()) base else Rating.RED,
             warnings = warnings,
+            favorites = if (p.favoriteWords.isEmpty()) emptyList() else {
+                val hay = fold(offer.rawText)
+                p.favoriteWords.filter { w -> w.length >= 3 && hay.contains(fold(w)) }
+            },
         )
     }
 
