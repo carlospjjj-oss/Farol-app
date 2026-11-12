@@ -413,12 +413,22 @@ class DashboardActivity : Activity() {
 
     private fun askStart() {
         val f = k.field("Km do painel", lastKnownKm()?.let { fmtKm(it) } ?: "")
-        dialog("Iniciar turno", labeled("Km do painel agora", f), "Iniciar") {
+        val startBox = k.vbox().apply {
+            addView(labeled("Km do painel agora", f))
+            addView(k.text("Se o último número do painel for décimo, use vírgula: 58081,7", 12, Palette.MUTED), k.lp(top = 8))
+        }
+        dialog("Iniciar turno", startBox, "Iniciar") {
             val km = f.num() ?: return@dialog fail("Digite o km do painel")
             val d = store.day()
             store.putDay(d.copy(kmStart = km, startAt = d.startAt ?: System.currentTimeMillis()))
             toast("Turno iniciado. Boas corridas!"); true
         }
+    }
+
+    /** A distância só faz sentido dividida por 10 (o último dígito do hodômetro é décimo de km). */
+    private fun tenthsLikely(start: Double, end: Double): Boolean {
+        val d = end - start
+        return d > 350 && d / 10 in 1.0..350.0 && start == Math.floor(start) && end == Math.floor(end)
     }
 
     /** Distância suspeita: mais de 350 km no dia ou média acima de 60 km/h. */
@@ -464,6 +474,13 @@ class DashboardActivity : Activity() {
                     .setMessage("$warn\n\nInício: ${fmtKm(d.kmStart)}\nFim: ${fmtKm(km)}\n\nSe estiver errado, toque em Corrigir.")
                     .setPositiveButton("Está certo") { _, _ -> finish() }
                     .setNegativeButton("Corrigir") { _, _ -> askEnd() }
+                    .apply {
+                        val st = d.kmStart
+                        if (st != null && tenthsLikely(st, km)) setNeutralButton("Usar ${Fmt.km((km - st) / 10)}") { _, _ ->
+                            val up = d.copy(kmStart = st / 10, kmEnd = km / 10, endAt = System.currentTimeMillis())
+                            store.putDay(up); sendDaySummary(up); toast("Corrigido: último dígito era décimo"); render()
+                        }
+                    }
                     .setCancelable(false).show()
                 return@dialog true
             }
@@ -481,7 +498,21 @@ class DashboardActivity : Activity() {
         dialog("Editar km do turno", box, "Salvar") {
             val s = a.num(); val e = b.num()
             if (s != null && e != null && e < s) return@dialog fail("O km final é menor que o inicial")
-            if (s != null && e != null && e - s > 350) return@dialog fail("Deu ${Fmt.km(e - s)} no dia. Confira os dois números.")
+            if (s != null && e != null && e - s > 350) {
+                if (tenthsLikely(s, e)) {
+                    AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                        .setTitle("O último dígito é décimo?")
+                        .setMessage("Deu ${Fmt.km(e - s)} no dia. No painel de muitas motos o último número é a casa decimal.\n\n" +
+                            "${fmtKm(s / 10)} → ${fmtKm(e / 10)} = ${Fmt.km((e - s) / 10)}")
+                        .setPositiveButton("Usar ${Fmt.km((e - s) / 10)}") { _, _ ->
+                            val up = d.copy(kmStart = s / 10, kmEnd = e / 10)
+                            store.putDay(up); sendDaySummary(up); render()
+                        }
+                        .setNegativeButton("Voltar", null).show()
+                    return@dialog true
+                }
+                return@dialog fail("Deu ${Fmt.km(e - s)} no dia. Confira os dois números.")
+            }
             val up = d.copy(kmStart = s, kmEnd = e)
             store.putDay(up)
             if (e != null) sendDaySummary(up)
