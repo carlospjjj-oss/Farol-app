@@ -68,6 +68,7 @@ class SettingsActivity : Activity() {
     private lateinit var swHint: Switch
     private lateinit var swCapture: Switch
     private lateinit var swScreens: Switch
+    private lateinit var swAutoEarn: Switch
     private lateinit var etTargets: EditText
     private lateinit var tvRecent: TextView
     // logs
@@ -280,6 +281,7 @@ class SettingsActivity : Activity() {
 
         // Leitura
         val cRead = card("Leitura das ofertas")
+        swAutoEarn = toggle(cRead, "Ganhos automáticos", "Lê o 'ganhos de hoje' na tela inicial de cada app e preenche o dashboard")
         swHint = toggle(cRead, "Só com botão de aceitar", "Evita ler telas que não são oferta (recomendado)")
         swOcr = toggle(cRead, "OCR de reserva", "Lê a imagem quando o app esconde o texto (Android 11+)")
         swCapture = toggle(cRead, "Modo captura", "Grava o texto lido para calibrar")
@@ -402,6 +404,7 @@ class SettingsActivity : Activity() {
         swHint.isChecked = settings.requireHint
         swCapture.isChecked = settings.captureMode
         swScreens.isChecked = settings.logScreens
+        swAutoEarn.isChecked = settings.autoEarnings
         remoteMode = settings.remoteMode
         etGhRepo.setText(settings.ghRepo); etGhToken.setText(settings.ghToken); etGhBranch.setText(settings.ghBranch)
         etHookUrl.setText(settings.webhookUrl); etHookAuth.setText(settings.webhookAuth)
@@ -449,6 +452,7 @@ class SettingsActivity : Activity() {
         settings.requireHint = swHint.isChecked
         settings.captureMode = swCapture.isChecked
         settings.logScreens = swScreens.isChecked
+        settings.autoEarnings = swAutoEarn.isChecked
         settings.remoteMode = remoteMode
         settings.ghRepo = etGhRepo.text.toString().trim()
         settings.ghToken = etGhToken.text.toString().trim()

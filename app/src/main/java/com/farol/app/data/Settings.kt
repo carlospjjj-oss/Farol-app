@@ -138,6 +138,15 @@ com.sankuai.sailor.courier=Keeta"""
         get() = prefs.getBoolean("logScreens", true)
         set(v) = prefs.edit().putBoolean("logScreens", v).apply()
 
+    /** Lê o "ganhos de hoje" do painel de cada app e preenche o dashboard sozinho. */
+    var autoEarnings: Boolean
+        get() = prefs.getBoolean("autoEarnings", true)
+        set(v) = prefs.edit().putBoolean("autoEarnings", v).apply()
+
+    /** Marca que o ganho de [app] em [date] veio do painel do app (para mostrar "auto" no dashboard). */
+    fun markAuto(date: String, app: String) = prefs.edit().putLong("auto_${date}_$app", System.currentTimeMillis()).apply()
+    fun autoAt(date: String, app: String): Long = prefs.getLong("auto_${date}_$app", 0L)
+
     var enabled: Boolean
         get() = prefs.getBoolean("enabled", true)
         set(v) = prefs.edit().putBoolean("enabled", v).apply()

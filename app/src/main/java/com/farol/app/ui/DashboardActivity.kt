@@ -233,13 +233,18 @@ class DashboardActivity : Activity() {
         })
         val max = (day.earnings.values.maxOrNull() ?: 0.0).coerceAtLeast(0.01)
         val shown = apps.filter { (day.earnings[it] ?: 0.0) > 0 }.sortedByDescending { day.earnings[it] }
-        if (shown.isEmpty()) card.addView(k.text("Nenhum ganho lançado hoje.", 13, Palette.MUTED), k.lp(top = 12))
+        if (shown.isEmpty()) card.addView(k.text("Nenhum ganho ainda. Abra a tela inicial de cada app que o Farol lê o \"ganhos de hoje\" sozinho, ou lance à mão.", 13, Palette.MUTED), k.lp(top = 12))
         shown.forEach { app ->
             val v = day.earnings[app] ?: 0.0
             card.addView(k.hbox().apply {
                 addView(k.dot(Palette.app(app), 10))
                 val name = k.text(app, 15, Palette.TEXT, k.medium)
-                addView(name, weighted(name, 10))
+                addView(name, k.lp(w = -2).apply { marginStart = k.dp(10) })
+                val autoAt = settings.autoAt(day.date, app)
+                if (autoAt > 0) addView(k.chip("auto ${hhmm.format(Date(autoAt))}", Palette.GREEN).apply {
+                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f)
+                }, k.lp(w = -2).apply { marginStart = k.dp(8) })
+                addView(View(this@DashboardActivity), LinearLayout.LayoutParams(0, 1, 1f))
                 addView(k.text(Fmt.money(v), 15, Palette.TEXT, k.bold))
             }, k.lp(top = 14))
             card.addView(k.bar((v / max).toFloat(), Palette.app(app)), k.lp(h = k.dp(6), top = 8))

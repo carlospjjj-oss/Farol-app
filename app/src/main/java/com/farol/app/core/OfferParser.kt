@@ -65,7 +65,7 @@ object OfferParser {
 
     /** Valores em R$ seguidos disto também não são o preço ("R$ 3,00 Bônus", "R$ 2 por pedido", "R$ 3,97/L"). */
     private val MONEY_EXCLUDE_AFTER = Regex(
-        """^\s*(b[oô]nus|extra|por pedido|em recompensas?|de desconto|/\s*l\b|o litro)""",
+        """^\s*(b[oô]nus|extra|inclui|por pedido|em recompensas?|de desconto|/\s*l\b|o litro)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -109,7 +109,7 @@ object OfferParser {
             val unit = m.groupValues[2].lowercase()
             val km = if (unit.startsWith("k") || unit.startsWith("q")) n else n / 1000.0
             if (km <= 0.0 || km > 600.0) null
-            else Measure(km, m.range.first, isTotalAt(clean, m.range.first))
+            else Measure(km, m.range.first, isTotalAt(clean, m.range.first, m.range.last + 1))
         }.toList()
         if (dists.isEmpty()) return null
 
@@ -160,8 +160,10 @@ object OfferParser {
         )
     }
 
-    private fun isTotalAt(text: String, pos: Int): Boolean =
-        text.substring(maxOf(0, pos - TOTAL_LOOKBEHIND), pos).contains("total", ignoreCase = true)
+    /** "Distância total 9 km" (antes) ou "8 km total" (depois, Keeta). */
+    private fun isTotalAt(text: String, pos: Int, end: Int = pos): Boolean =
+        text.substring(maxOf(0, pos - TOTAL_LOOKBEHIND), pos).contains("total", ignoreCase = true) ||
+            Regex("""^\s*total\b""", RegexOption.IGNORE_CASE).containsMatchIn(text.substring(end, minOf(text.length, end + 8)))
 
     /**
      * A 99 desenha valores letra por letra: "R | $ | 1 | 2 | , | 5 | 0".

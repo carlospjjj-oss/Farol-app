@@ -14,6 +14,8 @@ import com.farol.app.core.Fmt
 import com.farol.app.core.OfferResult
 import java.util.Locale
 import com.farol.app.core.CostProfile
+import com.farol.app.core.EarningsReader
+import com.farol.app.data.JournalStore
 import com.farol.app.core.OfferParser
 import com.farol.app.core.ParsedOffer
 import com.farol.app.core.ProfitCalculator
@@ -50,6 +52,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     private lateinit var capture: CaptureLog
     private lateinit var ocr: OcrFallback
     private lateinit var remote: RemoteLog
+    private lateinit var journal: JournalStore
 
     private val handler = Handler(Looper.getMainLooper())
     private var scanScheduled = false
@@ -76,6 +79,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         capture = CaptureLog(this)
         ocr = OcrFallback(this)
         remote = RemoteLog.get(this)
+        journal = JournalStore(this)
         reload()
         settings.prefs.registerOnSharedPreferenceChangeListener(this)
         instance = this
@@ -127,7 +131,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         if (settings.captureMode) capture.append(snap.pkg, "acessibilidade", snap.text)
 
         val offer = OfferParser.parse(snap.text, label, settings.requireHint)
-        if (offer == null) logScreen(snap)
+        if (offer == null) { logScreen(snap); autoEarnings(label, snap.text) }
         if (offer != null) {
             accessibleApps += snap.pkg
             handleOffer(offer, snap.pkg, "acessibilidade", snap.text); return
@@ -153,6 +157,21 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         // Texto curto (app que esconde o texto, ex.: 99): o runOcr registra a tela lida pela imagem.
     }
 
+    /**
+     * Se a tela é o painel do app, guarda o "ganhos de hoje" dele no dashboard.
+     * Usa o maior valor do dia (o total só cresce; evita voltar a zero enquanto o app carrega).
+     */
+    private fun autoEarnings(label: String, text: String) {
+        if (!settings.autoEarnings) return
+        val v = EarningsReader.read(label, text) ?: return
+        val day = journal.day()
+        val cur = day.earnings[label]
+        if (cur != null && v <= cur) return
+        if (v <= 0.0 && cur == null) return
+        journal.putDay(day.copy(earnings = day.earnings + (label to v)))
+        settings.markAuto(day.date, label)
+    }
+
     private fun minutesSinceOffer(): Int? {
         if (lastAnyOfferAt == 0L) return null
         val m = ((SystemClock.elapsedRealtime() - lastAnyOfferAt) / 60_000).toInt()
@@ -176,6 +195,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
                 handleOffer(o, snap.pkg, "ocr", text)
                 return@run
             }
+            autoEarnings(label, text)
             val hint = hasHint || OfferParser.OFFER_HINTS.containsMatchIn(text)
             if (hint && ocrRetries < 4) {
                 ocrRetries++

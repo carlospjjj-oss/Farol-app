@@ -159,4 +159,21 @@ class OfferParserTest {
         val o = p("R$ 7,50 | 3,3 km total | [endereço] | [endereço], São Caetano do Sul, SP | Aceitar(53s)", "Keeta")!!
         assertEquals(7.5, o.price, 0.001); assertEquals(3.3, o.totalKm, 0.001)
     }
+
+    // ---- 12/11 tarde: Keeta ----
+
+    @Test fun realKeeta_kmTotalNaoViraBusca() {
+        val o = p("Recusar | 6 de olho | R$ 7,50 | Ganhos nessa entrega | 3,5 km total | Coleta | Espetinhos Visconde Grill | [endereço], SAO CAETANO DO SUL, SP | Entrega até | 11:46 | [endereço], São Caetano do Sul, SP | Pegar | (54s)", "Keeta")!!
+        assertEquals(7.5, o.price, 0.001); assertEquals(3.5, o.totalKm, 0.001); assertNull(o.pickupKm)
+    }
+
+    @Test fun realKeeta_extraIncluidoNaoEPreco() {
+        val o = p("Recusar | 7 de olho | R$ 10,10 | R$ 3,00 Inclui extra de entrega caprichada | Ganhos nessa entrega | 3,8 km total | Coleta | Yakan Sushi | +R$ 3,00 | Entrega até 11:45 | Pegar | (38s)", "Keeta")!!
+        assertEquals(10.10, o.price, 0.001); assertNull(o.pickupKm)
+    }
+
+    @Test fun realKeeta_extraEIncentivo() {
+        val o = p("Recusar | 9 de olho | R$ 12,60 | R$ 2,00 Inclui extra de entrega caprichada | Inclui incentivo | 1,6 km total | Coleta | Espeto Paulista | +R$ 2,00 | Pegar | (54s)", "Keeta")!!
+        assertEquals(12.60, o.price, 0.001); assertEquals(1.6, o.totalKm, 0.001)
+    }
 }

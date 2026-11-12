@@ -32,7 +32,7 @@ object ScreenTextCollector {
         val topApp = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }.maxByOrNull { it.layer }
 
         val roots = buildList {
-            for (w in windows) {
+            for (w in windows.sortedByDescending { it.layer }) {
                 val r = Rect().also { w.getBoundsInScreen(it) }
                 val big = r.width().toLong() * r.height() > screenArea / 4
                 val visible = w.isActive || w.isFocused || w.id == topApp?.id ||
@@ -42,10 +42,13 @@ object ScreenTextCollector {
             if (windows.isEmpty()) svc.rootInActiveWindow?.let { add(it) }
         }
 
+        // Só o app de entrega que está mais na frente: evita misturar o texto de dois apps
+        // (ex.: oferta do Keeta por cima da tela do iFood).
         for (root in roots) {
             val pkg = root.packageName?.toString() ?: continue
             if (!isTarget(pkg)) continue
             if (foundPkg == null) foundPkg = pkg
+            if (pkg != foundPkg) continue
             val counter = intArrayOf(0)
             walk(root, 0, parts, counter)
         }
