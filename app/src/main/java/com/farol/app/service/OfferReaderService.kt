@@ -62,6 +62,9 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     private var lastSig: String? = null
     private var lastSigAt = 0L
     private var lastOfferSeenAt = 0L
+    /** Última oferta vista (para registrar as telas seguintes por até 90 min). */
+    private var lastAnyOfferAt = 0L
+    private var lastScreenOcrAt = 0L
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -124,6 +127,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         if (settings.captureMode) capture.append(snap.pkg, "acessibilidade", snap.text)
 
         val offer = OfferParser.parse(snap.text, label, settings.requireHint)
+        if (offer == null) logScreen(snap)
         if (offer != null) {
             accessibleApps += snap.pkg
             handleOffer(offer, snap.pkg, "acessibilidade", snap.text); return
@@ -147,9 +151,25 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         }
     }
 
+    /** Registra telas de trabalho depois de uma oferta: aceite, coleta, entrega, finalização. */
+    private fun logScreen(snap: ScreenTextCollector.Snapshot) {
+        if (!settings.logScreens || !remote.enabled || lastAnyOfferAt == 0L) return
+        val now = SystemClock.elapsedRealtime()
+        val mins = ((now - lastAnyOfferAt) / 60_000).toInt()
+        if (mins > 90) return
+        if (snap.text.length >= 60) {
+            remote.screen(snap.pkg, "acessibilidade", snap.text, mins)
+        } else if (settings.ocrFallback && ocr.supported && now - lastScreenOcrAt > 30_000) {
+            // App que esconde o texto (ex.: 99): um print a cada 30 s no máximo
+            lastScreenOcrAt = now
+            ocr.run(overlay.screenRect()) { text -> if (text.length >= 40) remote.screen(snap.pkg, "ocr", text, mins) }
+        }
+    }
+
     private fun handleOffer(offer: ParsedOffer, pkg: String, source: String, raw: String) {
         val now = SystemClock.elapsedRealtime()
         lastOfferSeenAt = now
+        lastAnyOfferAt = now
         if (offer.signature == lastSig && now - lastSigAt < 60_000 && overlay.isShowing) {
             overlay.keepAlive()
             return

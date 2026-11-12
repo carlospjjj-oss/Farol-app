@@ -133,6 +133,11 @@ br.com.ifood.driver.app=iFood
         get() = prefs.getString("remoteLastStatus", "") ?: ""
         set(v) = prefs.edit().putString("remoteLastStatus", v).apply()
 
+    /** Registra as telas dos apps depois de uma oferta (aceite, coleta, entrega, finalização). */
+    var logScreens: Boolean
+        get() = prefs.getBoolean("logScreens", true)
+        set(v) = prefs.edit().putBoolean("logScreens", v).apply()
+
     var enabled: Boolean
         get() = prefs.getBoolean("enabled", true)
         set(v) = prefs.edit().putBoolean("enabled", v).apply()

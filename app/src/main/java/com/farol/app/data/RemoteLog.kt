@@ -103,6 +103,23 @@ class RemoteLog private constructor(context: Context) {
         enqueue(e)
     }
 
+    private val lastScreenKey = mutableMapOf<String, String>()
+    private val lastScreenAt = mutableMapOf<String, Long>()
+
+    /**
+     * Tela de um app de entrega depois de uma oferta (para aprender aceite/coleta/entrega/finalização).
+     * Só envia quando a tela muda de verdade (sem contar números) e no máximo 1 a cada 20 s por app.
+     */
+    fun screen(pkg: String, source: String, raw: String, minutesSinceOffer: Int) {
+        if (!enabled) return
+        val key = raw.replace(Regex("""\d"""), "").replace(Regex("""\s+"""), " ").take(600)
+        val now = SystemClock.elapsedRealtime()
+        if (key == lastScreenKey[pkg]) return
+        if (now - (lastScreenAt[pkg] ?: 0L) < 20_000) return
+        lastScreenKey[pkg] = key; lastScreenAt[pkg] = now
+        enqueue(base("tela", pkg, source, raw).put("min_desde_oferta", minutesSinceOffer))
+    }
+
     /** Resumo do dia ao encerrar o turno (sem endereços). */
     fun day(summary: JSONObject) {
         if (!enabled) return

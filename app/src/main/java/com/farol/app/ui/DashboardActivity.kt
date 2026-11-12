@@ -43,6 +43,7 @@ class DashboardActivity : Activity() {
     private lateinit var history: History
     private lateinit var k: Kit
     private lateinit var col: LinearLayout
+    private lateinit var headerBox: LinearLayout
 
     private val apps = listOf("iFood", "99", "Keeta", "Uber", "inDrive", "Outros")
     private val ptBR = Locale("pt", "BR")
@@ -61,11 +62,16 @@ class DashboardActivity : Activity() {
         window.navigationBarColor = Palette.BG
         window.decorView.setBackgroundColor(Palette.BG)
 
-        col = k.vbox().apply { setPadding(k.dp(18), k.dp(20), k.dp(18), k.dp(40)) }
-        setContentView(ScrollView(this).apply {
+        headerBox = k.vbox().apply { setPadding(k.dp(18), k.dp(14), k.dp(18), k.dp(10)); setBackgroundColor(Palette.BG) }
+        col = k.vbox().apply { setPadding(k.dp(18), k.dp(4), k.dp(18), k.dp(40)) }
+        setContentView(k.vbox().apply {
             setBackgroundColor(Palette.BG)
-            isVerticalScrollBarEnabled = false
-            addView(col)
+            addView(headerBox, LinearLayout.LayoutParams(-1, -2))
+            addView(ScrollView(this@DashboardActivity).apply {
+                setBackgroundColor(Palette.BG)
+                isVerticalScrollBarEnabled = false
+                addView(col)
+            }, LinearLayout.LayoutParams(-1, 0, 1f))
         })
     }
 
@@ -78,6 +84,7 @@ class DashboardActivity : Activity() {
 
     private fun render() {
         col.removeAllViews()
+        headerBox.removeAllViews()
         val day = store.day()
         val s = JournalMath.summarize(day, settings.profile.costPerKm)
         header()
@@ -112,10 +119,10 @@ class DashboardActivity : Activity() {
             isClickable = true
             setOnClickListener { startActivity(Intent(this@DashboardActivity, SettingsActivity::class.java)) }
         }
-        add(k.hbox().apply {
+        headerBox.addView(k.hbox().apply {
             addView(left, weighted(left))
-            addView(gear, LinearLayout.LayoutParams(k.dp(46), k.dp(46)))
-        }, 0)
+            addView(gear, LinearLayout.LayoutParams(k.dp(48), k.dp(48)))
+        })
 
         val on = serviceOn()
         val color = if (on) Palette.GREEN else Palette.RED
@@ -130,7 +137,7 @@ class DashboardActivity : Activity() {
                 setOnClickListener { startActivity(Intent(AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS)) }
             }
         }
-        col.addView(status, LinearLayout.LayoutParams(-2, -2).apply { topMargin = k.dp(14) })
+        headerBox.addView(status, LinearLayout.LayoutParams(-2, -2).apply { topMargin = k.dp(10) })
     }
 
     // hero
@@ -156,7 +163,7 @@ class DashboardActivity : Activity() {
 
         card.isClickable = true
         card.setOnClickListener { editEarnings() }
-        add(card, 18)
+        add(card, 8)
     }
 
     // kpis

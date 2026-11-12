@@ -67,6 +67,7 @@ class SettingsActivity : Activity() {
     private lateinit var swOcr: Switch
     private lateinit var swHint: Switch
     private lateinit var swCapture: Switch
+    private lateinit var swScreens: Switch
     private lateinit var etTargets: EditText
     private lateinit var tvRecent: TextView
     // logs
@@ -282,6 +283,7 @@ class SettingsActivity : Activity() {
         swHint = toggle(cRead, "Só com botão de aceitar", "Evita ler telas que não são oferta (recomendado)")
         swOcr = toggle(cRead, "OCR de reserva", "Lê a imagem quando o app esconde o texto (Android 11+)")
         swCapture = toggle(cRead, "Modo captura", "Grava o texto lido para calibrar")
+        swScreens = toggle(cRead, "Registrar telas após oferta", "Envia nos logs as telas de aceite, coleta e entrega por 90 min (para somar ganhos sozinho no futuro)")
         etTargets = textField("pacote=Nome", multi = true, mono = true).apply { minLines = 4 }
         labeledText(cRead, "Apps monitorados (pacote=Nome, um por linha)", etTargets)
         tvRecent = k.text("", 12, Palette.MUTED).also { cRead.addView(it, k.lp(top = 8)) }
@@ -390,6 +392,7 @@ class SettingsActivity : Activity() {
         swOcr.isChecked = settings.ocrFallback
         swHint.isChecked = settings.requireHint
         swCapture.isChecked = settings.captureMode
+        swScreens.isChecked = settings.logScreens
         remoteMode = settings.remoteMode
         etGhRepo.setText(settings.ghRepo); etGhToken.setText(settings.ghToken); etGhBranch.setText(settings.ghBranch)
         etHookUrl.setText(settings.webhookUrl); etHookAuth.setText(settings.webhookAuth)
@@ -436,6 +439,7 @@ class SettingsActivity : Activity() {
         settings.ocrFallback = swOcr.isChecked
         settings.requireHint = swHint.isChecked
         settings.captureMode = swCapture.isChecked
+        settings.logScreens = swScreens.isChecked
         settings.remoteMode = remoteMode
         settings.ghRepo = etGhRepo.text.toString().trim()
         settings.ghToken = etGhToken.text.toString().trim()
