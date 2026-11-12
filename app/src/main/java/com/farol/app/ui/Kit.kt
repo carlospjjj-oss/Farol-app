@@ -140,6 +140,32 @@ class Kit(private val ctx: Context) {
         layoutParams = LinearLayout.LayoutParams(-1, dp(6))
     }
 
+    /**
+     * Android 15 desenha o app por baixo das barras do sistema (edge-to-edge).
+     * Isto empurra o conteúdo para baixo da barra de status e para cima da barra de navegação.
+     * [onInsets] recebe (topo, base) em pixels para quem precisa ajustar algo além do padding.
+     */
+    fun fitSystemBars(root: View, onInsets: ((Int, Int) -> Unit)? = null) {
+        val baseL = root.paddingLeft; val baseT = root.paddingTop
+        val baseR = root.paddingRight; val baseB = root.paddingBottom
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            val top: Int; val bottom: Int
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                val bars = insets.getInsets(android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout())
+                top = bars.top; bottom = bars.bottom
+            } else {
+                @Suppress("DEPRECATION")
+                top = insets.systemWindowInsetTop
+                @Suppress("DEPRECATION")
+                bottom = insets.systemWindowInsetBottom
+            }
+            if (onInsets == null) v.setPadding(baseL, baseT + top, baseR, baseB + bottom)
+            else { v.setPadding(baseL, baseT + top, baseR, baseB); onInsets(top, bottom) }
+            insets
+        }
+        root.requestApplyInsets()
+    }
+
     fun lp(w: Int = -1, h: Int = -2, top: Int = 0, weight: Float = 0f) =
         LinearLayout.LayoutParams(w, h, weight).apply { topMargin = dp(top) }
 }

@@ -344,14 +344,23 @@ class SettingsActivity : Activity() {
 
         // Raiz com botão Salvar fixo embaixo
         val save = k.pill("Salvar alterações") { save() }.apply { elevation = k.dp(8).toFloat() }
+        val saveLp = FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply { setMargins(k.dp(18), 0, k.dp(18), k.dp(16)) }
+        // Faixa escura atrás do botão, para a lista não aparecer por baixo dele
+        val saveBar = FrameLayout(this).apply {
+            setBackgroundColor(Palette.alpha(Palette.BG, 0xF2))
+            addView(save, saveLp)
+        }
         val root = FrameLayout(this).apply {
             setBackgroundColor(Palette.BG)
             addView(scroll, FrameLayout.LayoutParams(-1, -1))
-            addView(save, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply {
-                setMargins(k.dp(18), 0, k.dp(18), k.dp(18))
-            })
+            addView(saveBar, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         }
         setContentView(root)
+        scroll.clipToPadding = false
+        k.fitSystemBars(root) { _, bottom ->
+            saveBar.setPadding(0, k.dp(12), 0, bottom)
+            col.setPadding(col.paddingLeft, col.paddingTop, col.paddingRight, k.dp(110) + bottom)
+        }
     }
 
     private fun renderSegment() {
