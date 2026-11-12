@@ -103,6 +103,7 @@ class SettingsActivity : Activity() {
         row.addView(TextView(this).apply { text = label }, LinearLayout.LayoutParams(0, -2, 1.4f))
         val et = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            keyListener = android.text.method.DigitsKeyListener.getInstance("0123456789.,") // ponto OU vírgula
             setSelectAllOnFocus(true)
         }
         row.addView(et, LinearLayout.LayoutParams(0, -2, 1f))

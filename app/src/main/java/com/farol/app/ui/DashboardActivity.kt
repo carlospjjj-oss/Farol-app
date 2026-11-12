@@ -99,6 +99,7 @@ class DashboardActivity : Activity() {
     private fun numberField(hint: String) = EditText(this).apply {
         this.hint = hint
         inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+        keyListener = android.text.method.DigitsKeyListener.getInstance("0123456789.,") // ponto OU vírgula
         setSelectAllOnFocus(true)
     }
 
