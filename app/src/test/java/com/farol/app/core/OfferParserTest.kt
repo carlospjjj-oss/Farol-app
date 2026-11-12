@@ -133,4 +133,9 @@ class OfferParserTest {
     @Test fun real99_telaInicialComValorDoDia_semBotao_naoEOferta() {
         assertNull(p("400 m | R$ 11,08 | Taboão da Serra | mapbox | Seus ganhos estão próximos! | Rotas pra entregar agora | 99) | keeta | entregador | Transforme suas entregas em ganhos. Aceite | rotas pra alcançar seus objetivos!", "99"))
     }
+
+    @Test fun realKeeta() {
+        val o = p("8 de olho | R$ 13,98 | Inclui incentivo | 8 km total | Coleta | Paráçaí - Açaiteria e lanchonete | [endereço], Vila Liviero, São Paulo | Pegar (44s) | Recusar", "Keeta")!!
+        assertEquals(13.98, o.price, 0.001); assertEquals(8.0, o.totalKm, 0.001)
+    }
 }

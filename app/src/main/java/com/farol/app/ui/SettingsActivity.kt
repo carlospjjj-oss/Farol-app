@@ -26,8 +26,8 @@ import com.farol.app.data.RemoteLog
 import com.farol.app.data.Settings
 import com.farol.app.service.OfferReaderService
 
-/** Tela única: status, seus custos e metas, opções de leitura, histórico e captura. */
-class MainActivity : Activity() {
+/** Configurações: custos e metas, filtros, leitura, envio de logs, histórico de ofertas e captura. */
+class SettingsActivity : Activity() {
 
     private lateinit var settings: Settings
     private lateinit var history: History
@@ -142,7 +142,7 @@ class MainActivity : Activity() {
         setContentView(ScrollView(this).apply { addView(col) })
 
         col.addView(TextView(this).apply {
-            text = "🚦 Farol"
+            text = "⚙️ Configurações"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f); typeface = Typeface.DEFAULT_BOLD
         })
         tvStatus = TextView(this).apply { setPadding(0, dp(8), 0, dp(4)) }.also { col.addView(it) }
@@ -218,7 +218,7 @@ class MainActivity : Activity() {
         note("Envia o que o Farol lê nas ofertas (reconhecidas e não reconhecidas) para análise e calibração. Vai em lotes; sem sinal, fica guardado e sai depois.")
         rgRemote = android.widget.RadioGroup(this).apply {
             remoteModes.forEachIndexed { i, (_, label) ->
-                addView(android.widget.RadioButton(this@MainActivity).apply { id = 1000 + i; text = label })
+                addView(android.widget.RadioButton(this@SettingsActivity).apply { id = 1000 + i; text = label })
             }
         }.also { col.addView(it) }
         etGhRepo = text("Repositório (dono/nome)")
@@ -360,7 +360,7 @@ class MainActivity : Activity() {
         android.app.AlertDialog.Builder(this)
             .setTitle("Últimas leituras")
             .setView(ScrollView(this).apply {
-                addView(TextView(this@MainActivity).apply {
+                addView(TextView(this@SettingsActivity).apply {
                     text = txt; setTextIsSelectable(true); typeface = Typeface.MONOSPACE
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f); setPadding(dp(16), dp(8), dp(16), dp(8))
                 })

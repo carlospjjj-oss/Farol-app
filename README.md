@@ -27,6 +27,15 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 
 A distância e o tempo **somam busca + viagem**, porque você roda e gasta nos dois trechos.
 
+## Dashboard (tela inicial)
+
+- **Hoje:** ganhos, km rodados, líquido, R$/km real e R$/hora.
+- **Turno:** digite o km do painel e toque em *Iniciar*; no fim, o km final e *Encerrar*.
+- **Ganhos por app:** iFood, 99, Keeta, Uber, inDrive e Outros, somados num total do dia.
+- **Abastecimento:** km do painel, litros e valor. Com dois abastecimentos de tanque cheio, o Farol
+  calcula o **consumo real** da moto, e um toque aplica esse consumo e o preço do litro nos custos.
+- **Semana e mês:** ganhos, km e líquido acumulados; "Copiar dias (CSV)" para planilha.
+
 ## Recursos extras
 
 - **Filtros que deixam o cartão vermelho**, com o motivo escrito (⚠):

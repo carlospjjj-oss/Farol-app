@@ -19,7 +19,7 @@ object ScreenTextCollector {
     private const val MAX_NODES = 1500
     private const val MAX_DEPTH = 60
 
-    fun collect(svc: AccessibilityService, targets: Set<String>): Snapshot? {
+    fun collect(svc: AccessibilityService, isTarget: (String) -> Boolean): Snapshot? {
         val parts = mutableListOf<String>()
         var foundPkg: String? = null
 
@@ -44,7 +44,7 @@ object ScreenTextCollector {
 
         for (root in roots) {
             val pkg = root.packageName?.toString() ?: continue
-            if (pkg !in targets) continue
+            if (!isTarget(pkg)) continue
             if (foundPkg == null) foundPkg = pkg
             val counter = intArrayOf(0)
             walk(root, 0, parts, counter)

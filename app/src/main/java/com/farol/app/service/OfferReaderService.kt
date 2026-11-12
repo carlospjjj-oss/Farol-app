@@ -55,7 +55,8 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     private var scanScheduled = false
     private val scanRunnable = Runnable { scanScheduled = false; scan() }
 
-    private var targets: Map<String, String> = emptyMap()
+    /** Apps em que a acessibilidade já leu uma oferta: neles o OCR não roda (evita leituras erradas). */
+    private val accessibleApps = mutableSetOf<String>()
     private var profile = CostProfile()
 
     private var lastSig: String? = null
@@ -80,7 +81,6 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     override fun onSharedPreferenceChanged(p: SharedPreferences?, key: String?) = reload()
 
     private fun reload() {
-        targets = settings.targets
         profile = settings.profile
         if (settings.speak && tts == null) {
             tts = TextToSpeech(this) { status ->
@@ -106,7 +106,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         if (pkg == packageName) return
         if (pkg != null) noteRecent(pkg)
         if (!settings.enabled) { if (overlay.isShowing) overlay.hide(); return }
-        if (pkg != null && pkg !in targets) {
+        if (pkg != null && settings.labelFor(pkg) == null) {
             // Saiu do app de corrida: esconde o cartão depois de uma pequena folga.
             if (overlay.isShowing && event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) maybeHide()
             return
@@ -119,16 +119,19 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     }
 
     private fun scan() {
-        val snap = ScreenTextCollector.collect(this, targets.keys) ?: run { maybeHide(); return }
-        val label = targets[snap.pkg] ?: snap.pkg
+        val snap = ScreenTextCollector.collect(this) { settings.labelFor(it) != null } ?: run { maybeHide(); return }
+        val label = settings.labelFor(snap.pkg) ?: snap.pkg
         if (settings.captureMode) capture.append(snap.pkg, "acessibilidade", snap.text)
 
         val offer = OfferParser.parse(snap.text, label, settings.requireHint)
-        if (offer != null) { handleOffer(offer, snap.pkg, "acessibilidade", snap.text); return }
+        if (offer != null) {
+            accessibleApps += snap.pkg
+            handleOffer(offer, snap.pkg, "acessibilidade", snap.text); return
+        }
 
         val hasHint = OfferParser.OFFER_HINTS.containsMatchIn(snap.text)
         val looksLikeOffer = hasHint || snap.text.length < 40
-        if (settings.ocrFallback && ocr.supported && looksLikeOffer) {
+        if (settings.ocrFallback && ocr.supported && looksLikeOffer && snap.pkg !in accessibleApps) {
             ocr.run(overlay.screenRect()) { text ->
                 if (settings.captureMode) capture.append(snap.pkg, "ocr", text)
                 val o = OfferParser.parse(text, label, settings.requireHint)
@@ -139,7 +142,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
                 }
             }
         } else {
-            if (hasHint) remote.miss(snap.pkg, "acessibilidade", snap.text)
+            if (hasHint && snap.pkg !in accessibleApps) remote.miss(snap.pkg, "acessibilidade", snap.text)
             maybeHide()
         }
     }

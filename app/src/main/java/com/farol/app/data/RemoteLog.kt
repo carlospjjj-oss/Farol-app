@@ -103,6 +103,13 @@ class RemoteLog private constructor(context: Context) {
         enqueue(e)
     }
 
+    /** Resumo do dia ao encerrar o turno (sem endereços). */
+    fun day(summary: JSONObject) {
+        if (!enabled) return
+        enqueue(JSONObject().put("t", iso(Date())).put("tipo", "dia").put("versao", appVersion)
+            .put("aparelho", deviceId).put("resumo", summary))
+    }
+
     /** Inclui os pacotes vistos recentemente: ajuda a descobrir o nome de apps novos (ex.: Keeta). */
     fun test() = enqueue(base("teste", ctx.packageName, "app", "Teste de envio do Farol | R$ 10,00 | 5 km | Aceitar")
         .put("pacotes_vistos", JSONArray(synchronized(com.farol.app.service.OfferReaderService.recentPackages) {

@@ -53,7 +53,7 @@ object OfferParser {
 
     /** Palavras que indicam que existe uma oferta aberta (botão de aceitar etc.). */
     val OFFER_HINTS = Regex(
-        """\baceitar\b|\baccept\b|\brecusar\b|oferecer|toque para|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
+        """\baceitar\b|\baccept\b|\brecusar\b|\bpegar\b|oferecer|toque para|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
         RegexOption.IGNORE_CASE
     )
 

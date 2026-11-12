@@ -15,7 +15,8 @@ class Settings(context: Context) {
         const val DEFAULT_TARGETS = """com.ubercab.driver=Uber
 com.app99.driver=99
 sinet.startup.inDriver=inDrive
-br.com.ifood.driver.app=iFood"""
+br.com.ifood.driver.app=iFood
+*keeta*=Keeta"""
     }
 
     private fun d(key: String, def: Double) = prefs.getString(key, null)?.toDoubleOrNull() ?: def
@@ -55,6 +56,25 @@ br.com.ifood.driver.app=iFood"""
     var targetsText: String
         get() = prefs.getString("targets", DEFAULT_TARGETS) ?: DEFAULT_TARGETS
         set(v) = prefs.edit().putString("targets", v).apply()
+
+    /**
+     * Apps reconhecidos pelo NOME do pacote mesmo sem estar na lista
+     * (ex.: Keeta, cujo pacote varia por país/versão).
+     */
+    private val builtInPatterns = listOf("keeta" to "Keeta", "sankuai" to "Keeta")
+
+    /** Nome amigável do app, ou null se o pacote não for monitorado. Aceita "*parte*=Nome" na lista. */
+    fun labelFor(pkg: String): String? {
+        val t = targets
+        t[pkg]?.let { return it }
+        for ((pattern, label) in t) {
+            if (pattern.contains('*')) {
+                val rx = Regex(pattern.split('*').joinToString(".*") { Regex.escape(it) }, RegexOption.IGNORE_CASE)
+                if (rx.matches(pkg)) return label
+            }
+        }
+        return builtInPatterns.firstOrNull { pkg.contains(it.first, ignoreCase = true) }?.second
+    }
 
     /** Mapa pacote -> nome amigável. */
     val targets: Map<String, String>
