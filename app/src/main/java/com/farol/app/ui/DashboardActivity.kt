@@ -421,16 +421,53 @@ class DashboardActivity : Activity() {
         }
     }
 
+    /** Distância suspeita: mais de 350 km no dia ou média acima de 60 km/h. */
+    private fun suspicious(km: Double, startAt: Long?): String? {
+        val h = startAt?.let { (System.currentTimeMillis() - it) / 3_600_000.0 }
+        return when {
+            km > 350 -> "Isso dá ${Fmt.km(km)} rodados hoje."
+            h != null && h > 0.5 && km / h > 60 -> "Isso dá ${Fmt.km(km)} em ${Fmt.min(h * 60)} (média de ${(km / h).toInt()} km/h)."
+            else -> null
+        }
+    }
+
     private fun askEnd() {
         val d = store.day()
         val f = k.field("Km do painel")
-        dialog("Encerrar turno", labeled("Km do painel agora (início: ${fmtKm(d.kmStart)})", f), "Encerrar") {
+        val preview = k.text("", 14, Palette.ACCENT, k.bold)
+        f.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val km = f.num(); val st = d.kmStart
+                preview.text = if (km != null && st != null && km >= st) "Rodou hoje: ${Fmt.km(km - st)}" else ""
+            }
+        })
+        val box = k.vbox().apply {
+            addView(labeled("Km do painel agora (início: ${fmtKm(d.kmStart)})", f))
+            addView(preview, k.lp(top = 10))
+        }
+        dialog("Encerrar turno", box, "Encerrar") {
             val km = f.num() ?: return@dialog fail("Digite o km do painel")
             if (d.kmStart != null && km < d.kmStart) return@dialog fail("O km final é menor que o inicial")
-            val up = d.copy(kmEnd = km, endAt = System.currentTimeMillis())
-            store.putDay(up)
-            sendDaySummary(up)
-            toast("Turno encerrado"); true
+            val finish = {
+                val up = d.copy(kmEnd = km, endAt = System.currentTimeMillis())
+                store.putDay(up)
+                sendDaySummary(up)
+                toast("Turno encerrado")
+                render()
+            }
+            val warn = d.kmStart?.let { suspicious(km - it, d.startAt) }
+            if (warn != null) {
+                AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                    .setTitle("Confere o km?")
+                    .setMessage("$warn\n\nInício: ${fmtKm(d.kmStart)}\nFim: ${fmtKm(km)}\n\nSe estiver errado, toque em Corrigir.")
+                    .setPositiveButton("Está certo") { _, _ -> finish() }
+                    .setNegativeButton("Corrigir") { _, _ -> askEnd() }
+                    .setCancelable(false).show()
+                return@dialog true
+            }
+            finish(); true
         }
     }
 
@@ -444,7 +481,11 @@ class DashboardActivity : Activity() {
         dialog("Editar km do turno", box, "Salvar") {
             val s = a.num(); val e = b.num()
             if (s != null && e != null && e < s) return@dialog fail("O km final é menor que o inicial")
-            store.putDay(d.copy(kmStart = s, kmEnd = e)); true
+            if (s != null && e != null && e - s > 350) return@dialog fail("Deu ${Fmt.km(e - s)} no dia. Confira os dois números.")
+            val up = d.copy(kmStart = s, kmEnd = e)
+            store.putDay(up)
+            if (e != null) sendDaySummary(up)
+            true
         }
     }
 
@@ -514,7 +555,8 @@ class DashboardActivity : Activity() {
         val s = JournalMath.summarize(d, settings.profile.costPerKm)
         runCatching {
             RemoteLog.get(this).day(JSONObject()
-                .put("data", d.date).put("km", s.km).put("horas", s.hours)
+                .put("data", d.date).put("km", s.km).put("km_inicial", d.kmStart).put("km_final", d.kmEnd)
+                .put("custo_km", settings.profile.costPerKm).put("horas", s.hours)
                 .put("ganhos", JSONObject(d.earnings)).put("ganho_total", s.earnings)
                 .put("custo", s.cost).put("liquido", s.net).put("r_km", s.perKm).put("r_h", s.perHour)
                 .put("ofertas", history.recent(500).count { it.optLong("t") >= (d.startAt ?: 0L) }))
