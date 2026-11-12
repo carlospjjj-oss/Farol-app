@@ -117,7 +117,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         // Throttle (não debounce): o mapa/contador da oferta gera eventos sem parar.
         if (!scanScheduled) {
             scanScheduled = true
-            handler.postDelayed(scanRunnable, 200)
+            handler.postDelayed(scanRunnable, 120)
         }
     }
 
@@ -136,15 +136,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         val hasHint = OfferParser.OFFER_HINTS.containsMatchIn(snap.text)
         val looksLikeOffer = hasHint || snap.text.length < 40
         if (settings.ocrFallback && ocr.supported && looksLikeOffer && snap.pkg !in accessibleApps) {
-            ocr.run(overlay.screenRect()) { text ->
-                if (settings.captureMode) capture.append(snap.pkg, "ocr", text)
-                val o = OfferParser.parse(text, label, settings.requireHint)
-                if (o != null) handleOffer(o, snap.pkg, "ocr", text)
-                else {
-                    if (hasHint || OfferParser.OFFER_HINTS.containsMatchIn(text)) remote.miss(snap.pkg, "ocr", text, snap.text)
-                    maybeHide()
-                }
-            }
+            runOcr(snap, label, hasHint)
         } else {
             if (hasHint && snap.pkg !in accessibleApps) remote.miss(snap.pkg, "acessibilidade", snap.text)
             maybeHide()
@@ -157,12 +149,52 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         val now = SystemClock.elapsedRealtime()
         val mins = ((now - lastAnyOfferAt) / 60_000).toInt()
         if (mins > 90) return
-        if (snap.text.length >= 60) {
-            remote.screen(snap.pkg, "acessibilidade", snap.text, mins)
-        } else if (settings.ocrFallback && ocr.supported && now - lastScreenOcrAt > 30_000) {
-            // App que esconde o texto (ex.: 99): um print a cada 30 s no máximo
-            lastScreenOcrAt = now
-            ocr.run(overlay.screenRect()) { text -> if (text.length >= 40) remote.screen(snap.pkg, "ocr", text, mins) }
+        if (snap.text.length >= 60) remote.screen(snap.pkg, "acessibilidade", snap.text, mins)
+        // Texto curto (app que esconde o texto, ex.: 99): o runOcr registra a tela lida pela imagem.
+    }
+
+    private fun minutesSinceOffer(): Int? {
+        if (lastAnyOfferAt == 0L) return null
+        val m = ((SystemClock.elapsedRealtime() - lastAnyOfferAt) / 60_000).toInt()
+        return if (m <= 90) m else null
+    }
+
+    private var ocrRetries = 0
+    private val ocrRetry = Runnable { scan() }
+
+    /**
+     * Um único OCR para tudo: primeiro tenta achar oferta; se não achar, registra a tela (se for o caso).
+     * Se a oferta ainda está carregando (ou o OCR estava ocupado), tenta de novo em 0,8 s, até 4 vezes,
+     * mesmo sem novo evento de acessibilidade (a 99 às vezes não gera mais eventos).
+     */
+    private fun runOcr(snap: ScreenTextCollector.Snapshot, label: String, hasHint: Boolean) {
+        val started = ocr.run(overlay.screenRect()) { text ->
+            if (settings.captureMode) capture.append(snap.pkg, "ocr", text)
+            val o = OfferParser.parse(text, label, settings.requireHint)
+            if (o != null) {
+                ocrRetries = 0
+                handleOffer(o, snap.pkg, "ocr", text)
+                return@run
+            }
+            val hint = hasHint || OfferParser.OFFER_HINTS.containsMatchIn(text)
+            if (hint && ocrRetries < 4) {
+                ocrRetries++
+                handler.removeCallbacks(ocrRetry); handler.postDelayed(ocrRetry, 800)
+            } else {
+                if (hint) remote.miss(snap.pkg, "ocr", text, snap.text)
+                ocrRetries = 0
+            }
+            if (settings.logScreens && text.length >= 40) {
+                val now = SystemClock.elapsedRealtime()
+                minutesSinceOffer()?.let { m ->
+                    if (now - lastScreenOcrAt > 15_000) { lastScreenOcrAt = now; remote.screen(snap.pkg, "ocr", text, m) }
+                }
+            }
+            maybeHide()
+        }
+        if (!started && ocrRetries < 6) {
+            ocrRetries++
+            handler.removeCallbacks(ocrRetry); handler.postDelayed(ocrRetry, 500)
         }
     }
 

@@ -138,4 +138,25 @@ class OfferParserTest {
         val o = p("8 de olho | R$ 13,98 | Inclui incentivo | 8 km total | Coleta | Paráçaí - Açaiteria e lanchonete | [endereço], Vila Liviero, São Paulo | Pegar (44s) | Recusar", "Keeta")!!
         assertEquals(13.98, o.price, 0.001); assertEquals(8.0, o.totalKm, 0.001)
     }
+
+    // ---- 12/11: 99 com bônus incluído (o bônus era lido como preço) ----
+
+    @Test fun real99_bonusIncluidoNaoEPreco() {
+        val o = p("der | IPIRANGA | IPANARIO | São Caetano do | Sul | 050 | Entrega Food | R$14,43 | Inclui R$3,00 Bônus | ANCHIETA | cliente | S Distância total 9 km | Tempero de | Mãe | Pegar pedido", "99")!!
+        assertEquals(14.43, o.price, 0.001); assertEquals(9.0, o.totalKm, 0.001)
+    }
+
+    @Test fun real99_bonusComRSdigitadoErradoPeloOcr() {
+        val o = p("Entrega Food | R$14,77 | Inclui RS3,00 Bônus | S Distância total 9,4 km | S Pegar pedido", "99")!!
+        assertEquals(14.77, o.price, 0.001)
+    }
+
+    @Test fun real99_telaInicialComPromocoes_naoEOferta() {
+        assertNull(p("Painel | R$17,85 | Recompensas (5) | +R$3 por pedido | Entrega Food | Termina em 17 min | R$3,97 | Posto Fita Azul | Ganhe até R$84 > | Aceitar corridas", "99"))
+    }
+
+    @Test fun realKeeta_aceitarComContador() {
+        val o = p("R$ 7,50 | 3,3 km total | [endereço] | [endereço], São Caetano do Sul, SP | Aceitar(53s)", "Keeta")!!
+        assertEquals(7.5, o.price, 0.001); assertEquals(3.3, o.totalKm, 0.001)
+    }
 }

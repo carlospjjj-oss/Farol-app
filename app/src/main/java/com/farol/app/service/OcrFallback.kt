@@ -24,7 +24,7 @@ class OcrFallback(private val svc: AccessibilityService) {
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private var busy = false
     private var lastRun = 0L
-    private val minIntervalMs = 1500L // o Android limita prints a ~1 por segundo
+    private val minIntervalMs = 700L // o Android aceita ~3 prints por segundo; 0,7 s dá folga
 
     val supported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
 
@@ -36,13 +36,15 @@ class OcrFallback(private val svc: AccessibilityService) {
     private val NOISE = Regex("""km/h|toque para retornar|aplicativos ativos""", RegexOption.IGNORE_CASE)
 
     /** @param exclude área do nosso próprio cartão, para não lermos o que nós mesmos escrevemos. */
-    fun run(exclude: Rect?, onText: (String) -> Unit) {
-        if (!supported || busy) return
+    /** @return false se não rodou agora (ocupado ou cedo demais) — quem chamou pode tentar de novo. */
+    fun run(exclude: Rect?, onText: (String) -> Unit): Boolean {
+        if (!supported || busy) return false
         val now = SystemClock.elapsedRealtime()
-        if (now - lastRun < minIntervalMs) return
+        if (now - lastRun < minIntervalMs) return false
         lastRun = now
         busy = true
         capture(exclude, onText)
+        return true
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
@@ -53,10 +55,18 @@ class OcrFallback(private val svc: AccessibilityService) {
             object : AccessibilityService.TakeScreenshotCallback {
                 override fun onSuccess(result: AccessibilityService.ScreenshotResult) {
                     val hb = result.hardwareBuffer
-                    val bmp = Bitmap.wrapHardwareBuffer(hb, result.colorSpace)
+                    val full = Bitmap.wrapHardwareBuffer(hb, result.colorSpace)
                         ?.copy(Bitmap.Config.ARGB_8888, false)
                     hb.close()
-                    if (bmp == null) { busy = false; return }
+                    if (full == null) { busy = false; return }
+                    // Reduz para ~800 px de largura: o OCR fica 2–3x mais rápido e o texto das ofertas é grande.
+                    val scale = if (full.width > 800) 800f / full.width else 1f
+                    val bmp = if (scale < 1f) Bitmap.createScaledBitmap(full, 800, (full.height * scale).toInt(), true)
+                        .also { full.recycle() } else full
+                    val ex = exclude?.let {
+                        Rect((it.left * scale).toInt(), (it.top * scale).toInt(), (it.right * scale).toInt(), (it.bottom * scale).toInt())
+                    }
+                    val barPx = (statusBarPx * scale).toInt()
 
                     recognizer.process(InputImage.fromBitmap(bmp, 0))
                         .addOnSuccessListener { vt ->
@@ -64,8 +74,8 @@ class OcrFallback(private val svc: AccessibilityService) {
                                 .flatMap { it.lines }
                                 .filter { line ->
                                     val box = line.boundingBox
-                                    (exclude == null || box == null || !Rect.intersects(exclude, box)) &&
-                                        (box == null || box.top > statusBarPx) &&
+                                    (ex == null || box == null || !Rect.intersects(ex, box)) &&
+                                        (box == null || box.top > barPx) &&
                                         !NOISE.containsMatchIn(line.text)
                                 }
                                 .joinToString(" | ") { it.text }

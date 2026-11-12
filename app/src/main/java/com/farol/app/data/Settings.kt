@@ -16,7 +16,7 @@ class Settings(context: Context) {
 com.app99.driver=99
 sinet.startup.inDriver=inDrive
 br.com.ifood.driver.app=iFood
-*keeta*=Keeta"""
+com.sankuai.sailor.courier=Keeta"""
     }
 
     private fun d(key: String, def: Double) = prefs.getString(key, null)?.toDoubleOrNull() ?: def

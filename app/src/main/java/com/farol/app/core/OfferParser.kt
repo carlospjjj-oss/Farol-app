@@ -53,13 +53,19 @@ object OfferParser {
 
     /** Palavras que indicam que existe uma oferta aberta (botão de aceitar etc.). */
     val OFFER_HINTS = Regex(
-        """\baceitar\b|\baccept\b|\brecusar\b|\bpegar\b|oferecer|toque para|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
+        """\baceitar\b(?!\s+corridas)|\baccept\b|\brecusar\b|\bpegar\b|oferecer|toque para|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
         RegexOption.IGNORE_CASE
     )
 
     /** Valores em R$ precedidos por isto não são o preço da oferta (ganhos do dia, saldo...). */
     private val MONEY_EXCLUDE_CONTEXT = Regex(
-        """(hoje|ganhos?|ganhou|saldo|semana|carteira|meta|gorjeta|ped[aá]gio)\W{0,6}$""",
+        """(hoje|ganhos?|ganhou|ganhe|saldo|semana|carteira|meta|gorjeta|ped[aá]gio|inclui|incluso|at[eé]|economiz\w*)\W{0,6}$""",
+        RegexOption.IGNORE_CASE
+    )
+
+    /** Valores em R$ seguidos disto também não são o preço ("R$ 3,00 Bônus", "R$ 2 por pedido", "R$ 3,97/L"). */
+    private val MONEY_EXCLUDE_AFTER = Regex(
+        """^\s*(b[oô]nus|extra|por pedido|em recompensas?|de desconto|/\s*l\b|o litro)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -88,6 +94,8 @@ object OfferParser {
             if (m.groupValues[3].isNotEmpty()) continue           // "R$ 1,80/km"
             val before = text.substring(maxOf(0, m.range.first - 20), m.range.first)
             if (MONEY_EXCLUDE_CONTEXT.containsMatchIn(before)) continue
+            val after = text.substring(m.range.last + 1, minOf(text.length, m.range.last + 25))
+            if (MONEY_EXCLUDE_AFTER.containsMatchIn(after)) continue
             val v = parseMoney(m.groupValues[2]) ?: continue
             if (v in 2.0..3000.0) monies += Money(v, m.range.first)
         }
