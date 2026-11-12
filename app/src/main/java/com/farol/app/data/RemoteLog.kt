@@ -120,6 +120,14 @@ class RemoteLog private constructor(context: Context) {
         enqueue(base("tela", pkg, source, raw).put("min_desde_oferta", minutesSinceOffer))
     }
 
+    fun delivery(r: com.farol.app.core.DeliveryRecord) {
+        if (!enabled) return
+        enqueue(JSONObject().put("t", iso(Date())).put("tipo", "pedido").put("versao", appVersion).put("aparelho", deviceId)
+            .put("app", r.app).put("restaurante", r.restaurant ?: JSONObject.NULL)
+            .put("min_coleta", r.collectMin?.let { round(it) } ?: JSONObject.NULL)
+            .put("min_entrega", r.deliverMin?.let { round(it) } ?: JSONObject.NULL))
+    }
+
     /** Resumo do dia ao encerrar o turno (sem endereços). */
     fun day(summary: JSONObject) {
         if (!enabled) return

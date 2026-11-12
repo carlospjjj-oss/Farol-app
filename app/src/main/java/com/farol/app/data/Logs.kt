@@ -13,7 +13,7 @@ import java.util.Locale
 /** Histórico das ofertas vistas, uma por linha (JSON). Fica só no aparelho. */
 class History(context: Context) {
     private val file = File(context.filesDir, "history.jsonl")
-    private val maxLines = 1000
+    private val maxLines = 5000
 
     @Synchronized
     fun add(r: OfferResult) {

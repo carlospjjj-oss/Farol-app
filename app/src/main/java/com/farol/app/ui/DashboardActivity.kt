@@ -20,6 +20,7 @@ import com.farol.app.core.DaySummary
 import com.farol.app.core.Fmt
 import com.farol.app.core.FuelEntry
 import com.farol.app.core.JournalMath
+import com.farol.app.core.HourInsights
 import com.farol.app.data.History
 import com.farol.app.data.JournalStore
 import com.farol.app.data.RemoteLog
@@ -96,6 +97,8 @@ class DashboardActivity : Activity() {
         shiftCard(day, s)
         earningsCard(day)
         offersCard()
+        deliveriesCard()
+        hoursCard()
         fuelCard()
         periodCard()
         footer()
@@ -288,6 +291,105 @@ class DashboardActivity : Activity() {
                 }, k.lp(top = 10))
             }
         }
+        add(card)
+    }
+
+    // tempo por pedido
+    private fun deliveriesCard() {
+        val all = store.deliveries()
+        val todayKey = store.today()
+        val today = all.filter { store.dateOf(it.collectAt) == todayKey }
+        val last14 = store.lastDays(14)
+        val recent = all.filter { store.dateOf(it.collectAt) in last14 }
+
+        val card = k.card()
+        card.addView(k.hbox().apply {
+            val t = k.overline("Tempo por pedido")
+            addView(t, weighted(t))
+            addView(k.text("${today.size} hoje", 15, Palette.TEXT, k.bold))
+        })
+        if (recent.isEmpty()) {
+            card.addView(k.text("Ainda sem pedidos medidos. O Farol acompanha as telas de coleta e entrega do Keeta (iFood e 99 em breve).",
+                13, Palette.MUTED), k.lp(top = 10))
+            add(card); return
+        }
+        val base = if (today.isNotEmpty()) today else recent
+        val col = base.mapNotNull { it.collectMin }
+        val del = base.mapNotNull { it.deliverMin }
+        fun stat(label: String, value: String) = k.vbox().apply {
+            addView(k.text(value, 18, Palette.TEXT, k.bold))
+            addView(k.text(label, 12, Palette.MUTED), k.lp(top = 3))
+        }
+        val a = stat("até coletar (média)", if (col.isEmpty()) "—" else Fmt.min(col.average()))
+        val b = stat("para entregar (média)", if (del.isEmpty()) "—" else Fmt.min(del.average()))
+        card.addView(k.hbox().apply { addView(a, weighted(a)); addView(b, weighted(b)) }, k.lp(top = 14))
+        card.addView(k.text(if (today.isNotEmpty()) "Pedidos de hoje" else "Últimos 14 dias (nenhum hoje ainda)", 12, Palette.MUTED), k.lp(top = 8))
+
+        // Restaurantes mais demorados (14 dias, pelo menos 1 pedido)
+        val slow = recent.filter { it.restaurant != null && it.collectMin != null }
+            .groupBy { it.restaurant!! }
+            .map { (r, l) -> Triple(r, l.mapNotNull { it.collectMin }.average(), l.size) }
+            .sortedByDescending { it.second }.take(3)
+        if (slow.isNotEmpty()) {
+            card.addView(k.overline("Restaurantes mais demorados"), k.lp(top = 16))
+            slow.forEach { (r, m, n) ->
+                val c = when { m >= 15 -> Palette.RED; m >= 10 -> Palette.YELLOW; else -> Palette.GREEN }
+                card.addView(k.hbox().apply {
+                    addView(k.dot(c, 8))
+                    val name = k.text(r, 13, Palette.TEXT)
+                    addView(name, weighted(name, 10))
+                    addView(k.text("${Fmt.min(m)} · ${n}x", 12, Palette.MUTED))
+                }, k.lp(top = 10))
+            }
+        }
+        add(card)
+    }
+
+    // melhores horários
+    private fun hoursCard() {
+        val since = System.currentTimeMillis() - 14L * 24 * 3_600_000
+        val cal = Calendar.getInstance()
+        val offers = history.recent(5000).filter { it.optLong("t") >= since }.map {
+            cal.timeInMillis = it.optLong("t")
+            Triple(cal.get(Calendar.HOUR_OF_DAY), it.optDouble("perKm"), it.optString("rating") == "GREEN")
+        }.filter { !it.second.isNaN() }
+
+        val card = k.card()
+        card.addView(k.hbox().apply {
+            val t = k.overline("Melhores horários")
+            addView(t, weighted(t))
+            addView(k.text("14 dias", 13, Palette.MUTED, k.medium))
+        })
+        if (offers.size < 10) {
+            card.addView(k.text("Preciso de mais ofertas lidas para mostrar os horários (${offers.size} até agora).", 13, Palette.MUTED), k.lp(top = 10))
+            add(card); return
+        }
+        val stats = HourInsights.byHour(offers)
+        val best = HourInsights.best(stats)
+        val first = maxOf(6, stats.minOf { it.hour }); val last = minOf(23, stats.maxOf { it.hour })
+        val hours = (first..last).toList()
+        val byH = stats.associateBy { it.hour }
+        val chart = BarChartView(this).apply {
+            values = hours.map { (byH[it]?.avgPerKm ?: 0.0).toFloat() }
+            labels = hours.map { "$it" }
+            highlight = best.map { hours.indexOf(it.hour) }.filter { it >= 0 }.toSet()
+            valueFormatter = { String.format(ptBR, "%.2f", it) }
+        }
+        card.addView(k.text("R$/km médio ofertado por hora do dia", 12, Palette.MUTED), k.lp(top = 10))
+        card.addView(chart, k.lp(top = 6))
+        if (best.isNotEmpty()) {
+            card.addView(k.overline("Onde vale mais"), k.lp(top = 14))
+            best.forEach { h ->
+                card.addView(k.hbox().apply {
+                    addView(k.dot(Palette.ACCENT, 8))
+                    val l = k.text("${h.hour}h – ${h.hour + 1}h", 14, Palette.TEXT, k.medium)
+                    addView(l, weighted(l, 10))
+                    addView(k.text("${Fmt.money(h.avgPerKm)}/km · ${h.offers} ofertas · ${h.greens} 🟢", 12, Palette.MUTED))
+                }, k.lp(top = 10))
+            }
+        }
+        val busiest = stats.maxByOrNull { it.offers }
+        busiest?.let { card.addView(k.text("Mais ofertas: ${it.hour}h – ${it.hour + 1}h (${it.offers})", 12, Palette.MUTED), k.lp(top = 12)) }
         add(card)
     }
 

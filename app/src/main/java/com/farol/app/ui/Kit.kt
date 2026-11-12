@@ -175,6 +175,8 @@ class BarChartView(ctx: Context) : View(ctx) {
     var values: List<Float> = emptyList()
     var labels: List<String> = emptyList()
     var highlightLast = true
+    /** Índices destacados (se vazio, destaca o último quando highlightLast). */
+    var highlight: Set<Int> = emptySet()
     var valueFormatter: (Float) -> String = { it.toInt().toString() }
 
     private val density = ctx.resources.displayMetrics.density
@@ -205,7 +207,7 @@ class BarChartView(ctx: Context) : View(ctx) {
         values.forEachIndexed { i, v ->
             val cx = slot * i + slot / 2
             val h = (v / max * chartH).coerceAtLeast(4 * density)
-            val isLast = highlightLast && i == n - 1
+            val isLast = if (highlight.isNotEmpty()) i in highlight else highlightLast && i == n - 1
             barPaint.color = when {
                 v <= 0f -> Palette.SURFACE2
                 isLast -> Palette.ACCENT

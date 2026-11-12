@@ -2,6 +2,7 @@ package com.farol.app.data
 
 import android.content.Context
 import com.farol.app.core.DayRecord
+import com.farol.app.core.DeliveryRecord
 import com.farol.app.core.FuelEntry
 import org.json.JSONArray
 import org.json.JSONObject
@@ -86,6 +87,25 @@ class JournalStore(context: Context) {
         val root = load()
         val a = root.optJSONArray("fuel") ?: return
         if (a.length() > 0) a.remove(a.length() - 1)
+        save(root)
+    }
+
+    fun deliveries(): List<DeliveryRecord> {
+        val a = load().optJSONArray("deliveries") ?: return emptyList()
+        return (0 until a.length()).map { a.getJSONObject(it) }.map {
+            DeliveryRecord(it.getString("app"), it.optString("rest").ifEmpty { null }, it.getLong("c"),
+                it.optLong("d").takeIf { v -> v > 0 }, it.optLong("e").takeIf { v -> v > 0 })
+        }
+    }
+
+    @Synchronized
+    fun addDelivery(r: DeliveryRecord) {
+        val root = load()
+        val a = root.optJSONArray("deliveries") ?: JSONArray().also { root.put("deliveries", it) }
+        a.put(JSONObject().put("app", r.app).put("rest", r.restaurant ?: "").put("c", r.collectAt)
+            .put("d", r.deliverAt ?: 0L).put("e", r.endAt ?: 0L))
+        // guarda só os últimos 600 pedidos
+        if (a.length() > 600) { val keep = JSONArray(); for (i in a.length() - 600 until a.length()) keep.put(a.get(i)); root.put("deliveries", keep) }
         save(root)
     }
 

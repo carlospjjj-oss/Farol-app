@@ -15,6 +15,8 @@ import com.farol.app.core.OfferResult
 import java.util.Locale
 import com.farol.app.core.CostProfile
 import com.farol.app.core.EarningsReader
+import com.farol.app.core.DeliveryTracker
+import com.farol.app.core.PhaseDetector
 import com.farol.app.data.JournalStore
 import com.farol.app.core.OfferParser
 import com.farol.app.core.ParsedOffer
@@ -53,6 +55,10 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     private lateinit var ocr: OcrFallback
     private lateinit var remote: RemoteLog
     private lateinit var journal: JournalStore
+    private val tracker = DeliveryTracker { r ->
+        runCatching { journal.addDelivery(r) }
+        runCatching { remote.delivery(r) }
+    }
 
     private val handler = Handler(Looper.getMainLooper())
     private var scanScheduled = false
@@ -131,7 +137,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         if (settings.captureMode) capture.append(snap.pkg, "acessibilidade", snap.text)
 
         val offer = OfferParser.parse(snap.text, label, settings.requireHint)
-        if (offer == null) { logScreen(snap); autoEarnings(label, snap.text) }
+        if (offer == null) { logScreen(snap); autoEarnings(label, snap.text); trackPhase(label, snap.text) }
         if (offer != null) {
             accessibleApps += snap.pkg
             handleOffer(offer, snap.pkg, "acessibilidade", snap.text); return
@@ -170,6 +176,12 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         if (v <= 0.0 && cur == null) return
         journal.putDay(day.copy(earnings = day.earnings + (label to v)))
         settings.markAuto(day.date, label)
+    }
+
+    /** Acompanha as etapas do pedido (coleta → entrega → livre) para medir o tempo de cada um. */
+    private fun trackPhase(label: String, text: String) {
+        val phase = PhaseDetector.detect(label, text) ?: return
+        tracker.feed(label, phase, PhaseDetector.restaurant(label, text), System.currentTimeMillis())
     }
 
     private fun minutesSinceOffer(): Int? {
