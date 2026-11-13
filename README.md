@@ -1,11 +1,56 @@
-# 🚦 Farol — calculadora de ofertas para entregador e motorista (uso pessoal)
+<div align="center">
 
-Lê a oferta que aparece na tela do **iFood, 99, Keeta, Uber ou inDrive** e mostra por cima um cartão
-verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **seus** custos.
-Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
-Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
+# 🚦 Farol
 
-**Versão atual: 6.3**
+### O copiloto do entregador e do motorista de app
+
+Lê a oferta do **iFood, 99, Keeta, Uber e inDrive** e mostra na hora se a corrida compensa,<br>
+com **R$/km, R$/h e lucro líquido** calculados com os **seus** custos.
+
+![versão](https://img.shields.io/badge/vers%C3%A3o-6.3-C8F23C?style=for-the-badge&labelColor=17191C)
+![android](https://img.shields.io/badge/Android-8%2B-C8F23C?style=for-the-badge&logo=android&logoColor=white&labelColor=17191C)
+![kotlin](https://img.shields.io/badge/Kotlin-100%25-C8F23C?style=for-the-badge&logo=kotlin&logoColor=white&labelColor=17191C)
+![testes](https://img.shields.io/badge/testes-104%20%2B%20102%20reais%20%2B%2012%20emulador-C8F23C?style=for-the-badge&labelColor=17191C)
+![lgpd](https://img.shields.io/badge/LGPD-em%20conformidade-C8F23C?style=for-the-badge&labelColor=17191C)
+
+<img src="docs/img/telas-escuro.png" alt="Farol no tema escuro" width="100%">
+
+**[⬇️ Baixar o app](https://github.com/carlospjjj-oss/farol-app/releases/latest)** · [Como instalar](#-instalar) · [Painel web](#-painel-web) · [Privacidade](#-privacidade-e-lgpd) · [Histórico](#-histórico)
+
+</div>
+
+---
+
+## ✨ O que o Farol faz
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### 🟢 Avalia a oferta
+Quando a oferta aparece, um **card flutuante** mostra se ela é **boa, média ou ruim** (verde, amarelo ou vermelho), com R$/km, R$/h, km, tempo, busca, nota do passageiro e o **lucro depois do custo** do seu veículo.
+
+</td>
+<td width="33%" valign="top">
+
+### 📒 Organiza seu dia
+**Turno** com km do painel, pausas e GPS; **ganhos por app** lidos sozinhos; **abastecimentos** com gasolina ou etanol; **meta do dia**; tempo por pedido e **melhores horários**.
+
+</td>
+<td width="33%" valign="top">
+
+### 📊 Mostra o que rende
+**Painel web** com ganhos ao vivo, resumo da semana, melhores horários, R$/km por app e um **alerta quando um app muda a tela** e o leitor perde leituras.
+
+</td>
+</tr>
+</table>
+
+> O Farol **só lê** a tela. Ele **nunca** toca em aceitar ou recusar e não interfere nos apps. A decisão é sempre sua.
+
+---
+
+## 🎯 O card das ofertas
 
 ```
 ┌──┬────────────────────────────────┐
@@ -17,190 +62,176 @@ Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** 
 └──┴────────────────────────────────┘   toque = fecha · arraste = move
 ```
 
-## ✨ Novidades da 4.0
-
-- **🛵 Moto ou 🚗 Carro** na abertura. Cada modo tem **tudo separado**: custos, faixas, meta, bairros, apps monitorados,
-  velocidade aprendida, calculadora de custos, turnos, ganhos, abastecimentos, histórico e GPS.
-  - **Moto** = entregas (iFood, 99 Entrega, Keeta). Continua exatamente como antes (mesmos dados).
-  - **Carro** = corridas (Uber, 99, inDrive), com valores típicos de carro para começar.
-  - Para trocar: selo **"🛵 Moto ⇄"** no topo do dashboard.
-- **Ajustes nos logs sem precisar tocar em nada:** enviados sozinhos ao salvar, ao trocar de modo e uma vez por dia.
-  Todo evento leva o modo (`moto`/`carro`).
-
-## ✨ Novidades da 3.0
-
-- **⚠ Aviso de recusas:** o Farol lê os avisos da 99 ("rejeitou 7 vezes") e do iFood ("parada técnica") e mostra
-  no cartão "⚠ 7 recusas seguidas: risco de pausa" ou "⛔ conta pausada".
-- **🎯 Meta do dia:** barra de progresso no dashboard e "faltam R$ X" no cartão, na notificação e no widget.
-- **💾 Backup:** exportar e restaurar tudo (turnos, ganhos, abastecimentos, histórico e ajustes) num arquivo.
-- **🔔 Notificação do turno:** "⏱ 3h12 · 💰 R$ 86,40 · 🎯 48%" com botão para pausar o Farol.
-- **⭐ Bairros favoritos:** destacam a oferta quando o destino é perto de casa ou de uma região boa.
-- **📅 Resumo da semana:** domingo à noite, com ganhos, km, melhor dia e melhor horário.
-- **🔠 Cartão P / M / G** e **modo compacto** (só a cor, o R$/km grande e o preço).
-- **🏠 Widget** na tela inicial com ganhos do dia, meta e turno.
-- **📖 Guia de instalação** na primeira abertura (e em Ajustes → Permissões).
-- **🚦 Ícone novo** no padrão do Android.
+- **Suas faixas:** você define o que é verde e amarelo em R$/km, R$/h e nota do passageiro. Também dá para definir condições mínimas (preço, lucro, % de lucro) e limites de tempo, distância e busca.
+- **Avisos que forçam o vermelho:** busca longa, nota baixa, área de risco, palavras de alerta e bairros a evitar. **Bairros favoritos** ficam destacados.
+- **Tamanho:** P, M ou G, além de um modo compacto. Pode **falar** o valor e **vibrar** no verde.
+- **Velocidade aprendida por app:** quando a tela não mostra o tempo, o Farol estima o R$/h pela sua velocidade real naquele app.
 
 ---
 
-## ⬇️ Baixar
+## 📱 Apps suportados
 
-**[github.com/carlospjjj-oss/farol-app/releases/latest](https://github.com/carlospjjj-oss/farol-app/releases/latest)** → *Assets* → `Farol.apk`
+| App | Modo | Lê a oferta | Ganhos automáticos | Tempo por pedido |
+|---|---|:---:|:---:|:---:|
+| **Keeta** | 🛵 Moto | ✅ texto direto | ✅ | ✅ |
+| **iFood** | 🛵 Moto | ✅ texto direto | ✅ | ⏳ |
+| **99 / 99 Entrega** | 🛵 🚗 | ✅ por OCR (~1 s) | ✅ moto · ⏳ carro | ⏳ |
+| **Uber** | 🚗 Carro | ✅ | — | — |
+| **inDrive** | 🚗 Carro | ✅ (tela do motorista) | — | — |
 
-Cada alteração no código gera um APK novo ali (o GitHub Actions roda os testes antes).
-Todas as versões são assinadas com a **mesma chave**, então atualizam por cima sem perder nada.
+**🛵 Moto e 🚗 Carro são dois modos separados**, cada um com os seus custos, faixas, apps, turnos e histórico. Você escolhe na abertura.
 
----
-
-## 📲 Instalar (primeira vez)
-
-1. **Play Protect:** no Brasil, o Google bloqueia a instalação de apps baixados que usam acessibilidade.
-   Abra a **Play Store → foto do perfil → Play Protect → ⚙️** e desligue *"Verificar apps com o Play Protect"*,
-   instale o `Farol.apk` e **ligue de novo**. (Pelo computador também dá: `adb install -r Farol.apk`.)
-2. **Configurações restritas (Android 13+):** tente ligar o Farol em Acessibilidade uma vez (vai ser bloqueado),
-   depois vá em *Configurações → Apps → Farol → ⋮ → Permitir configurações restritas*.
-3. **Acessibilidade:** *Acessibilidade → Apps instalados → Farol – leitor de ofertas →* ligar.
-4. **Bateria:** *Apps → Farol → Bateria → Sem restrições*. Na Samsung, confira também que o Farol **não** está em
-   *Bateria → Limites de uso em segundo plano → Apps em suspensão*. Sem isso o Android desliga o leitor.
-
-O selo no topo do dashboard mostra **🟢 Lendo ofertas** quando está tudo certo.
+O leitor ignora os valores que não são o preço da corrida: dinâmica `+R$ 3`, "inclui R$ 3 de bônus", "Promo R$ 5", "R$ 1,80/km", "R$ 1,02 tarifa base incluída", ganhos do dia e a seta de navegação do mapa.
 
 ---
 
-## ⚙️ Primeiro ajuste (⚙️ no canto superior direito)
+## 💰 Financeiro e diário
 
-Toque no atalho **🛵 Moto** e ajuste:
-
-| Campo | Lead 110 (exemplo) | Observação |
-|---|---|---|
-| Combustível | **5,79** R$/L | o preço que você paga |
-| Consumo | **30** km/L | depois o Farol mede o real |
-| Outros custos | **0,15** R$/km | óleo, pneu, correia, IPVA, desgaste |
-| 🟢 Verde a partir de | **2,00** R$/km e **30** R$/h | |
-| 🟡 Amarelo a partir de | **1,40** R$/km e **20** R$/h | abaixo disso é vermelho |
-| Velocidade média | **25** km/h | só até o Farol aprender a sua (ligue "Aprender com meus pedidos") |
-| Busca máxima | **3** km | opcional |
-
-- **Use vírgula** nos decimais (`1,80`). O Farol avisa se aparecer algo como `180`.
-- **Suas faixas:** uma tabela mostra de uma vez onde começa o Ruim, a Atenção e o Aceitar para R$/km, R$/hora
-  e nota do passageiro, e se atualiza enquanto você digita.
-- **Condições mínimas:** valor da corrida, lucro líquido mínimo (R$) e lucro mínimo (%).
-  **Tempo e distância:** busca máxima, distância total máxima e tempo máximo. Tudo com 0 = não usa.
-- **🧮 Calcular custos do mês:** financiamento/aluguel, depreciação, manutenção, IPVA, seguro e outros, mais os km
-  do mês → custo por km e % de cada item. **Aplicar ao semáforo** grava o "outros custos".
-- **📍 GPS (opcional):** em Suas faixas → "Medir pelo GPS". Mede só durante o turno (permissão "durante o uso"),
-  mostra os km do dia e a velocidade real de cada pedido no dashboard, e sugere o km final ao encerrar.
-  **Nada muda sem você tocar em "Usar".**
-- **Hodômetro com décimo:** se o último número do painel for décimo de km, digite com vírgula: `58081,7`.
-  Se esquecer, o Farol percebe (ex.: "947 km" em um dia) e oferece corrigir para 94,7 km com um toque.
-
----
-
-## 🗓️ No dia a dia
-
-| Quando | O que fazer |
+| | |
 |---|---|
-| Ao sair | **▶ Iniciar turno** e digite o km do painel |
-| Oferta chegou | O cartão aparece sozinho. Só olhar |
-| Abasteceu | **⛽ Abastecer**: km do painel, litros, valor. Complete o tanque para medir o consumo real |
-| Durante o dia | Abra a tela inicial de cada app de vez em quando: o Farol lê o "ganhos de hoje" sozinho |
-| No fim | **⏹ Encerrar turno**. O Farol mostra "Rodou hoje: X km" antes de confirmar |
-
-> ⚠️ **Vermelho quer dizer "paga pouco", não "recuse sempre".** 99 e iFood pausam a conta por excesso de
-> recusas (aconteceu em 12/11). Aceite algumas amarelas para manter a taxa de aceitação.
-
----
-
-## 📊 Dashboard (tela inicial)
-
-- **Ganhos de hoje** em destaque, com o líquido. Toque para lançar ou corrigir à mão.
-- **Km rodados, R$/km real, R$/hora e custo** do dia.
-- **Turno** com um botão só (iniciar → encerrar), com checagem de km suspeito.
-- **Ganhos por app** com barras. O selo verde **"auto 14:32"** indica que o valor veio do painel do próprio app.
-- **Ofertas lidas hoje:** quantas verdes, amarelas e vermelhas, a média ofertada e as 3 últimas.
-- **📋 Histórico de ofertas** (botão no cartão de ofertas): todas as ofertas lidas, agrupadas por dia,
-  com filtros **Hoje / 7 dias / 30 dias**, por **app** e por **cor**, resumo (R$/km e preço médios, cores, por app)
-  e os detalhes de cada oferta ao tocar (busca, nota, custo, líquido, avisos).
-- **⏱️ Tempo por pedido** *(Keeta)*: média até coletar e para entregar, e os **restaurantes mais demorados**.
-- **🕐 Melhores horários:** R$/km médio ofertado por hora do dia (14 dias) e as 3 melhores faixas.
-- **Combustível:** consumo real (tanque cheio → tanque cheio), preço do litro e gasto no mês;
-  "Usar no Farol" aplica o consumo e o preço nos custos.
-- **7 dias / Este mês** com gráfico dos ganhos por dia e **Copiar dias (CSV)** para planilha.
+| ⏱️ **Turno** | Início e fim com km do painel, **pausar e retomar** (a pausa não conta nas horas), editar e excluir |
+| 📍 **GPS (opcional)** | Sugere os km rodados e mede a velocidade real; nada muda sem você tocar em "Usar" |
+| 💵 **Ganhos por app** | Lidos sozinhos do painel dos apps ou digitados; por dia, semana e mês |
+| ⛽ **Combustível** | **Gasolina e etanol** com preço e consumo de cada um, comparação de qual compensa e consumo real medido de tanque cheio a tanque cheio |
+| 🧮 **Custos do mês** | Calculadora com manutenção, depreciação, IPVA, licenciamento e seguro, que vira o seu custo por km |
+| 🎯 **Meta do dia** | Barra de progresso no painel, no card, na notificação e no widget |
+| 📈 **Resultados** | Lucro líquido, R$/hora, R$/km, melhores horários e restaurantes mais demorados |
+| 🗂️ **Histórico** | Todas as ofertas, com filtros e exportação em CSV |
 
 ---
 
-## 📱 Situação por app
+## 🌐 Painel web
 
-| App | Leitura da oferta | Ganhos automáticos | Tempo por pedido |
-|---|---|---|---|
-| **Keeta** (`com.sankuai.sailor.courier`) | ✅ texto direto (instantâneo) | ✅ painel "R$ X · Pedidos hoje" | ✅ |
-| **iFood** (`br.com.ifood.driver.app`) | ✅ texto direto | ✅ tela inicial | ⏳ aguardando logs |
-| **99** (`com.app99.driver`) | ✅ por OCR (~1 s, a 99 esconde o texto) | ⏳ aguardando confirmação do painel | ⏳ aguardando logs |
-| Uber / inDrive | ⚪ previsto, ainda sem ofertas reais nos logs | — | — |
+<div align="center"><img src="docs/img/painel-web.png" alt="Painel web" width="85%"><br><sub>Prévia com dados de exemplo</sub></div>
 
-Valores que o Farol **ignora** ao procurar o preço: `+R$ 3` de dinâmica, "Inclui R$ 3,00 Bônus/extra",
-"Promo R$ 5,00", "R$ 1,80/km", "Ganhe até R$ 84", ganhos do dia e preço de combustível do 99 Abastece.
+- **Ganhos ao vivo:** aparecem durante o turno, sincronizados com a conta.
+- **📅 Sua semana:** os últimos 7 dias comparados com os 7 anteriores, mais melhor dia, melhor horário, app que mais rendeu e **dicas**.
+- **🩺 Saúde do leitor:** a % de ofertas lidas por app. Se um app muda a tela e a leitura cai, aparece um **alerta**.
+- **Gráficos:** ofertas por cor, horários, R$/km e R$/h por app e últimas ofertas.
+- **Filtros:** Hoje, 7 ou 30 dias, e Moto ou Carro.
+- **Contas:** cada pessoa vê só os próprios dados. O administrador vê todas, redefine senhas e acompanha os **erros do app**.
 
 ---
 
-## 📤 Envio de logs (para análise e calibração)
+## 🎨 Temas
 
-Os logs vão para o repositório **privado** `carlospjjj-oss/Farol` (este repositório público tem **só o código**).
+<img src="docs/img/telas-claro.png" alt="Farol no tema claro" width="100%">
 
-1. Crie um token em *github.com → Settings → Developer settings → Fine-grained tokens*:
-   **Only select repositories → Farol** e **Contents: Read and write**.
-2. No Farol: *⚙️ → Envio de logs → GitHub*, cole o token e toque em **Enviar teste** (deve aparecer ✅).
+**🌙 Escuro** (grafite + verde-limão), **☀️ Claro** (branco + verde-oliva) ou **📱 Automático**, que segue o celular. Para trocar: *Ajustes → Aparência*.
+O card das ofertas fica **sempre escuro**, para aparecer bem sobre qualquer app.
 
-O que é enviado (em lotes de ~1 minuto; sem sinal, fica na fila):
+---
 
-| Evento | Conteúdo |
+## 🔐 Segurança
+
+- **Conta com e-mail e senha.** A senha fica no servidor só como código irreversível (PBKDF2), e a conta é bloqueada por 15 min depois de 8 erros.
+- **Sessão no cofre do Android** (Keystore), fora do backup.
+- **App assinado com chave protegida**, guardada só nos Secrets do GitHub. A chave foi trocada por rotação (APK Signature Scheme v3): a chave antiga não consegue mais substituir o app.
+- **O atualizador confere** o SHA-256 do arquivo, o pacote, a versão e o **certificado** antes de instalar.
+- **Acessibilidade limitada** aos apps de corrida e entrega. WhatsApp, bancos e outros apps **não chegam** ao Farol.
+- **APK de produção**, sem modo de depuração.
+
+---
+
+## 🛡️ Privacidade e LGPD
+
+<img src="docs/img/aviso-privacidade.png" alt="Aviso de Privacidade" width="320" align="right">
+
+- **[Aviso de Privacidade](https://farol-logs.carlos-pjjj.workers.dev/privacidade)** completo, com base legal por finalidade, operadores, retenção e direitos.
+- **Aceite** no cadastro e sempre que o aviso mudar.
+- **Textos das telas são opcionais** e vêm desligados. Sem esse consentimento, o texto **nem sai do celular**: vão só números.
+- **Localização (GPS) e imagens do OCR** ficam **só no celular**.
+- **Retenção automática:** o texto é apagado após 90 dias, os relatórios de erro após 180 dias e as tentativas de login após 24 h.
+- **No app:** *Ajustes → Privacidade* para **baixar meus dados** e **excluir minha conta** (apaga tudo do servidor na hora).
+- **Documentos internos em [`docs/lgpd/`](docs/lgpd):** registro das operações (art. 37), relatório de impacto (RIPD), plano de resposta a incidentes e atendimento aos titulares.
+
+<br clear="right">
+
+---
+
+## 📲 Instalar
+
+1. **Baixe** o `Farol.apk` em **[Releases](https://github.com/carlospjjj-oss/farol-app/releases/latest)**.
+2. **Play Protect:** no Brasil, o Google bloqueia apps baixados que usam acessibilidade.
+   - Abra *Play Store → foto do perfil → Play Protect → ⚙️* e desligue *"Verificar apps"*.
+   - Instale o app e **ligue de novo**.
+3. **Configurações restritas (Android 13+):**
+   - Tente ligar o Farol em Acessibilidade uma vez.
+   - Depois vá em *Configurações → Apps → Farol → ⋮ → Permitir configurações restritas*.
+4. **Acessibilidade:** *Acessibilidade → Apps instalados → Farol* → ligar.
+5. **Bateria:** *Apps → Farol → Bateria → Sem restrições*. Nos Samsung, tire o Farol também de *Apps em suspensão*.
+6. **Abra o Farol**, crie sua conta, aceite o aviso de privacidade e escolha 🛵 ou 🚗.
+
+> **Depois disso, as atualizações chegam sozinhas.** O Farol procura versão nova a cada 6 horas, confere a assinatura e instala. Para buscar na hora: *Ajustes → Atualizações*.
+
+**Primeiro ajuste**, em *Ajustes ⚙️*:
+- **Combustível:** preço e consumo da gasolina e do etanol, e qual está no tanque.
+- **Outros custos por km:** pela 🧮 calculadora do mês.
+- **Suas faixas:** o que é verde e amarelo em R$/km e R$/h.
+- **Meta do dia.**
+
+---
+
+## 🏗️ Como funciona por dentro
+
+```mermaid
+flowchart LR
+  A[📱 App de entrega<br/>iFood · 99 · Keeta · Uber · inDrive] -->|acessibilidade / OCR no aparelho| B[🔎 Leitor<br/>OfferParser]
+  B --> C[🧮 Cálculo<br/>seus custos e faixas]
+  C --> D[🟢 Card flutuante]
+  C --> E[(💾 Banco no celular<br/>SQLite)]
+  E -->|sincroniza a cada 15 min<br/>só números| F[☁️ Servidor Farol<br/>Cloudflare Workers + D1]
+  F --> G[🌐 Painel web]
+  F -.->|com consentimento| H[🔬 Cópia técnica<br/>repositório privado]
+```
+
+| Camada | O que usa |
 |---|---|
-| `offer` | oferta reconhecida: texto lido e números calculados |
-| `miss` | tela com botão de aceitar que o leitor **não** entendeu |
-| `tela` | telas por até 90 min depois de uma oferta (aceite, coleta, entrega) |
-| `pedido` | pedido medido: app, restaurante, minutos até coletar e para entregar |
-| `dia` | resumo ao encerrar o turno: km inicial/final, ganhos por app, custo, líquido |
+| **App** | Kotlin puro, sem bibliotecas pesadas. Android 8+, telas montadas em código, ML Kit (OCR no aparelho), SQLite, JobScheduler |
+| **Servidor** | Cloudflare Workers + banco D1, publicados **automaticamente** pelo GitHub Actions ([`server/`](server)) |
+| **Entrega** | GitHub Actions: testes → APK de produção → assinatura com rotação → Release com SHA-256 → atualização automática |
+| **Qualidade** | 104 testes unitários, **102 ofertas reais anonimizadas** como teste de regressão e 12 testes no **emulador Android** com prints das telas |
 
-Endereços, telefones e CEP saem como `[endereço]`, `[num]`, `[cep]`. **Nomes de clientes podem aparecer**:
-mantenha o repositório `Farol` privado. Para analisar: peça *"analisa os logs do Farol"* numa conversa,
-ou rode `python3 tools/analisar_logs.py --dias 7` dentro do repositório de logs.
-
----
-
-## 🔧 Como funciona
-
-| Etapa | Técnica | Arquivo |
-|---|---|---|
-| Perceber a oferta | `AccessibilityService` recebe as mudanças de tela dos apps monitorados | `service/OfferReaderService.kt` |
-| Ler o texto | Árvore de acessibilidade só do app que está **na frente** (sem misturar dois apps) | `service/ScreenTextCollector.kt` |
-| Plano B | Print pela própria acessibilidade + OCR on-device (ML Kit), imagem reduzida, novas tentativas | `service/OcrFallback.kt` |
-| Entender a oferta | Regex tolerante a layout: preço, "km total", "min (km)", busca, nota; ignora bônus/promo | `core/OfferParser.kt` |
-| Calcular | custo/km = combustível ÷ consumo + outros; cor = a pior entre R$/km e R$/h; filtros | `core/ProfitCalculator.kt` |
-| Ganhos automáticos | Lê o "ganhos de hoje" do painel de cada app (guarda o maior valor do dia) | `core/EarningsReader.kt` |
-| Tempo por pedido | Etapas coleta → entrega → livre pelo texto das telas | `core/Insights.kt` |
-| Diário | Turno, ganhos, abastecimentos, pedidos em `journal.json` | `data/JournalStore.kt`, `core/Journal.kt` |
-| Cartão | `TYPE_ACCESSIBILITY_OVERLAY` (dispensa "sobrepor a outros apps") | `ui/OverlayCard.kt` |
-| Telas | Dashboard e Ajustes desenhados em código, tema escuro | `ui/DashboardActivity.kt`, `ui/SettingsActivity.kt`, `ui/Kit.kt` |
-
----
-
-## 🛠️ Desenvolvimento
+<details>
+<summary><b>📁 Estrutura do código</b></summary>
 
 ```
 app/src/main/java/com/farol/app/
-  core/      OfferParser, ProfitCalculator, EarningsReader, Insights, Journal, CostBreakdown, Rejections, LogSanitizer  ← Kotlin puro
-  data/      Settings, JournalStore, GpsStore, History, CaptureLog, RemoteLog, Backup
-  service/   OfferReaderService, ScreenTextCollector, OcrFallback, GpsService, ShiftNotifier, FarolTileService
-  ui/        ModeActivity, DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OnboardingActivity, OverlayCard, FarolWidget, Kit
-app/src/test/  104 testes + 7 no emulador, quase todos com textos REAIS de ofertas e telas dos logs
+  core/      Leitor (OfferParser), cálculo (ProfitCalculator), catálogo de apps, saúde do leitor,
+             ganhos, diário, insights, custos, recusas, mascaramento — Kotlin puro e testável
+  data/      Banco (FarolDb), diário (JournalStore), histórico, conta e cofre (Account),
+             sincronização (SyncClient), logs, saúde, ajustes, backup, GPS
+  service/   Leitor de acessibilidade, OCR, GPS, notificação, tarefas de fundo (FarolJobs), atualizador
+  ui/        Login, privacidade, modo, painel (cartões, turno, diálogos), ajustes (por seção),
+             histórico, custos, guia, card flutuante, widget, kit visual e temas
+app/src/test/         104 testes + ofertas reais em resources/golden/
+app/src/androidTest/  testes no emulador (banco, migração, sync, cofre, telas e prints)
+server/               worker.js (API, contas, sync, LGPD, painel e aviso) + README
+docs/lgpd/            registro das operações, RIPD, incidentes, atendimento
 ```
 
-- Build local: abra no Android Studio, ou `gradle testDebugUnitTest assembleDebug`.
-- Toda leitura errada encontrada nos logs vira um teste em `OfferParserTest` antes de ser corrigida.
-- A chave de assinatura fixa (`app/farol.jks`) fica no repositório por ser um app de uso pessoal.
-  Quem tiver a chave poderia assinar um APK "do Farol"; instale apenas os APKs desta página.
+</details>
+
+---
+
+## 🗺️ Próximos passos
+
+- [x] Fase 0: segurança (chave nova, atualizador verificado, acessibilidade limitada)
+- [x] Fase 1: estrutura (banco, contas, sincronização, tarefas de fundo, testes reais)
+- [x] LGPD completa
+- [x] Fase 2, parte 1: saúde do leitor e resumo da semana
+- [ ] **Explicação no card:** por que a corrida é boa ou ruim, em uma frase
+- [ ] Gastos do dia (alimentação, manutenção) e metas da semana e do mês
+- [ ] Região de destino e chance de volta, calculadas no próprio celular
+- [ ] Faixas calibradas sozinhas e previsão de ganhos por horário
+- [ ] Viagens da 99 do carro e ganhos automáticos da 99 do carro
+
+---
 
 ## 📝 Histórico
+
+<details>
+<summary><b>Ver todas as versões</b></summary>
 
 | Versão | Principais mudanças |
 |---|---|
@@ -236,9 +267,16 @@ app/src/test/  104 testes + 7 no emulador, quase todos com textos REAIS de ofert
 | 1.3 | Chave de assinatura fixa (atualiza por cima) |
 | 1.0 – 1.2 | Leitor, cartão, filtros, voz, botão rápido e envio de logs |
 
+</details>
+
+---
+
 ## ⚠️ Limitações
 
-- **Termos de uso:** os apps de entrega não autorizam apps de terceiros lendo a tela. O Farol **só lê**, nunca toca
-  em aceitar/recusar, mas o risco é seu.
-- Telas com `FLAG_SECURE` saem pretas no OCR.
-- Na lista com várias ofertas (inDrive, "de olho" do Keeta), o Farol avalia a oferta em destaque.
+- **Termos de uso:** os apps de entrega não autorizam apps de terceiros lendo a tela. O Farol **só lê**, nunca aceita nem recusa por você, mas o risco do uso é seu.
+- **iPhone:** o iOS não permite que um app leia a tela de outro, então o Farol é só para Android.
+- **Telas protegidas** (`FLAG_SECURE`) aparecem pretas no OCR.
+- **Lista com várias ofertas** (inDrive, "de olho" do Keeta): o Farol avalia a oferta em destaque.
+- **Não está na Play Store:** a loja não aceita esse uso de acessibilidade.
+
+<div align="center"><sub>Feito para quem roda todo dia. 🛵🚗</sub></div>
