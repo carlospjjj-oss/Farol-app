@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 5.4**
+**Versão atual: 6.0**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -192,7 +192,7 @@ app/src/main/java/com/farol/app/
   data/      Settings, JournalStore, GpsStore, History, CaptureLog, RemoteLog, Backup
   service/   OfferReaderService, ScreenTextCollector, OcrFallback, GpsService, ShiftNotifier, FarolTileService
   ui/        ModeActivity, DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OnboardingActivity, OverlayCard, FarolWidget, Kit
-app/src/test/  94 testes, quase todos com textos REAIS de ofertas e telas dos logs
+app/src/test/  98 testes + 7 no emulador, quase todos com textos REAIS de ofertas e telas dos logs
 ```
 
 - Build local: abra no Android Studio, ou `gradle testDebugUnitTest assembleDebug`.
@@ -204,6 +204,7 @@ app/src/test/  94 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 6.0 | Fase 1 (estrutura): relatório de travamentos no painel; catálogo único de apps; banco SQLite no lugar dos arquivos (sem limite de 5.000 ofertas, migração automática); turnos e abastecimentos sincronizados com a conta (celular novo recebe tudo; painel com ganhos ao vivo); tarefas de fundo pelo JobScheduler; telas separadas por assunto; testes com 102 ofertas reais anonimizadas + 7 testes no emulador Android |
 | 5.4 | Segurança: modos GitHub/Webhook removidos (tokens antigos apagados do celular; logs só pelo servidor com login); acessibilidade só recebe eventos dos apps de corrida/entrega, com modo "descobrir app novo" de 2 min |
 | 5.3 | Atualizador confere SHA-256 do arquivo, pacote, versão e certificado da chave antes de instalar. 99 do carro: km pelos pares "N min (X km)", sem somar a seta de navegação do mapa |
 | 5.2 | Segurança: chave de assinatura nova (rotação v3, a antiga não substitui mais o app no Android 9+), APK de produção, nenhuma chave no repositório, SHA-256 na publicação |

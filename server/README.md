@@ -40,6 +40,14 @@ Plano grátis: 100 mil envios por dia e 5 GB de banco. O Farol usa uma fração 
 - **Senha esquecida:** o administrador entra no painel, vai em **Contas → Nova senha** e passa a senha nova para a pessoa.
 - **Envios sem login:** enquanto houver celular na versão antiga, eles continuam aceitos. Quando todo mundo estiver na 5.0, crie a variável `REQUIRE_LOGIN` = `1` para recusar esses envios.
 
+## Sincronização do diário (6.0+)
+
+O app manda os turnos, ganhos e abastecimentos de cada modo para a conta (`POST /v1/sync`):
+- **O que vai:** só o que mudou, a cada 15 minutos, ao encerrar o turno e ao registrar um abastecimento.
+- **Celular novo:** no primeiro login recebe tudo que está na conta.
+- **Conflitos:** quando o mesmo dado mudou em dois lugares, vale o mais novo.
+- **No painel:** os ganhos do dia aparecem enquanto o turno ainda está em andamento.
+
 ## Painel web
 
 Abra `https://farol-logs.SEU-NOME.workers.dev/painel` no celular ou no computador.
@@ -47,6 +55,7 @@ Abra `https://farol-logs.SEU-NOME.workers.dev/painel` no celular ou no computado
 - Entre com a mesma conta do app.
 - O administrador vê todas as contas, ou uma de cada vez. Os outros veem só os próprios dados.
 - `ADMIN_KEY` (Secret) continua opcional, como acesso de emergência.
+- O administrador também vê **Erros do app**: os travamentos enviados pelos celulares, com a versão, o aparelho e o erro.
 - O painel mostra:
   - ganhos, líquido, R$/km e R$/h;
   - ganhos por dia;
