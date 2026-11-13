@@ -60,7 +60,13 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     private val tracker = DeliveryTracker { r ->
         runCatching { journal.addDelivery(r) }
         runCatching { remote.delivery(r) }
+        // Pedido completo com km da oferta: amostra real de velocidade de entrega
+        val km = r.km; val mins = r.totalMin
+        if (km != null && mins != null) com.farol.app.core.SpeedLearner.sample(km, mins)?.let { settings.addSpeedSample(it) }
     }
+
+    /** Última oferta de cada app (km e hora) para ligar ao pedido aceito. */
+    private val lastOfferKm = mutableMapOf<String, Pair<Double, Long>>()
 
     private val handler = Handler(Looper.getMainLooper())
     private var scanScheduled = false
@@ -88,6 +94,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         ocr = OcrFallback(this)
         remote = RemoteLog.get(this)
         journal = JournalStore(this)
+        seedSpeed()
         reload()
         settings.prefs.registerOnSharedPreferenceChangeListener(this)
         instance = this
@@ -103,6 +110,18 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
             runCatching { ShiftNotifier.maybeWeekly(this@OfferReaderService) }
             handler.postDelayed(this, 60_000)
         }
+    }
+
+    /** Primeira vez: aprende a velocidade com as ofertas do histórico que tinham tempo real (ex.: iFood). */
+    private fun seedSpeed() {
+        if (settings.speedSamples.isNotEmpty()) return
+        val seeds = history.recent(2000).reversed().mapNotNull { o ->
+            // Ofertas novas guardam se o tempo era estimado; nas antigas, o iFood sempre mostra o tempo real
+            val real = if (o.has("estimated")) !o.optBoolean("estimated") else o.optString("app") == "iFood"
+            if (!real) return@mapNotNull null
+            com.farol.app.core.SpeedLearner.sample(o.optDouble("km"), o.optDouble("min"))
+        }
+        if (seeds.isNotEmpty()) settings.speedSamples = seeds.takeLast(com.farol.app.core.SpeedLearner.MAX_SAMPLES)
     }
 
     /** Guarda o aviso de recusas que o app mostrou (99: "rejeitou 7 vezes", iFood: "parada técnica"). */
@@ -128,7 +147,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     }
 
     private fun reload() {
-        profile = settings.profile
+        profile = settings.effectiveProfile
         if (settings.speak && tts == null) {
             tts = TextToSpeech(this) { status ->
                 ttsReady = status == TextToSpeech.SUCCESS
@@ -217,7 +236,9 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     /** Acompanha as etapas do pedido (coleta → entrega → livre) para medir o tempo de cada um. */
     private fun trackPhase(label: String, text: String) {
         val phase = PhaseDetector.detect(label, text) ?: return
-        tracker.feed(label, phase, PhaseDetector.restaurant(label, text), System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        val km = lastOfferKm[label]?.takeIf { now - it.second < 3 * 60_000L }?.first
+        tracker.feed(label, phase, PhaseDetector.restaurant(label, text), now, km)
     }
 
     private fun minutesSinceOffer(): Int? {
@@ -278,6 +299,8 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         lastSig = offer.signature
         lastSigAt = now
 
+        lastOfferKm[offer.app] = offer.totalKm to System.currentTimeMillis()
+        offer.totalMin?.let { m -> com.farol.app.core.SpeedLearner.sample(offer.totalKm, m)?.let { settings.addSpeedSample(it) } }
         val result = ProfitCalculator.evaluate(offer, profile)
         overlay.show(result, extrasFor(offer.app))
         runCatching { ShiftNotifier.refresh(this) }

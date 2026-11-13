@@ -96,4 +96,29 @@ class InsightsTest {
         assertEquals(listOf("sao caetano"), r.favorites)
         assertTrue(r.warnings.isEmpty())
     }
+
+    // ---- velocidade aprendida ----
+
+    @Test fun velocidadeAmostras() {
+        assertEquals(15.9, SpeedLearner.sample(6.62, 25.0)!!, 0.05)        // iFood real de 11/11
+        assertNull(SpeedLearner.sample(3.3, 118.0))                        // 1,7 km/h: descarta
+        assertNull(SpeedLearner.sample(0.2, 10.0))
+    }
+
+    @Test fun velocidadeMediana() {
+        assertNull(SpeedLearner.learned(listOf(12.0, 13.0, 14.0)))         // poucas amostras
+        assertEquals(13.0, SpeedLearner.learned(listOf(12.0, 13.0, 30.0, 10.0, 14.0))!!, 0.01)
+        assertEquals(40, (1..60).fold(emptyList<Double>()) { acc, _ -> SpeedLearner.add(acc, 12.0) }.size)
+    }
+
+    @Test fun pedidoGuardaKmDaOferta() {
+        val done = mutableListOf<DeliveryRecord>()
+        val t = DeliveryTracker { done += it }
+        val m = 60_000L
+        t.feed("Keeta", Phase.COLLECT, "A", 0, offerKm = 6.4)
+        t.feed("Keeta", Phase.DELIVER, null, 10 * m)
+        t.feed("Keeta", Phase.IDLE, null, 23 * m)
+        assertEquals(6.4, done[0].km!!, 0.001)
+        assertEquals(23.0, done[0].totalMin!!, 0.01)
+    }
 }

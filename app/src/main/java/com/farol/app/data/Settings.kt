@@ -150,6 +150,28 @@ com.sankuai.sailor.courier=Keeta"""
         get() = prefs.getString("lastWeeklySent", "") ?: ""
         set(v) = prefs.edit().putString("lastWeeklySent", v).apply()
 
+    /** Usa a velocidade aprendida com seus pedidos em vez do valor fixo. */
+    var autoSpeed: Boolean
+        get() = prefs.getBoolean("autoSpeed", true)
+        set(v) = prefs.edit().putBoolean("autoSpeed", v).apply()
+
+    var speedSamples: List<Double>
+        get() = (prefs.getString("speedSamples", "") ?: "").split(';').mapNotNull { it.toDoubleOrNull() }
+        set(v) = prefs.edit().putString("speedSamples", v.joinToString(";") { String.format(java.util.Locale.US, "%.2f", it) }).apply()
+
+    fun addSpeedSample(v: Double) { speedSamples = com.farol.app.core.SpeedLearner.add(speedSamples, v) }
+
+    /** Velocidade aprendida (null se ainda tiver poucas amostras). */
+    val learnedSpeed: Double? get() = com.farol.app.core.SpeedLearner.learned(speedSamples)
+
+    /** Perfil usado nas ofertas: com a velocidade aprendida, se ligada e disponível. */
+    val effectiveProfile: CostProfile
+        get() {
+            val p = profile
+            val l = learnedSpeed
+            return if (autoSpeed && l != null) p.copy(avgSpeedKmh = l) else p
+        }
+
     var onboarded: Boolean
         get() = prefs.getBoolean("onboarded", false)
         set(v) = prefs.edit().putBoolean("onboarded", v).apply()

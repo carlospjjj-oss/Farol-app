@@ -72,6 +72,8 @@ class SettingsActivity : Activity() {
     private lateinit var swCompact: Switch
     private lateinit var swShiftNotif: Switch
     private lateinit var swWeekly: Switch
+    private lateinit var swAutoSpeed: Switch
+    private lateinit var tvSpeed: TextView
     private lateinit var etAlerts: EditText
     // cartão / leitura
     private lateinit var etHide: EditText
@@ -288,6 +290,8 @@ class SettingsActivity : Activity() {
         etGreenStars = numRow(cLight, "Aceitar a partir de", "★", "0 = não usa")
         etMinRating = numRow(cLight, "Atenção a partir de", "★", "abaixo disso é vermelho")
         etSpeed = numRow(cLight, "Velocidade média", "km/h", "usada quando a oferta não mostra o tempo (~)")
+        swAutoSpeed = toggle(cLight, "Aprender com meus pedidos", "Usa a velocidade real (ofertas do iFood e pedidos do Keeta) no lugar do valor acima")
+        tvSpeed = k.text("", 13, Palette.ACCENT, k.medium).also { cLight.addView(it, k.lp(top = 8)) }
         onChange(etGreenKm, etYellowKm, etGreenH, etYellowH, etGreenStars, etMinRating) { renderBands() }
 
         // Condições mínimas
@@ -476,6 +480,10 @@ class SettingsActivity : Activity() {
         swCompact.isChecked = settings.cardCompact
         swShiftNotif.isChecked = settings.shiftNotification
         swWeekly.isChecked = settings.weeklySummary
+        swAutoSpeed.isChecked = settings.autoSpeed
+        val n = settings.speedSamples.size
+        tvSpeed.text = settings.learnedSpeed?.let { "Velocidade aprendida: ${Fmt.dec(it, 1)} km/h ($n amostras)" }
+            ?: "Aprendendo: $n de ${com.farol.app.core.SpeedLearner.MIN_SAMPLES} amostras (até lá usa o valor acima)"
         etHide.setText(settings.autoHideSec.toString())
         etTargets.setText(settings.targetsText)
         swEnabled.isChecked = settings.enabled
@@ -538,6 +546,7 @@ class SettingsActivity : Activity() {
         settings.cardCompact = swCompact.isChecked
         settings.shiftNotification = swShiftNotif.isChecked
         settings.weeklySummary = swWeekly.isChecked
+        settings.autoSpeed = swAutoSpeed.isChecked
         settings.profile = p
         settings.autoHideSec = etHide.num(15.0).toInt()
         settings.targetsText = etTargets.text.toString()

@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 3.0**
+**Versão atual: 3.1**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -68,7 +68,7 @@ Toque no atalho **🛵 Moto** e ajuste:
 | Outros custos | **0,15** R$/km | óleo, pneu, correia, IPVA, desgaste |
 | 🟢 Verde a partir de | **2,00** R$/km e **30** R$/h | |
 | 🟡 Amarelo a partir de | **1,40** R$/km e **20** R$/h | abaixo disso é vermelho |
-| Velocidade média | **25** km/h | usada quando a oferta não mostra o tempo (~) |
+| Velocidade média | **25** km/h | só até o Farol aprender a sua (ligue "Aprender com meus pedidos") |
 | Busca máxima | **3** km | opcional |
 
 - **Use vírgula** nos decimais (`1,80`). O Farol avisa se aparecer algo como `180`.
@@ -179,7 +179,7 @@ app/src/main/java/com/farol/app/
   data/      Settings, JournalStore, History, CaptureLog, RemoteLog, Backup
   service/   OfferReaderService, ScreenTextCollector, OcrFallback, ShiftNotifier, FarolTileService
   ui/        DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OnboardingActivity, OverlayCard, FarolWidget, Kit
-app/src/test/  76 testes, quase todos com textos REAIS de ofertas e telas dos logs
+app/src/test/  79 testes, quase todos com textos REAIS de ofertas e telas dos logs
 ```
 
 - Build local: abra no Android Studio, ou `gradle testDebugUnitTest assembleDebug`.
@@ -191,6 +191,7 @@ app/src/test/  76 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 3.1 | Velocidade de entrega aprendida com seus pedidos (iFood e Keeta); OCR só registra telas com o app na frente |
 | 3.0 | Aviso de recusas, meta do dia, backup, notificação do turno, bairros favoritos, resumo da semana, cartão P/M/G e compacto, widget, guia de instalação e ícone novo |
 | 2.2 | "Suas faixas" em tabela; nota em 3 faixas; condições mínimas; tempo e distância máximos; calculadora de custos do mês |
 | 2.1 | Tela de Histórico de ofertas com filtros, resumo e detalhes |

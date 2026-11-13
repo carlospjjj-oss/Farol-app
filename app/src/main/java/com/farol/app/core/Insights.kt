@@ -43,9 +43,11 @@ data class DeliveryRecord(
     val collectAt: Long,
     val deliverAt: Long? = null,
     val endAt: Long? = null,
+    val km: Double? = null,          // km da oferta aceita (para aprender a velocidade)
 ) {
     val collectMin: Double? get() = deliverAt?.let { (it - collectAt) / 60_000.0 }
     val deliverMin: Double? get() = if (deliverAt != null && endAt != null) (endAt - deliverAt) / 60_000.0 else null
+    val totalMin: Double? get() = endAt?.let { (it - collectAt) / 60_000.0 }
 }
 
 /**
@@ -55,13 +57,13 @@ data class DeliveryRecord(
 class DeliveryTracker(private val onFinished: (DeliveryRecord) -> Unit) {
     private val open = mutableMapOf<String, DeliveryRecord>()
 
-    fun feed(app: String, phase: Phase, restaurant: String?, now: Long) {
+    fun feed(app: String, phase: Phase, restaurant: String?, now: Long, offerKm: Double? = null) {
         val cur = open[app]
         when (phase) {
             Phase.COLLECT -> when {
-                cur == null -> open[app] = DeliveryRecord(app, restaurant, now)
+                cur == null -> open[app] = DeliveryRecord(app, restaurant, now, km = offerKm)
                 cur.deliverAt != null -> {           // já entregava e voltou a coletar: novo pedido
-                    onFinished(cur.copy(endAt = now)); open[app] = DeliveryRecord(app, restaurant, now)
+                    onFinished(cur.copy(endAt = now)); open[app] = DeliveryRecord(app, restaurant, now, km = offerKm)
                 }
                 cur.restaurant == null && restaurant != null -> open[app] = cur.copy(restaurant = restaurant)
             }
