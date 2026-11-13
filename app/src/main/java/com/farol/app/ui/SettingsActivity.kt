@@ -93,6 +93,8 @@ class SettingsActivity : Activity() {
     private lateinit var segRemote: LinearLayout
     private lateinit var boxGithub: LinearLayout
     private lateinit var boxWebhook: LinearLayout
+    private lateinit var boxServer: LinearLayout
+    private lateinit var etServer: EditText
     private lateinit var boxRemoteCommon: LinearLayout
     private lateinit var etGhRepo: EditText
     private lateinit var etGhToken: EditText
@@ -106,7 +108,7 @@ class SettingsActivity : Activity() {
     private lateinit var tvHistSummary: TextView
     private lateinit var boxHist: LinearLayout
 
-    private val remoteModes = listOf("off" to "Desligado", "github" to "GitHub", "webhook" to "Webhook")
+    private val remoteModes = listOf("off" to "Desligado", "server" to "Servidor", "github" to "GitHub", "webhook" to "Webhook")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -356,6 +358,9 @@ class SettingsActivity : Activity() {
             setPadding(k.dp(4), k.dp(4), k.dp(4), k.dp(4))
         }
         cLog.addView(segRemote, k.lp(top = 14))
+        boxServer = k.vbox().also { cLog.addView(it) }
+        etServer = textField("https://farol-logs.SEU-NOME.workers.dev"); labeledText(boxServer, "Endereço do servidor", etServer)
+        hint(boxServer, "Sem token: o servidor grava no banco e guarda a cópia no GitHub. Toque em \"Enviar teste\" para conferir.")
         boxGithub = k.vbox().also { cLog.addView(it) }
         etGhRepo = textField("dono/repositório"); labeledText(boxGithub, "Repositório", etGhRepo)
         etGhToken = textField("github_pat_...", secret = true); labeledText(boxGithub, "Token do GitHub", etGhToken)
@@ -465,6 +470,7 @@ class SettingsActivity : Activity() {
                 setOnClickListener { remoteMode = mode; renderSegment() }
             }, LinearLayout.LayoutParams(0, -2, 1f))
         }
+        boxServer.visibility = if (remoteMode == "server") View.VISIBLE else View.GONE
         boxGithub.visibility = if (remoteMode == "github") View.VISIBLE else View.GONE
         boxWebhook.visibility = if (remoteMode == "webhook") View.VISIBLE else View.GONE
         boxRemoteCommon.visibility = if (remoteMode == "off") View.GONE else View.VISIBLE
@@ -515,6 +521,7 @@ class SettingsActivity : Activity() {
         remoteMode = settings.remoteMode
         etGhRepo.setText(settings.ghRepo); etGhToken.setText(settings.ghToken); etGhBranch.setText(settings.ghBranch)
         etHookUrl.setText(settings.webhookUrl); etHookAuth.setText(settings.webhookAuth)
+        etServer.setText(settings.serverUrl)
         etInterval.setText(settings.remoteIntervalSec.toString())
         swMask.isChecked = settings.maskAddresses
         renderSegment()
@@ -584,6 +591,7 @@ class SettingsActivity : Activity() {
         settings.ghToken = etGhToken.text.toString().trim()
         settings.ghBranch = etGhBranch.text.toString().trim().ifEmpty { "main" }
         settings.webhookUrl = etHookUrl.text.toString().trim()
+        settings.serverUrl = etServer.text.toString().trim()
         settings.webhookAuth = etHookAuth.text.toString().trim()
         settings.remoteIntervalSec = etInterval.num(60.0).toInt()
         settings.maskAddresses = swMask.isChecked

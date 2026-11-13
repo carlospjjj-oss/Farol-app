@@ -229,6 +229,7 @@ class RemoteLog private constructor(context: Context) {
 
         val result = runCatching {
             when (settings.remoteMode) {
+                "server" -> sendServer(batch)
                 "github" -> sendGitHub(batch)
                 "webhook" -> sendWebhook(batch)
                 else -> error("modo desconhecido")
@@ -269,6 +270,16 @@ class RemoteLog private constructor(context: Context) {
             "Accept" to "application/vnd.github+json",
             "X-GitHub-Api-Version" to "2022-11-28",
         ))
+    }
+
+    /** Servidor do Farol: só o endereço, sem token. O servidor grava no banco e faz a cópia no GitHub. */
+    private fun sendServer(lines: List<String>) {
+        var url = settings.serverUrl.trim().trimEnd('/')
+        require(url.startsWith("https://")) { "endereço do servidor inválido (comece com https://)" }
+        if (!url.endsWith("/v1/logs")) url += "/v1/logs"
+        val body = JSONObject().put("device", deviceId).put("versao", appVersion)
+            .put("eventos", JSONArray(lines.map { JSONObject(it) }))
+        http("POST", url, body.toString(), emptyMap())
     }
 
     private fun sendWebhook(lines: List<String>) {

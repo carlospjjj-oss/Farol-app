@@ -261,6 +261,11 @@ com.sankuai.sailor.courier=Keeta"""
         get() = prefs.getString("ghBranch", "main") ?: "main"
         set(v) = prefs.edit().putString("ghBranch", v).apply()
 
+    /** Servidor próprio de logs (Cloudflare Worker). Sem chave no app. */
+    var serverUrl: String
+        get() = prefs.getString("serverUrl", "") ?: ""
+        set(v) = prefs.edit().putString("serverUrl", v).apply()
+
     var webhookUrl: String
         get() = prefs.getString("webhookUrl", "") ?: ""
         set(v) = prefs.edit().putString("webhookUrl", v).apply()
