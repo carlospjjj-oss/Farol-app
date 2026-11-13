@@ -27,31 +27,53 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
-      - name: Testes + APK
-        run: gradle --no-daemon testDebugUnitTest assembleDebug
-
-      - name: Renomear APK
+      - name: Conferir segredos de assinatura
+        env:
+          A: ${{ secrets.FAROL_OLD_KEYSTORE }}
+          B: ${{ secrets.FAROL_OLD_PASSWORD }}
+          C: ${{ secrets.FAROL_NEW_KEYSTORE }}
+          D: ${{ secrets.FAROL_NEW_PASSWORD }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk Farol.apk
+          for v in A B C D; do
+            if [ -z "${!v}" ]; then echo "::error::Faltam os segredos FAROL_* (Settings > Secrets > Actions). Nada será publicado."; exit 1; fi
+          done
+
+      - name: Testes + APK (release, sem chave no repositório)
+        run: gradle --no-daemon testDebugUnitTest assembleRelease
+
+      - name: Assinar com rotação de chave
+        env:
+          OLD_KS_B64: ${{ secrets.FAROL_OLD_KEYSTORE }}
+          OLD_PW: ${{ secrets.FAROL_OLD_PASSWORD }}
+          NEW_KS_B64: ${{ secrets.FAROL_NEW_KEYSTORE }}
+          NEW_PW: ${{ secrets.FAROL_NEW_PASSWORD }}
+          IN: app/build/outputs/apk/release/app-release-unsigned.apk
+          OUT: Farol.apk
+        run: .github/scripts/sign.sh
+
+      - name: Versão e impressão digital
+        run: |
           echo "VCODE=$(grep -oP 'versionCode = \K\d+' app/build.gradle.kts)" >> $GITHUB_ENV
           echo "VNAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)" >> $GITHUB_ENV
+          echo "SHA=$(sha256sum Farol.apk | cut -d' ' -f1)" >> $GITHUB_ENV
 
       - uses: actions/upload-artifact@v4
         with:
           name: farol-apk
           path: Farol.apk
 
-      # Link fixo para baixar no celular: github.com/<você>/Farol/releases/latest
+      # Link fixo para baixar no celular: github.com/<você>/Farol-app/releases/latest
       - name: Publicar na Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.${{ github.run_number }}
           name: Farol ${{ env.VNAME }}
-          # O app lê versionCode daqui para saber se há atualização.
+          # O app lê versionCode daqui para saber se há atualização; sha256 confere o arquivo.
           body: |
             versionCode=${{ env.VCODE }}
             versionName=${{ env.VNAME }}
+            sha256=${{ env.SHA }}
             APK gerado automaticamente a partir de ${{ github.sha }}.
           files: Farol.apk
           make_latest: true

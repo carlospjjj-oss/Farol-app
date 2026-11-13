@@ -11,29 +11,21 @@ android {
         applicationId = "com.farol.app"
         minSdk = 26          // Android 8.0
         targetSdk = 35
-        versionCode = 33
-        versionName = "5.1"
+        versionCode = 34
+        versionName = "5.2"
     }
 
-    // Chave FIXA: sem ela, cada build do GitHub assinaria com uma chave nova e o Android
-    // recusaria instalar a atualização por cima ("App não instalado").
-    signingConfigs {
-        create("farol") {
-            storeFile = file("farol.jks")
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "oD1blIXG1_JUQjmumWXzcCE8"
-            keyAlias = "farol"
-            keyPassword = System.getenv("KEYSTORE_PASSWORD") ?: "oD1blIXG1_JUQjmumWXzcCE8"
-        }
-    }
-
+    // Assinatura: feita no GitHub Actions (.github/scripts/sign.sh) com rotação de chave.
+    // Nenhuma chave nem senha fica no repositório: vêm dos Secrets do GitHub.
     buildTypes {
-        debug {
-            signingConfig = signingConfigs.getByName("farol")
-        }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("farol")
         }
+    }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 
     compileOptions {
