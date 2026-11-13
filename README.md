@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 5.0**
+**Versão atual: 5.1**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -204,6 +204,7 @@ app/src/test/  90 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 5.1 | Gasolina e etanol guardados em cada modo (preço e consumo de cada); escolha do que está no tanque; comparação de qual compensa; abastecimento atualiza o preço do combustível escolhido |
 | 5.0 | Login obrigatório (e-mail e senha no servidor próprio); token no cofre do Android; dados separados por conta; painel por conta com administração |
 | 4.4 | Logs por servidor próprio (Cloudflare Worker + banco D1), sem token no app; ver `server/README.md` |
 | 4.3 | Turno: pausar/retomar (pausa não conta nas horas e para o GPS), editar km, horários e pausas, excluir o turno (mantém os ganhos) |

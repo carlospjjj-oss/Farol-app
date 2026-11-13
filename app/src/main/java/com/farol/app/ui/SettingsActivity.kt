@@ -47,6 +47,11 @@ class SettingsActivity : Activity() {
     // custos
     private lateinit var etFuel: EditText
     private lateinit var etKml: EditText
+    private lateinit var etFuelE: EditText
+    private lateinit var etKmlE: EditText
+    private lateinit var segFuel: LinearLayout
+    private lateinit var tvFuelCmp: android.widget.TextView
+    private var activeFuel = "gasolina"
     private lateinit var etOther: EditText
     private lateinit var tvCost: TextView
     // semáforo
@@ -282,15 +287,28 @@ class SettingsActivity : Activity() {
                 }, k.lp(w = -2).apply { if (i > 0) marginStart = k.dp(8) })
             }
         }, k.lp(top = 12))
-        etFuel = numRow(cCost, "Combustível", "R$/L")
-        etKml = numRow(cCost, "Consumo", "km/L", "média real na cidade")
+        cCost.addView(k.text("No tanque agora", 13, Palette.MUTED, k.medium), k.lp(top = 16))
+        segFuel = k.hbox().apply {
+            background = k.rounded(Palette.SURFACE2, 12)
+            setPadding(k.dp(4), k.dp(4), k.dp(4), k.dp(4))
+        }
+        cCost.addView(segFuel, k.lp(top = 6))
+        etFuel = numRow(cCost, "⛽ Gasolina", "R$/L")
+        etKml = numRow(cCost, "Consumo com gasolina", "km/L", "média real na cidade")
+        etFuelE = numRow(cCost, "🌱 Etanol", "R$/L")
+        etKmlE = numRow(cCost, "Consumo com etanol", "km/L", "costuma ser uns 70% do da gasolina")
+        tvFuelCmp = k.text("", 13, Palette.MUTED).apply {
+            setPadding(k.dp(14), k.dp(10), k.dp(14), k.dp(10))
+            background = k.rounded(Palette.SURFACE2, 12)
+        }
+        cCost.addView(tvFuelCmp, k.lp(top = 12))
         etOther = numRow(cCost, "Outros custos", "R$/km", "óleo, pneu, manutenção, desgaste")
         tvCost = k.text("", 15, Palette.ACCENT, k.bold).apply {
             setPadding(k.dp(14), k.dp(12), k.dp(14), k.dp(12))
             background = k.rounded(Palette.alpha(Palette.ACCENT, 0x1F), 14)
         }
         cCost.addView(tvCost, k.lp(top = 14))
-        onChange(etFuel, etKml, etOther) { showCost() }
+        onChange(etFuel, etKml, etFuelE, etKmlE, etOther) { showCost() }
         cCost.addView(k.ghost("🧮  Calcular custos do mês") {
             save(silent = true)
             startActivity(Intent(this, CostsActivity::class.java))
@@ -528,7 +546,11 @@ class SettingsActivity : Activity() {
 
     private fun loadValues() {
         val p = settings.profile
-        etFuel.setText(fmt(p.fuelPrice)); etKml.setText(fmt(p.kmPerLiter)); etOther.setText(fmt(p.otherCostPerKm))
+        activeFuel = settings.fuelType
+        settings.fuel("gasolina").let { etFuel.setText(fmt(it.price)); etKml.setText(fmt(it.kml)) }
+        settings.fuel("etanol").let { etFuelE.setText(fmt(it.price)); etKmlE.setText(fmt(it.kml)) }
+        etOther.setText(fmt(p.otherCostPerKm))
+        renderFuel()
         etGreenKm.setText(fmt(p.greenPerKm)); etYellowKm.setText(fmt(p.yellowPerKm))
         etGreenH.setText(fmt(p.greenPerHour)); etYellowH.setText(fmt(p.yellowPerHour))
         etSpeed.setText(fmt(p.avgSpeedKmh))
@@ -577,8 +599,8 @@ class SettingsActivity : Activity() {
     private fun currentProfile(): CostProfile {
         val d = CostProfile()
         return CostProfile(
-            fuelPrice = etFuel.num(d.fuelPrice),
-            kmPerLiter = etKml.num(d.kmPerLiter),
+            fuelPrice = if (activeFuel == "etanol") etFuelE.num(3.89) else etFuel.num(d.fuelPrice),
+            kmPerLiter = if (activeFuel == "etanol") etKmlE.num(7.0) else etKml.num(d.kmPerLiter),
             otherCostPerKm = etOther.num(d.otherCostPerKm),
             greenPerKm = etGreenKm.num(d.greenPerKm),
             yellowPerKm = etYellowKm.num(d.yellowPerKm),
@@ -620,6 +642,9 @@ class SettingsActivity : Activity() {
         val gpsWas = settings.gpsEnabled
         settings.gpsEnabled = swGps.isChecked
         if (gpsWas && !swGps.isChecked) com.farol.app.service.GpsService.stop(this)
+        settings.fuelType = activeFuel
+        settings.setFuel("gasolina", Settings.Fuel(etFuel.num(6.0), etKml.num(10.0)))
+        settings.setFuel("etanol", Settings.Fuel(etFuelE.num(3.89), etKmlE.num(7.0)))
         settings.profile = p
         settings.autoHideSec = etHide.num(15.0).toInt()
         settings.targetsText = etTargets.text.toString()
@@ -644,9 +669,33 @@ class SettingsActivity : Activity() {
         if (!silent) toast("Salvo ✓")
     }
 
+    private fun renderFuel() {
+        segFuel.removeAllViews()
+        listOf("gasolina" to "⛽ Gasolina", "etanol" to "🌱 Etanol").forEach { (type, label) ->
+            val on = type == activeFuel
+            segFuel.addView(k.text(label, 14, if (on) Palette.ON_ACCENT else Palette.MUTED, k.bold).apply {
+                gravity = Gravity.CENTER; setPadding(0, k.dp(9), 0, k.dp(9))
+                if (on) background = k.rounded(Palette.ACCENT, 10)
+                isClickable = true; setOnClickListener { activeFuel = type; renderFuel(); showCost() }
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+    }
+
     private fun showCost() {
         val p = currentProfile()
         tvCost.text = "Seu custo: ${Fmt.money(p.costPerKm)}/km   (combustível ${Fmt.money(p.fuelCostPerKm)} + outros ${Fmt.money(p.otherCostPerKm)})"
+        // Qual compensa: compara o custo por km de cada um (o consumo real de cada carro manda, não só a regra dos 70%)
+        val gp = etFuel.num(0.0); val gk = etKml.num(0.0); val ep = etFuelE.num(0.0); val ek = etKmlE.num(0.0)
+        if (gp > 0 && gk > 0 && ep > 0 && ek > 0) {
+            val g = gp / gk; val e = ep / ek
+            val best = if (e < g) "🌱 etanol" else "⛽ gasolina"
+            val pct = Math.round(ep / gp * 100)
+            val diff = Math.abs(g - e) * 1000   // em 1.000 km
+            var txt = "Gasolina ${Fmt.money(g)}/km · Etanol ${Fmt.money(e)}/km\nCompensa $best: economia de ${Fmt.money(diff)} a cada 1.000 km (etanol a $pct% da gasolina)."
+            if (ek > gk * 0.85) txt += "\n⚠️ Consumo do etanol parece alto: costuma ser uns 70% do da gasolina (${fmt(Math.round(gk * 0.7 * 10) / 10.0)} km/L)."
+            if ((best.contains("etanol")) != (activeFuel == "etanol")) txt += "\n💡 Na próxima, abastecer com $best sai mais barato."
+            tvFuelCmp.text = txt
+        } else tvFuelCmp.text = "Preencha preço e consumo dos dois para comparar."
     }
 
     private fun renderSize() {
@@ -741,7 +790,11 @@ class SettingsActivity : Activity() {
             "carro" -> listOf(11.0, 0.30, 2.00, 1.50, 45.0, 30.0, 25.0)
             else -> listOf(0.0, 0.05, 1.50, 1.00, 20.0, 14.0, 14.0)
         }
-        if (kind == "bike") { etFuel.setText("0"); etKml.setText("1") } else etKml.setText(fmt(kml))
+        if (kind == "bike") { etFuel.setText("0"); etKml.setText("1"); etFuelE.setText("0"); etKmlE.setText("1") }
+        else {
+            val gas = if (kind == "carro") 10.0 else kml
+            etKml.setText(fmt(gas)); etKmlE.setText(fmt(Math.round(gas * 0.7 * 10) / 10.0))
+        }
         etOther.setText(fmt(other)); etGreenKm.setText(fmt(gKm)); etYellowKm.setText(fmt(yKm))
         etGreenH.setText(fmt(gH)); etYellowH.setText(fmt(yH)); etSpeed.setText(fmt(speed))
         showCost()

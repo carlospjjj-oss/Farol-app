@@ -43,12 +43,48 @@ com.sankuai.sailor.courier=Keeta"""
 
     private fun d(key: String, def: Double) = vprefs.getString(key, null)?.toDoubleOrNull() ?: def
 
+    // ---------- Combustível: gasolina e etanol guardados, um ativo ----------
+    data class Fuel(val price: Double, val kml: Double)
+
+    /** Combustível no tanque agora ("gasolina" ou "etanol"). Os cálculos usam este. */
+    var fuelType: String
+        get() = vprefs.getString("fuelType", null) ?: legacyFuelType()
+        set(v) = vprefs.edit().putString("fuelType", if (v == "etanol") "etanol" else "gasolina").apply()
+
+    /** Antes da 5.1 havia um só combustível: pelo preço dá para saber qual era. */
+    private fun legacyFuelType(): String {
+        val p = vprefs.getString("fuelPrice", null)?.toDoubleOrNull()
+        return when {
+            p != null && p > 0 -> if (p <= 4.8) "etanol" else "gasolina"
+            isCar -> "etanol"
+            else -> "gasolina"
+        }
+    }
+
+    fun fuel(type: String): Fuel {
+        val p = vprefs.getString("fuelPrice_$type", null)?.toDoubleOrNull()
+        val k = vprefs.getString("kmPerLiter_$type", null)?.toDoubleOrNull()
+        if (p != null && k != null) return Fuel(p, k)
+        // migração: os valores antigos passam para o combustível que eles eram
+        val lp = d("fuelPrice", -1.0); val lk = d("kmPerLiter", -1.0)
+        if (lp > 0 && lk > 0 && type == legacyFuelType()) return Fuel(lp, lk)
+        return if (type == "etanol") {
+            if (isCar) Fuel(3.89, 7.0) else Fuel(3.89, Math.round(fuel("gasolina").kml * 0.7 * 10) / 10.0)
+        } else {
+            if (isCar) Fuel(6.00, 10.0) else Fuel(CostProfile().fuelPrice, CostProfile().kmPerLiter)
+        }
+    }
+
+    fun setFuel(type: String, f: Fuel) {
+        vprefs.edit().putString("fuelPrice_$type", f.price.toString()).putString("kmPerLiter_$type", f.kml.toString()).apply()
+    }
+
     var profile: CostProfile
         get() {
             val def = CostProfile()
             return CostProfile(
-                fuelPrice = d("fuelPrice", def.fuelPrice),
-                kmPerLiter = d("kmPerLiter", def.kmPerLiter),
+                fuelPrice = fuel(fuelType).price,
+                kmPerLiter = fuel(fuelType).kml,
                 otherCostPerKm = d("otherCostPerKm", def.otherCostPerKm),
                 greenPerKm = d("greenPerKm", def.greenPerKm),
                 yellowPerKm = d("yellowPerKm", def.yellowPerKm),
@@ -86,6 +122,7 @@ com.sankuai.sailor.courier=Keeta"""
                 .putString("maxTotalKm", p.maxTotalKm.toString())
                 .putString("maxMinutes", p.maxMinutes.toString())
                 .apply()
+            setFuel(fuelType, Fuel(p.fuelPrice, p.kmPerLiter))   // o que vale é o combustível ativo
         }
 
     var targetsText: String

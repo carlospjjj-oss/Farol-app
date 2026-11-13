@@ -860,8 +860,23 @@ class DashboardActivity : Activity() {
         val full = CheckBox(this).apply { text = "Completei o tanque"; isChecked = true; setTextColor(Palette.TEXT) }
         val lv = labeled("Litros", liters)
         val tv = labeled("Valor pago", total)
+        var fuelType = settings.fuelType
+        val seg = k.hbox().apply { background = k.rounded(Palette.SURFACE2, 12); setPadding(k.dp(4), k.dp(4), k.dp(4), k.dp(4)) }
+        fun renderSeg() {
+            seg.removeAllViews()
+            listOf("gasolina" to "⛽ Gasolina", "etanol" to "🌱 Etanol").forEach { (type, label) ->
+                val on = type == fuelType
+                seg.addView(k.text(label, 14, if (on) Palette.ON_ACCENT else Palette.MUTED, k.bold).apply {
+                    gravity = Gravity.CENTER; setPadding(0, k.dp(9), 0, k.dp(9))
+                    if (on) background = k.rounded(Palette.ACCENT, 10)
+                    isClickable = true; setOnClickListener { fuelType = type; renderSeg() }
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+            }
+        }
+        renderSeg()
         val box = k.vbox().apply {
-            addView(labeled("Km do painel", odo))
+            addView(seg)
+            addView(labeled("Km do painel", odo), k.lp(top = 12))
             addView(k.hbox().apply { addView(lv, weighted(lv)); addView(tv, weighted(tv, 10)) }, k.lp(top = 12))
             addView(full, k.lp(top = 10))
             addView(k.text("Completar o tanque toda vez é o que permite medir o consumo real.", 12, Palette.MUTED), k.lp(top = 2))
@@ -871,7 +886,12 @@ class DashboardActivity : Activity() {
             val l = liters.num()?.takeIf { it > 0 } ?: return@dialog fail("Digite os litros")
             val t = total.num()?.takeIf { it > 0 } ?: return@dialog fail("Digite o valor pago")
             store.addFuel(FuelEntry(System.currentTimeMillis(), o, l, t, full.isChecked))
-            toast("Abastecimento registrado: ${Fmt.money(t / l)}/L"); true
+            // O preço pago vira o preço daquele combustível, e ele passa a ser o do tanque.
+            val price = Math.round(t / l * 100) / 100.0
+            settings.setFuel(fuelType, settings.fuel(fuelType).copy(price = price))
+            settings.fuelType = fuelType
+            val name = if (fuelType == "etanol") "etanol" else "gasolina"
+            toast("Abastecimento registrado: ${Fmt.money(price)}/L. O Farol agora calcula com $name."); true
         }
     }
 

@@ -163,7 +163,10 @@ class RemoteLog private constructor(context: Context) {
     private fun settingsSnapshot(): JSONObject {
         val p = settings.profile
         return JSONObject()
-            .put("combustivel", p.fuelPrice).put("consumo", p.kmPerLiter).put("outros_km", p.otherCostPerKm)
+            .put("combustivel", p.fuelPrice).put("consumo", p.kmPerLiter)
+            .put("tanque", settings.fuelType)
+            .put("gasolina", settings.fuel("gasolina").let { JSONObject().put("preco", it.price).put("km_l", it.kml) })
+            .put("etanol", settings.fuel("etanol").let { JSONObject().put("preco", it.price).put("km_l", it.kml) }).put("outros_km", p.otherCostPerKm)
             .put("custo_km", Math.round(p.costPerKm * 1000) / 1000.0)
             .put("verde_km", p.greenPerKm).put("amarelo_km", p.yellowPerKm)
             .put("verde_h", p.greenPerHour).put("amarelo_h", p.yellowPerHour)
