@@ -86,6 +86,9 @@ class DashboardActivity : Activity() {
         if (!settings.onboarded) {
             if (serviceOn()) settings.onboarded = true
             else { startActivity(Intent(this, OnboardingActivity::class.java)); settings.onboarded = true }
+        } else if (!settings.nameAsked && settings.userName.isEmpty()) {
+            settings.nameAsked = true
+            askName()
         }
         if (android.os.Build.VERSION.SDK_INT >= 33 && !askedNotif &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -150,7 +153,12 @@ class DashboardActivity : Activity() {
                 addView(k.text(date, 13, Palette.MUTED, k.medium))
                 addView(modeChip, k.lp(w = -2).apply { marginStart = k.dp(10) })
             })
-            addView(k.text("$greeting 👋", 26, Palette.TEXT, k.bold), k.lp(top = 6))
+            val name = settings.userName.substringBefore(' ')
+            val hello = if (name.isEmpty()) "$greeting 👋" else "$greeting, $name 👋"
+            addView(k.text(hello, 26, Palette.TEXT, k.bold).apply {
+                isClickable = true
+                setOnClickListener { askName() }   // toque na saudação para trocar o nome
+            }, k.lp(top = 6))
         }
         val gear = k.text("⚙️", 20).apply {
             gravity = Gravity.CENTER
@@ -601,6 +609,15 @@ class DashboardActivity : Activity() {
             }
         }
         d.show()
+    }
+
+    private fun askName() {
+        val f = k.field("Seu nome", settings.userName).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
+        }
+        dialog("Como podemos te chamar?", labeled("Aparece na saudação do painel", f), "Salvar") {
+            settings.userName = f.text.toString(); true
+        }
     }
 
     private fun labeled(label: String, field: EditText) = k.vbox().apply {

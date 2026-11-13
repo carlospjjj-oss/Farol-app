@@ -219,4 +219,13 @@ class OfferParserTest {
         assertNull(p("Viagem | Moto | Entregas | Cidade a Cidade | Rua Ministro Otávio Kelly 519 (Icaraí) | Origem | Alameda São Boaventura 847 (Fonseca) | R$ 13 — Você pode alterar a tarifa recomendada | Aceitar automaticamente oferta de R$ 13 | Tarifa Recomendada Para Esta Rota R$ 13 ajustável | Encontre um motorista", "inDrive"))
         assertNull(p("Ofereça sua tarifa | R$8 | A tarifa mínima é R$ 10 | Dinheiro | Aceitar automaticamente o motorista mais próximo por R$ 8 | Concluído", "inDrive"))
     }
+
+    @Test fun carInDrive_telaDoMotorista_pedidoDeViagem() {
+        val o = p("Pedido de viagem | 3,8 km | 7 min | 2,1 km | R$ 3,3/km ~2,1 km | aryane | 5.0 (1) | 2 min | R$ 20 Preço justo | Ladeira Primeira Santa Rita 20 (Matatu) | Atakarejo - Via Expressa | Ofereça sua tarifa | R$ 22 | R$ 24 | R$ 27", "inDrive")!!
+        assertEquals(20.0, o.price, 0.01)
+        assertEquals(5.9, o.totalKm, 0.01)
+        assertEquals(2.1, o.pickupKm!!, 0.01)
+        assertEquals(5.0, o.passengerRating!!, 0.01)
+        assertNull(o.totalMin)
+    }
 }

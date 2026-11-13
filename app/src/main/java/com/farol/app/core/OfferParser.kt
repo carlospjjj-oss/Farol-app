@@ -53,7 +53,7 @@ object OfferParser {
 
     /** Palavras que indicam que existe uma oferta aberta (botão de aceitar etc.). */
     val OFFER_HINTS = Regex(
-        """\baceitar\b(?!\s+(?:corridas|automaticamente))|n[aã]o afeta a ta|\baccept\b|\brecusar\b|\bpegar\b|oferecer|toque para|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
+        """\baceitar\b(?!\s+(?:corridas|automaticamente))|n[aã]o afeta a ta|\baccept\b|\brecusar\b|\bpegar\b|oferecer|toque para|pedido de viagem|pre[çc]o justo|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -72,7 +72,7 @@ object OfferParser {
     private const val TOTAL_LOOKBEHIND = 22
 
     private val RATING = Regex(
-        """(?<![\d.,])([1-5][.,]\d{1,2})\s*(?:★|⭐|estrelas?)|[★⭐]\s*([1-5][.,]\d{1,2})(?![\d.,])|(?<![\d.,])([1-5][.,]\d{1,2})\s*\|?\s*\+?\d+\s*corridas""",
+        """(?<![\d.,])([1-5][.,]\d{1,2})\s*(?:★|⭐|estrelas?)|[★⭐]\s*([1-5][.,]\d{1,2})(?![\d.,])|(?<![\d.,])([1-5][.,]\d{1,2})\s*\|?\s*\+?\d+\s*corridas|(?<![\d.,])([1-5][.,]\d)\s*\(\d+\)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -108,6 +108,8 @@ object OfferParser {
             val n = parseDecimal(m.groupValues[1]) ?: return@mapNotNull null
             val unit = m.groupValues[2].lowercase()
             val km = if (unit.startsWith("k") || unit.startsWith("q")) n else n / 1000.0
+            // "R$ 3,3/km ~2,1 km" (inDrive): distância aproximada repetida, não soma.
+            if (clean.substring(maxOf(0, m.range.first - 2), m.range.first).contains('~')) return@mapNotNull null
             if (km <= 0.0 || km > 600.0) null
             else Measure(km, m.range.first, isTotalAt(clean, m.range.first, m.range.last + 1))
         }.toList()
@@ -132,14 +134,20 @@ object OfferParser {
 
         // Busca: a primeira distância quando há busca + viagem separadas (Uber/99),
         // ou a distância com contexto "coleta/busca" (iFood).
-        val pickup = dists.firstOrNull { d ->
+        val isInDrive = app.contains("indrive", ignoreCase = true)
+        // inDrive: a busca vem colada no tempo até o passageiro ("7 min 2,1 km").
+        val inDrivePickup = if (!isInDrive) null else dists.firstOrNull { d ->
+            Regex("""\d+\s*min\W{0,4}$""", RegexOption.IGNORE_CASE).containsMatchIn(clean.substring(maxOf(0, d.pos - 12), d.pos))
+        }?.value
+        val pickup = inDrivePickup ?: dists.firstOrNull { d ->
             !d.isTotal && PICKUP_CONTEXT.containsMatchIn(clean.substring(maxOf(0, d.pos - 25), minOf(clean.length, d.pos + 30)))
         }?.value ?: if (!hasTotal && dists.size >= 2) dists.first().value else null
 
         val rating = RATING.find(clean)?.let { m ->
-            parseDecimal(m.groupValues[1].ifEmpty { m.groupValues[2] }.ifEmpty { m.groupValues[3] })
+            parseDecimal(m.groupValues[1].ifEmpty { m.groupValues[2] }.ifEmpty { m.groupValues[3] }.ifEmpty { m.groupValues[4] })
         }
-        val totalMin = if (durs.isEmpty()) null
+        // inDrive só mostra o tempo até o passageiro, não o da viagem: deixa o Farol estimar pelo km.
+        val totalMin = if (durs.isEmpty() || inDrivePickup != null) null
         else durs.firstOrNull { it.isTotal }?.value ?: durs.sumOf { it.value }
 
         // 4) Preço = o valor em R$ mais próximo da primeira distância (preferindo o que vem

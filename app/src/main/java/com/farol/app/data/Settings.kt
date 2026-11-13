@@ -213,6 +213,15 @@ com.sankuai.sailor.courier=Keeta"""
     fun addGpsSpeedSample(app: String, v: Double) = vprefs.edit().putString("gpsSpeed_$app",
         com.farol.app.core.SpeedLearner.add(gpsSpeedSamples(app), v).joinToString(";") { String.format(java.util.Locale.US, "%.2f", it) }).apply()
 
+    /** Nome do usuário (aparece na saudação do painel). Global, vale para Moto e Carro. */
+    var userName: String
+        get() = prefs.getString("user_name", "") ?: ""
+        set(v) = prefs.edit().putString("user_name", v.trim().take(24)).apply()
+
+    var nameAsked: Boolean
+        get() = prefs.getBoolean("name_asked", false)
+        set(v) = prefs.edit().putBoolean("name_asked", v).apply()
+
     var onboarded: Boolean
         get() = prefs.getBoolean("onboarded", false)
         set(v) = prefs.edit().putBoolean("onboarded", v).apply()
