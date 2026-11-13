@@ -76,6 +76,14 @@ SELECT t, app, json_extract(data, '$.preco') AS preco, json_extract(data, '$.cor
   FROM events WHERE tipo = 'offer' ORDER BY id DESC LIMIT 50;
 ```
 
+## LGPD
+
+- **Aviso de Privacidade:** publicado em `/privacidade`. Configure as Variables `CONTROLADOR_NOME` (seu nome) e `CONTATO_PRIVACIDADE` (e-mail do canal do titular).
+- **Aceite:** o app pede o aceite na criação da conta e sempre que `POLICY_VERSION` mudar.
+- **Compartilhar textos das telas:** é opcional. Sem esse consentimento o servidor guarda só números e não faz a cópia no GitHub.
+- **Direitos do titular:** `GET /v1/me/export` (baixar meus dados) e `POST /v1/me/delete` (excluir a conta, com senha).
+- **Documentos internos:** ficam em `docs/lgpd/`.
+
 ## Privacidade (retenção)
 
 A limpeza roda sozinha uma vez por dia, no primeiro envio do app:
