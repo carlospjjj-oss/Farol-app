@@ -135,6 +135,9 @@ class LoginActivity : Activity() {
                 busy = false; btn.alpha = 1f
                 r.onSuccess {
                     runCatching { RemoteLog.get(this).settingsChanged(if (register) "conta criada" else "login") }
+                    // Celular novo: traz os turnos e abastecimentos guardados na conta.
+                    Thread { runCatching { com.farol.app.data.SyncClient.syncAll(applicationContext) } }.start()
+                    runCatching { com.farol.app.service.FarolJobs.scheduleAll(this) }
                     next()
                 }.onFailure { fail(it.message ?: "Não deu certo, tente de novo") }
             }

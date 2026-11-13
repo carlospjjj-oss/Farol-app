@@ -6,18 +6,22 @@ import com.farol.app.core.DeliveryRecord
 import com.farol.app.core.FuelEntry
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
+import android.content.ContentValues
+import android.database.sqlite.SQLiteDatabase
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-/** Diário (turnos, ganhos por app, abastecimentos) salvo em journal.json, só no aparelho. */
-class JournalStore(context: Context) {
+/**
+ * Diário (turnos, ganhos por app, abastecimentos, pedidos) no banco do modo atual (FarolDb).
+ * Cada mudança marca updated_at: é assim que a sincronização com a conta sabe o que mandar.
+ */
+class JournalStore(context: Context, private val suffix: String? = null) {
 
     private val ctx = context.applicationContext
-    /** journal.json (moto) ou journal_carro.json (carro). */
-    private val file: File get() = File(ctx.filesDir, "journal${Settings(ctx).fileSuffix}.json")
+    /** Banco do modo atual, ou de um modo específico ("" moto, "_carro" carro) para a sincronização. */
+    private val db: FarolDb get() = suffix?.let { FarolDb.of(ctx, it) } ?: FarolDb.get(ctx)
     private val dayFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     fun dateOf(ms: Long): String = dayFmt.format(Date(ms))
@@ -39,76 +43,137 @@ class JournalStore(context: Context) {
         return lastDays(n)
     }
 
-    // ---------- leitura/gravação ----------
-
-    @Synchronized
-    private fun load(): JSONObject =
-        runCatching { JSONObject(file.readText()) }.getOrNull() ?: JSONObject()
-
-    @Synchronized
-    private fun save(o: JSONObject) {
-        val tmp = File(file.parentFile, "journal${Settings(ctx).fileSuffix}.tmp")
-        tmp.writeText(o.toString())
-        tmp.renameTo(file)
-    }
+    // ---------- dias ----------
 
     fun days(): List<DayRecord> {
-        val d = load().optJSONObject("days") ?: return emptyList()
-        return d.keys().asSequence().map { k -> dayFromJson(k, d.getJSONObject(k)) }.sortedBy { it.date }.toList()
+        val out = ArrayList<DayRecord>()
+        db.readableDatabase.rawQuery("SELECT date, data FROM days ORDER BY date", null).use { c ->
+            while (c.moveToNext()) runCatching { out += dayFromJson(c.getString(0), JSONObject(c.getString(1))) }
+        }
+        return out
     }
 
     fun day(date: String = today()): DayRecord =
-        load().optJSONObject("days")?.optJSONObject(date)?.let { dayFromJson(date, it) } ?: DayRecord(date)
+        db.readableDatabase.rawQuery("SELECT data FROM days WHERE date = ?", arrayOf(date)).use { c ->
+            if (c.moveToFirst()) runCatching { dayFromJson(date, JSONObject(c.getString(0))) }.getOrNull() else null
+        } ?: DayRecord(date)
 
     @Synchronized
     fun putDay(r: DayRecord) {
-        val root = load()
-        val d = root.optJSONObject("days") ?: JSONObject().also { root.put("days", it) }
-        d.put(r.date, dayToJson(r))
-        save(root)
+        db.writableDatabase.insertWithOnConflict("days", null, ContentValues().apply {
+            put("date", r.date); put("data", dayToJson(r).toString()); put("updated_at", System.currentTimeMillis())
+        }, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
+    // ---------- abastecimentos ----------
+
     fun fuel(): List<FuelEntry> {
-        val a = load().optJSONArray("fuel") ?: return emptyList()
-        return (0 until a.length()).map { a.getJSONObject(it) }.map {
-            FuelEntry(it.getLong("at"), it.getDouble("odo"), it.getDouble("liters"), it.getDouble("total"), it.optBoolean("full", true))
+        val out = ArrayList<FuelEntry>()
+        db.readableDatabase.rawQuery("SELECT data FROM fuel WHERE deleted = 0 ORDER BY at", null).use { c ->
+            while (c.moveToNext()) runCatching { out += fuelFromJson(JSONObject(c.getString(0))) }
         }
+        return out
     }
 
     @Synchronized
     fun addFuel(f: FuelEntry) {
-        val root = load()
-        val a = root.optJSONArray("fuel") ?: JSONArray().also { root.put("fuel", it) }
-        a.put(JSONObject().put("at", f.at).put("odo", f.odometer).put("liters", f.liters)
-            .put("total", f.total).put("full", f.fullTank))
-        save(root)
+        db.writableDatabase.insertWithOnConflict("fuel", null, ContentValues().apply {
+            put("at", f.at); put("data", fuelToJson(f).toString()); put("updated_at", System.currentTimeMillis()); put("deleted", 0)
+        }, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
+    /** Apaga o último abastecimento (marca como apagado, para a sincronização apagar também na conta). */
     @Synchronized
     fun removeLastFuel() {
-        val root = load()
-        val a = root.optJSONArray("fuel") ?: return
-        if (a.length() > 0) a.remove(a.length() - 1)
-        save(root)
+        val w = db.writableDatabase
+        val at = w.rawQuery("SELECT at FROM fuel WHERE deleted = 0 ORDER BY at DESC LIMIT 1", null).use { if (it.moveToFirst()) it.getLong(0) else null } ?: return
+        w.update("fuel", ContentValues().apply { put("deleted", 1); put("updated_at", System.currentTimeMillis()) }, "at = ?", arrayOf(at.toString()))
     }
 
+    // ---------- pedidos ----------
+
     fun deliveries(): List<DeliveryRecord> {
-        val a = load().optJSONArray("deliveries") ?: return emptyList()
-        return (0 until a.length()).map { a.getJSONObject(it) }.map {
-            DeliveryRecord(it.getString("app"), it.optString("rest").ifEmpty { null }, it.getLong("c"),
-                it.optLong("d").takeIf { v -> v > 0 }, it.optLong("e").takeIf { v -> v > 0 })
+        val out = ArrayList<DeliveryRecord>()
+        db.readableDatabase.rawQuery("SELECT data FROM deliveries ORDER BY collect_at", null).use { c ->
+            while (c.moveToNext()) runCatching {
+                val it = JSONObject(c.getString(0))
+                out += DeliveryRecord(it.getString("app"), it.optString("rest").ifEmpty { null }, it.getLong("c"),
+                    it.optLong("d").takeIf { v -> v > 0 }, it.optLong("e").takeIf { v -> v > 0 })
+            }
         }
+        return out
     }
 
     @Synchronized
     fun addDelivery(r: DeliveryRecord) {
-        val root = load()
-        val a = root.optJSONArray("deliveries") ?: JSONArray().also { root.put("deliveries", it) }
-        a.put(JSONObject().put("app", r.app).put("rest", r.restaurant ?: "").put("c", r.collectAt)
-            .put("d", r.deliverAt ?: 0L).put("e", r.endAt ?: 0L))
-        // guarda só os últimos 600 pedidos
-        if (a.length() > 600) { val keep = JSONArray(); for (i in a.length() - 600 until a.length()) keep.put(a.get(i)); root.put("deliveries", keep) }
-        save(root)
+        val w = db.writableDatabase
+        w.insert("deliveries", null, ContentValues().apply {
+            put("collect_at", r.collectAt)
+            put("data", JSONObject().put("app", r.app).put("rest", r.restaurant ?: "").put("c", r.collectAt)
+                .put("d", r.deliverAt ?: 0L).put("e", r.endAt ?: 0L).toString())
+        })
+        // guarda só os últimos 2.000 pedidos
+        w.execSQL("DELETE FROM deliveries WHERE id NOT IN (SELECT id FROM deliveries ORDER BY collect_at DESC LIMIT 2000)")
+    }
+
+    // ---------- sincronização com a conta ----------
+
+    data class PendingDay(val date: String, val data: JSONObject, val updatedAt: Long)
+    data class PendingFuel(val at: Long, val data: JSONObject, val deleted: Boolean, val updatedAt: Long)
+    data class Pending(val days: List<PendingDay>, val fuel: List<PendingFuel>, val maxUpdated: Long)
+
+    /** O que mudou desde a última sincronização. */
+    fun pendingSync(): Pending {
+        val r = db.readableDatabase
+        var max = 0L
+        val d = ArrayList<PendingDay>()
+        r.rawQuery("SELECT date, data, updated_at FROM days WHERE updated_at > synced_at", null).use { c ->
+            while (c.moveToNext()) { d += PendingDay(c.getString(0), JSONObject(c.getString(1)), c.getLong(2)); max = maxOf(max, c.getLong(2)) }
+        }
+        val f = ArrayList<PendingFuel>()
+        r.rawQuery("SELECT at, data, deleted, updated_at FROM fuel WHERE updated_at > synced_at", null).use { c ->
+            while (c.moveToNext()) { f += PendingFuel(c.getLong(0), JSONObject(c.getString(1)), c.getInt(2) == 1, c.getLong(3)); max = maxOf(max, c.getLong(3)) }
+        }
+        return Pending(d, f, max)
+    }
+
+    fun meta(k: String) = db.meta(k)
+    fun setMeta(k: String, v: String) = db.setMeta(k, v)
+
+    /** Outra conta entrou neste celular: o que já está aqui não vai para ela (fica só local). */
+    fun markAllSynced() {
+        val w = db.writableDatabase
+        w.execSQL("UPDATE days SET synced_at = updated_at")
+        w.execSQL("UPDATE fuel SET synced_at = updated_at")
+    }
+
+    fun markSynced(upTo: Long) {
+        val w = db.writableDatabase
+        w.execSQL("UPDATE days SET synced_at = updated_at WHERE updated_at <= ?", arrayOf(upTo))
+        w.execSQL("UPDATE fuel SET synced_at = updated_at WHERE updated_at <= ?", arrayOf(upTo))
+    }
+
+    /** Dados vindos da conta (celular novo ou outro aparelho). Só entra o que for mais novo que o local. */
+    @Synchronized
+    fun applyRemote(days: List<Triple<String, JSONObject, Long>>, fuel: List<Triple<Long, JSONObject, Pair<Boolean, Long>>>) {
+        val w = db.writableDatabase
+        w.beginTransaction()
+        try {
+            for ((date, data, upd) in days) {
+                val local = w.rawQuery("SELECT updated_at FROM days WHERE date = ?", arrayOf(date)).use { if (it.moveToFirst()) it.getLong(0) else -1L }
+                if (upd > local) w.insertWithOnConflict("days", null, ContentValues().apply {
+                    put("date", date); put("data", data.toString()); put("updated_at", upd); put("synced_at", upd)
+                }, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            for ((at, data, meta) in fuel) {
+                val (deleted, upd) = meta
+                val local = w.rawQuery("SELECT updated_at FROM fuel WHERE at = ?", arrayOf(at.toString())).use { if (it.moveToFirst()) it.getLong(0) else -1L }
+                if (upd > local) w.insertWithOnConflict("fuel", null, ContentValues().apply {
+                    put("at", at); put("data", data.toString()); put("updated_at", upd); put("synced_at", upd); put("deleted", if (deleted) 1 else 0)
+                }, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            w.setTransactionSuccessful()
+        } finally { w.endTransaction() }
     }
 
     /** CSV dos dias (separador ; e vírgula decimal) para planilha. */
@@ -127,6 +192,13 @@ class JournalStore(context: Context) {
     }
 
     // ---------- json ----------
+
+    private fun fuelFromJson(it: JSONObject) =
+        FuelEntry(it.getLong("at"), it.getDouble("odo"), it.getDouble("liters"), it.getDouble("total"), it.optBoolean("full", true))
+
+    private fun fuelToJson(f: FuelEntry) = JSONObject().put("at", f.at).put("odo", f.odometer).put("liters", f.liters)
+        .put("total", f.total).put("full", f.fullTank)
+
 
     private fun dayFromJson(date: String, o: JSONObject): DayRecord {
         val e = o.optJSONObject("earnings")
@@ -154,4 +226,29 @@ class JournalStore(context: Context) {
 
     private fun JSONObject.optDoubleOrNull(k: String) = if (has(k) && !isNull(k)) optDouble(k).takeIf { !it.isNaN() } else null
     private fun JSONObject.optLongOrNull(k: String) = if (has(k) && !isNull(k)) optLong(k) else null
+
+    companion object {
+        /** Exporta no formato antigo {days, fuel, deliveries} (backup). */
+        fun exportJson(ctx: Context, suffix: String): JSONObject {
+            val r = FarolDb.of(ctx, suffix).readableDatabase
+            val days = JSONObject()
+            r.rawQuery("SELECT date, data FROM days", null).use { c -> while (c.moveToNext()) days.put(c.getString(0), JSONObject(c.getString(1))) }
+            val fuel = JSONArray()
+            r.rawQuery("SELECT data FROM fuel WHERE deleted = 0 ORDER BY at", null).use { c -> while (c.moveToNext()) fuel.put(JSONObject(c.getString(0))) }
+            val del = JSONArray()
+            r.rawQuery("SELECT data FROM deliveries ORDER BY collect_at", null).use { c -> while (c.moveToNext()) del.put(JSONObject(c.getString(0))) }
+            return JSONObject().put("days", days).put("fuel", fuel).put("deliveries", del)
+        }
+
+        /** Restaura um backup (substitui o diário daquele modo). */
+        fun importJson(ctx: Context, suffix: String, o: JSONObject) {
+            val db = FarolDb.of(ctx, suffix); val w = db.writableDatabase
+            w.beginTransaction()
+            try {
+                w.delete("days", null, null); w.delete("fuel", null, null); w.delete("deliveries", null, null)
+                db.importJournal(w, o, System.currentTimeMillis())
+                w.setTransactionSuccessful()
+            } finally { w.endTransaction() }
+        }
+    }
 }

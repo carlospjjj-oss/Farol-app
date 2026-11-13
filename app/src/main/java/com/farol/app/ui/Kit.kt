@@ -34,14 +34,7 @@ object Palette {
     fun alpha(color: Int, a: Int) = (color and 0x00FFFFFF) or (a shl 24)
 
     /** Cor de cada app na lista de ganhos. */
-    fun app(name: String) = when (name) {
-        "iFood" -> 0xFFEA1D2C.toInt()
-        "99" -> 0xFFFFD000.toInt()
-        "Keeta" -> 0xFF2BD49B.toInt()
-        "Uber" -> 0xFFE5E7EB.toInt()
-        "inDrive" -> 0xFFB6F36A.toInt()
-        else -> 0xFF8B5CF6.toInt()
-    }
+    fun app(name: String) = com.farol.app.core.AppCatalog.color(name).toInt()
 }
 
 /** Pequeno kit de componentes desenhados em código (sem bibliotecas extras). */

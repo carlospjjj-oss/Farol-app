@@ -48,6 +48,15 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS attempts (chave TEXT NOT NULL, ts INTEGER NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS a_key_ts ON attempts(chave, ts)`,
   `CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)`,
+  // Dados do diário de cada conta (turnos e abastecimentos), sincronizados pelo app
+  `CREATE TABLE IF NOT EXISTS user_days (
+     user_id INTEGER NOT NULL, modo TEXT NOT NULL, date TEXT NOT NULL, data TEXT NOT NULL,
+     updated_at INTEGER NOT NULL, srv_at INTEGER NOT NULL, PRIMARY KEY (user_id, modo, date))`,
+  `CREATE INDEX IF NOT EXISTS ud_srv ON user_days(user_id, srv_at)`,
+  `CREATE TABLE IF NOT EXISTS user_fuel (
+     user_id INTEGER NOT NULL, modo TEXT NOT NULL, at INTEGER NOT NULL, data TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
+     updated_at INTEGER NOT NULL, srv_at INTEGER NOT NULL, PRIMARY KEY (user_id, modo, at))`,
+  `CREATE INDEX IF NOT EXISTS uf_srv ON user_fuel(user_id, srv_at)`,
 ];
 // Colunas novas em tabelas que já existiam (dá erro se já existir: ignorado).
 const MIGRATIONS = [
@@ -80,6 +89,7 @@ export default {
     if (!env.DB) return json({ erro: "banco D1 não ligado (Bindings → DB)" }, 500);
     await ensureSchema(env.DB);
     if (url.pathname.startsWith("/v1/auth/") || url.pathname.startsWith("/v1/admin/")) return authRoutes(req, env, url);
+    if (url.pathname === "/v1/sync" && req.method === "POST") return syncRoute(req, env);
     if (req.method === "GET" && url.pathname === "/api/painel") return panelApi(req, env, url);
     if (req.method !== "POST" || url.pathname !== "/v1/logs") return json({ erro: "rota inválida" }, 404);
 
@@ -317,6 +327,14 @@ async function authRoutes(req, env, url) {
        FROM users u ORDER BY u.id`).all();
     return json({ usuarios: r.results || [] });
   }
+  if (p === "/v1/admin/crashes") {
+    const r = await db.prepare(
+      `SELECT e.t, e.versao, e.user_id, u.nome, json_extract(e.data,'$.aparelho_modelo') AS modelo,
+         json_extract(e.data,'$.android') AS android, json_extract(e.data,'$.tela') AS tela,
+         json_extract(e.data,'$.erro') AS erro, json_extract(e.data,'$.pilha') AS pilha
+       FROM events e LEFT JOIN users u ON u.id = e.user_id WHERE e.tipo = 'crash' ORDER BY e.id DESC LIMIT 30`).all();
+    return json({ crashes: r.results || [] });
+  }
   if (p === "/v1/admin/limpeza" && req.method === "POST") {
     return json({ ok: true, resultado: await maintenance(env, true), regra: `texto apagado após ${TEXT_DAYS} dias; telas apagadas após ${SCREEN_DAYS} dias` });
   }
@@ -340,11 +358,56 @@ async function authRoutes(req, env, url) {
   return json({ erro: "rota inválida" }, 404);
 }
 
+// ============================== Sincronização do diário ==============================
+//
+// O app manda o que mudou (dias e abastecimentos, com updated_at do celular) e recebe o que mudou
+// no servidor desde o último "cursor". Vale o mais novo (updated_at maior). Assim um celular novo
+// recebe tudo no primeiro login, e o painel mostra os ganhos do dia sem esperar o fim do turno.
+const SYNC_MAX = 500, SYNC_ITEM_MAX = 8000;
+
+async function syncRoute(req, env) {
+  const sess = await sessionFrom(req, env);
+  if (!sess || sess === "invalid") return json({ erro: "faça login" }, 401);
+  const text = await req.text();
+  if (text.length > 2_000_000) return json({ erro: "envio grande demais" }, 413);
+  let b; try { b = JSON.parse(text); } catch { return json({ erro: "JSON inválido" }, 400); }
+  const modo = b.modo === "carro" ? "carro" : "moto";
+  const since = Math.max(0, Number(b.since) || 0);
+  const days = Array.isArray(b.days) ? b.days.slice(0, SYNC_MAX) : [];
+  const fuel = Array.isArray(b.fuel) ? b.fuel.slice(0, SYNC_MAX) : [];
+  const db = env.DB, uid = sess.user_id, now = Date.now();
+  const stmts = [];
+  for (const d of days) {
+    const data = JSON.stringify(d.data ?? {}), upd = Number(d.updated_at) || 0;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d.date)) || data.length > SYNC_ITEM_MAX || !upd) continue;
+    stmts.push(db.prepare(`INSERT INTO user_days (user_id, modo, date, data, updated_at, srv_at) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, modo, date) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at, srv_at = excluded.srv_at
+      WHERE excluded.updated_at > user_days.updated_at`).bind(uid, modo, d.date, data, upd, now));
+  }
+  for (const f of fuel) {
+    const data = JSON.stringify(f.data ?? {}), upd = Number(f.updated_at) || 0, at = Number(f.at) || 0;
+    if (!at || !upd || data.length > SYNC_ITEM_MAX) continue;
+    stmts.push(db.prepare(`INSERT INTO user_fuel (user_id, modo, at, data, deleted, updated_at, srv_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, modo, at) DO UPDATE SET data = excluded.data, deleted = excluded.deleted, updated_at = excluded.updated_at, srv_at = excluded.srv_at
+      WHERE excluded.updated_at > user_fuel.updated_at`).bind(uid, modo, at, data, f.deleted ? 1 : 0, upd, now));
+  }
+  if (stmts.length) await db.batch(stmts);
+  const outDays = (await db.prepare("SELECT date, data, updated_at FROM user_days WHERE user_id = ? AND modo = ? AND srv_at > ? ORDER BY srv_at LIMIT 2000")
+    .bind(uid, modo, since).all()).results || [];
+  const outFuel = (await db.prepare("SELECT at, data, deleted, updated_at FROM user_fuel WHERE user_id = ? AND modo = ? AND srv_at > ? ORDER BY srv_at LIMIT 2000")
+    .bind(uid, modo, since).all()).results || [];
+  return json({
+    ok: true, cursor: now, recebidos: stmts.length,
+    days: outDays.map((r) => ({ date: r.date, data: JSON.parse(r.data), updated_at: r.updated_at })),
+    fuel: outFuel.map((r) => ({ at: r.at, data: JSON.parse(r.data), deleted: !!r.deleted, updated_at: r.updated_at })),
+  });
+}
+
 // ============================== Painel web ==============================
 
 const APP_NAMES = {
   "com.ubercab.driver": "Uber", "com.app99.driver": "99", "sinet.startup.inDriver": "inDrive",
-  "br.com.ifood.driver.app": "iFood", "com.sankuai.sailor.courier": "Keeta",
+  "br.com.ifood.driver.app": "iFood", "com.sankuai.sailor.courier": "Keeta", "com.sankuai.sailor.afooddelivery": "Keeta",
 };
 
 function brtDate(offsetDays = 0) {
@@ -397,7 +460,7 @@ async function panelApi(req, env, url) {
     // pedidos e resumo do dia não levam "modo"
     q(`SELECT app, COUNT(*) AS n, AVG(json_extract(data,'$.min_coleta')) AS coleta, AVG(json_extract(data,'$.min_entrega')) AS entrega`,
       ["tipo='pedido'"], "GROUP BY app ORDER BY n DESC", { useModo: false }),
-    // o último resumo de cada data (se o turno foi editado, vale o mais novo) — por conta
+    // o último resumo de cada data (se o turno foi editado, vale o mais novo) — por conta (fallback antigo)
     q(`SELECT json_extract(data,'$.resumo') AS r, COALESCE(user_id, device) AS dono, id`, ["tipo='dia'"], "ORDER BY id", { useModo: false }),
     q(`SELECT COUNT(*) AS n, MAX(t) AS ultimo`, [], ""),
   ]);
@@ -405,6 +468,32 @@ async function panelApi(req, env, url) {
   const name = (a) => APP_NAMES[a] || a || "?";
   const lastByDay = new Map();
   for (const x of diasRows) { try { const r = JSON.parse(x.r); if (r && r.data >= since) lastByDay.set(x.dono + "|" + r.data, r); } catch (_) {} }
+  // Diário sincronizado (5.x+): vale mais que o resumo de fim de turno e já mostra o dia em andamento.
+  {
+    const conds = ["date >= ?"], args = [since];
+    if (modo) { conds.push("modo = ?"); args.push(modo); }
+    if (scopeUser === "anon") conds.push("1 = 0");
+    else if (scopeUser != null) { conds.push("user_id = ?"); args.push(scopeUser); }
+    const rows = (await db.prepare(`SELECT user_id, modo, date, data FROM user_days WHERE ${conds.join(" AND ")}`).bind(...args).all()).results || [];
+    const nowMs = Date.now();
+    for (const row of rows) {
+      let d; try { d = JSON.parse(row.data); } catch (_) { continue; }
+      const ganho = Object.values(d.earnings || {}).reduce((a, v) => a + (Number(v) || 0), 0);
+      const km = d.kmStart != null && d.kmEnd != null && d.kmEnd >= d.kmStart ? d.kmEnd - d.kmStart : 0;
+      let horas = 0;
+      if (d.startAt) {
+        const end = d.endAt || (row.date === brtDate(0) ? nowMs : d.startAt);
+        const open = d.pauseAt ? Math.max(0, end - d.pauseAt) : 0;
+        horas = Math.max(0, end - d.startAt - (d.pausedMs || 0) - open) / 3600_000;
+      }
+      const custo = Number(d._custo_km) || 0;
+      if (!ganho && !km && !horas) continue;
+      // a chave por conta é "u<id>"; um resumo antigo da mesma conta/dia é substituído
+      lastByDay.delete(row.user_id + "|" + row.date);   // resumo antigo (evento "dia") da mesma conta e data
+      lastByDay.set(row.user_id + "|" + row.modo + "|" + row.date,
+        { data: row.date, ganho_total: ganho, km, horas, liquido: ganho - km * custo, ganhos: d.earnings || {} });
+    }
+  }
   const perDate = new Map();   // várias contas no mesmo dia (visão do admin): soma
   for (const r of lastByDay.values()) {
     const c = perDate.get(r.data) || { data: r.data, ganho_total: 0, km: 0, horas: 0, liquido: 0 };
@@ -582,6 +671,7 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
   <section><h2>Por app</h2><div class="grid apps" id="apps"></div></section>
   <section><h2>Últimas ofertas <span id="offCount"></span></h2><div class="card"><div class="offs" id="ultimas"></div></div></section>
   <section><h2>Pedidos <span>tempo medido pelo app</span></h2><div class="grid apps" id="pedidos"></div></section>
+  <section id="secCrash" hidden><h2>Erros do app <span>travamentos enviados pelos celulares</span></h2><div class="card"><div class="users" id="crashes"></div></div></section>
   <section id="secUsers" hidden><h2>Contas <span>só o administrador vê</span></h2><div class="card"><div class="users" id="users"></div></div></section>
   <footer>Farol · dados do seu servidor Cloudflare</footer>
 </div>
@@ -620,7 +710,7 @@ async function load(){
   const d=await r.json().catch(()=>({erro:"resposta inválida"}));
   if(!r.ok){if(r.status===401){try{localStorage.removeItem("farolTok")}catch(e){}tok=null;}return showLogin(d.erro);}
   $("#login").hidden=true;$("#app").hidden=false;last=d;render(d);
-  if(d.admin)loadUsers();
+  if(d.admin){loadUsers();loadCrashes();}
 }
 function spark(vals,color){
   vals=vals.filter(v=>v!=null&&!isNaN(v));if(vals.length<2)return"";
@@ -712,6 +802,13 @@ function render(d){
   renderOffers();
   $("#pedidos").innerHTML=d.pedidos.length?d.pedidos.map(x=>'<div class="card app"><div class="hd"><div class="badge" style="background:'+appc(x.app)+'">'+esc(x.app.slice(0,2))+'</div><div><div class="nm">'+esc(x.app)+'</div><div class="cnt">'+x.n+' pedidos</div></div></div>'+
     '<div class="ft" style="margin-top:0"><span>Até coletar <b>'+num(x.coleta,0)+' min</b></span><span>Até entregar <b>'+num(x.entrega,0)+' min</b></span></div></div>').join(""):'<div class="empty">Nenhum pedido medido no período.</div>';
+}
+async function loadCrashes(){
+  const r=await fetch("/v1/admin/crashes",{headers:H()}).catch(()=>null);if(!r||!r.ok)return;
+  const d=await r.json();$("#secCrash").hidden=false;
+  $("#crashes").innerHTML=d.crashes.length?d.crashes.map(c=>'<details class="u" style="display:block"><summary style="cursor:pointer"><b>'+esc(c.erro||"erro")+'</b>'+
+    '<div class="sub">'+(c.t?dm(c.t)+' '+c.t.slice(11,16):'')+' · v'+esc(c.versao)+' · '+esc(c.modelo||"")+' (Android API '+esc(c.android)+') · '+esc(c.tela||"")+(c.nome?' · '+esc(c.nome):'')+'</div></summary>'+
+    '<pre style="white-space:pre-wrap;font-size:11px;color:var(--muted);margin:10px 0 0">'+esc(c.pilha||"")+'</pre></details>').join(""):'<div class="empty">Nenhum travamento registrado. 🎉</div>';
 }
 async function loadUsers(){
   const r=await fetch("/v1/admin/users",{headers:H()}).catch(()=>null);if(!r||!r.ok)return;

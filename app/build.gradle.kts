@@ -11,8 +11,9 @@ android {
         applicationId = "com.farol.app"
         minSdk = 26          // Android 8.0
         targetSdk = 35
-        versionCode = 36
-        versionName = "5.4"
+        versionCode = 37
+        versionName = "6.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // Assinatura: feita no GitHub Actions (.github/scripts/sign.sh) com rotação de chave.
@@ -41,4 +42,9 @@ dependencies {
     implementation("androidx.annotation:annotation:1.9.1")
 
     testImplementation("junit:junit:4.13.2")
+
+    // Testes no emulador Android (banco, migração, sincronização, cofre, tarefas de fundo)
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("junit:junit:4.13.2")
 }

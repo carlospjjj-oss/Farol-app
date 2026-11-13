@@ -36,77 +36,78 @@ import com.farol.app.service.OfferReaderService
 /** Ajustes do Farol: custos, semáforo, filtros, cartão, leitura, envio de logs, histórico e calibração. */
 class SettingsActivity : Activity() {
 
-    private lateinit var settings: Settings
-    private lateinit var history: History
-    private lateinit var capture: CaptureLog
-    private lateinit var k: Kit
-    private lateinit var col: LinearLayout
+    internal val self: SettingsActivity get() = this
+    internal lateinit var settings: Settings
+    internal lateinit var history: History
+    internal lateinit var capture: CaptureLog
+    internal lateinit var k: Kit
+    internal lateinit var col: LinearLayout
 
     // status
-    private lateinit var statusBox: LinearLayout
+    internal lateinit var statusBox: LinearLayout
     // custos
-    private lateinit var etFuel: EditText
-    private lateinit var etKml: EditText
-    private lateinit var etFuelE: EditText
-    private lateinit var etKmlE: EditText
-    private lateinit var segFuel: LinearLayout
-    private lateinit var tvFuelCmp: android.widget.TextView
-    private var activeFuel = "gasolina"
-    private lateinit var etOther: EditText
-    private lateinit var tvCost: TextView
+    internal lateinit var etFuel: EditText
+    internal lateinit var etKml: EditText
+    internal lateinit var etFuelE: EditText
+    internal lateinit var etKmlE: EditText
+    internal lateinit var segFuel: LinearLayout
+    internal lateinit var tvFuelCmp: android.widget.TextView
+    internal var activeFuel = "gasolina"
+    internal lateinit var etOther: EditText
+    internal lateinit var tvCost: TextView
     // semáforo
-    private lateinit var etGreenKm: EditText
-    private lateinit var etYellowKm: EditText
-    private lateinit var etGreenH: EditText
-    private lateinit var etYellowH: EditText
-    private lateinit var etSpeed: EditText
+    internal lateinit var etGreenKm: EditText
+    internal lateinit var etYellowKm: EditText
+    internal lateinit var etGreenH: EditText
+    internal lateinit var etYellowH: EditText
+    internal lateinit var etSpeed: EditText
     // filtros
-    private lateinit var etMaxPickup: EditText
-    private lateinit var etMinRating: EditText
-    private lateinit var etGreenStars: EditText
-    private lateinit var etMinPrice: EditText
-    private lateinit var etMinNet: EditText
-    private lateinit var etMinNetPct: EditText
-    private lateinit var etMaxKm: EditText
-    private lateinit var etMaxMin: EditText
-    private lateinit var bandsBox: LinearLayout
-    private lateinit var etGoal: EditText
-    private lateinit var etFavorites: EditText
-    private lateinit var segSize: LinearLayout
-    private var cardSize = 1
-    private lateinit var swCompact: Switch
-    private lateinit var swShiftNotif: Switch
-    private lateinit var swWeekly: Switch
-    private lateinit var swAutoSpeed: Switch
-    private lateinit var swGps: Switch
-    private lateinit var tvSpeed: TextView
-    private lateinit var etAlerts: EditText
+    internal lateinit var etMaxPickup: EditText
+    internal lateinit var etMinRating: EditText
+    internal lateinit var etGreenStars: EditText
+    internal lateinit var etMinPrice: EditText
+    internal lateinit var etMinNet: EditText
+    internal lateinit var etMinNetPct: EditText
+    internal lateinit var etMaxKm: EditText
+    internal lateinit var etMaxMin: EditText
+    internal lateinit var bandsBox: LinearLayout
+    internal lateinit var etGoal: EditText
+    internal lateinit var etFavorites: EditText
+    internal lateinit var segSize: LinearLayout
+    internal var cardSize = 1
+    internal lateinit var swCompact: Switch
+    internal lateinit var swShiftNotif: Switch
+    internal lateinit var swWeekly: Switch
+    internal lateinit var swAutoSpeed: Switch
+    internal lateinit var swGps: Switch
+    internal lateinit var tvSpeed: TextView
+    internal lateinit var etAlerts: EditText
     // cartão / leitura
-    private lateinit var etHide: EditText
-    private lateinit var swEnabled: Switch
-    private lateinit var swVibrate: Switch
-    private lateinit var swSpeak: Switch
-    private lateinit var swOcr: Switch
-    private lateinit var swHint: Switch
-    private lateinit var swCapture: Switch
-    private lateinit var swScreens: Switch
-    private lateinit var swAutoEarn: Switch
-    private lateinit var etTargets: EditText
-    private lateinit var tvRecent: TextView
+    internal lateinit var etHide: EditText
+    internal lateinit var swEnabled: Switch
+    internal lateinit var swVibrate: Switch
+    internal lateinit var swSpeak: Switch
+    internal lateinit var swOcr: Switch
+    internal lateinit var swHint: Switch
+    internal lateinit var swCapture: Switch
+    internal lateinit var swScreens: Switch
+    internal lateinit var swAutoEarn: Switch
+    internal lateinit var etTargets: EditText
+    internal lateinit var tvRecent: TextView
     // logs
-    private var remoteMode = "off"
-    private lateinit var segRemote: LinearLayout
-    private lateinit var boxServer: LinearLayout
-    private lateinit var etServer: EditText
-    private lateinit var boxRemoteCommon: LinearLayout
-    private lateinit var etInterval: EditText
-    private lateinit var swMask: Switch
-    private lateinit var tvRemote: TextView
+    internal var remoteMode = "off"
+    internal lateinit var segRemote: LinearLayout
+    internal lateinit var boxServer: LinearLayout
+    internal lateinit var etServer: EditText
+    internal lateinit var boxRemoteCommon: LinearLayout
+    internal lateinit var etInterval: EditText
+    internal lateinit var swMask: Switch
+    internal lateinit var tvRemote: TextView
     // histórico
-    private lateinit var tvHistSummary: TextView
-    private lateinit var boxHist: LinearLayout
+    internal lateinit var tvHistSummary: TextView
+    internal lateinit var boxHist: LinearLayout
 
-    private val remoteModes = listOf("off" to "Desligado", "server" to "Servidor")
+    internal val remoteModes = listOf("off" to "Desligado", "server" to "Servidor")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -120,7 +121,7 @@ class SettingsActivity : Activity() {
         loadValues()
     }
 
-    private var firstResume = true
+    internal var firstResume = true
     override fun onResume() {
         super.onResume()
         if (!firstResume) loadValues()   // volta da calculadora de custos com valores novos
@@ -133,7 +134,7 @@ class SettingsActivity : Activity() {
 
     // ============================== helpers de UI ==============================
 
-    private fun card(title: String, subtitle: String? = null): LinearLayout {
+    internal fun card(title: String, subtitle: String? = null): LinearLayout {
         val c = k.card()
         c.addView(k.text(title, 17, Palette.TEXT, k.bold))
         subtitle?.let { c.addView(k.text(it, 13, Palette.MUTED), k.lp(top = 4)) }
@@ -141,11 +142,11 @@ class SettingsActivity : Activity() {
         return c
     }
 
-    private fun hint(parent: LinearLayout, t: String) =
+    internal fun hint(parent: LinearLayout, t: String) =
         parent.addView(k.text(t, 12, Palette.MUTED).apply { setLineSpacing(0f, 1.15f) }, k.lp(top = 10))
 
     /** Linha "rótulo .......... [campo] unidade". */
-    private fun numRow(parent: LinearLayout, label: String, unit: String, sub: String? = null): EditText {
+    internal fun numRow(parent: LinearLayout, label: String, unit: String, sub: String? = null): EditText {
         val f = k.field("0").apply {
             gravity = Gravity.END
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
@@ -163,7 +164,7 @@ class SettingsActivity : Activity() {
         return f
     }
 
-    private fun textField(hint: String, secret: Boolean = false, multi: Boolean = false, mono: Boolean = false) = EditText(this).apply {
+    internal fun textField(hint: String, secret: Boolean = false, multi: Boolean = false, mono: Boolean = false) = EditText(this).apply {
         this.hint = hint
         setTextColor(Palette.TEXT); setHintTextColor(Palette.MUTED)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, if (mono) 13f else 15f)
@@ -178,12 +179,12 @@ class SettingsActivity : Activity() {
         background = k.rounded(Palette.SURFACE2, 14, Palette.STROKE)
     }
 
-    private fun labeledText(parent: LinearLayout, label: String, f: EditText) {
+    internal fun labeledText(parent: LinearLayout, label: String, f: EditText) {
         parent.addView(k.text(label, 12, Palette.MUTED, k.medium), k.lp(top = 12))
         parent.addView(f, k.lp(top = 6))
     }
 
-    private fun toggle(parent: LinearLayout, label: String, sub: String? = null): Switch {
+    internal fun toggle(parent: LinearLayout, label: String, sub: String? = null): Switch {
         val sw = Switch(this).apply {
             thumbTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
                 intArrayOf(Palette.ACCENT, 0xFFB0B7C3.toInt()))
@@ -204,7 +205,7 @@ class SettingsActivity : Activity() {
         return sw
     }
 
-    private fun buttons(parent: LinearLayout, vararg items: Pair<String, () -> Unit>, primaryFirst: Boolean = false) {
+    internal fun buttons(parent: LinearLayout, vararg items: Pair<String, () -> Unit>, primaryFirst: Boolean = false) {
         val row = k.hbox()
         items.forEachIndexed { i, (label, action) ->
             val b = if (primaryFirst && i == 0) k.pill(label, onClick = action) else k.ghost(label, action)
@@ -213,7 +214,7 @@ class SettingsActivity : Activity() {
         parent.addView(row, k.lp(top = 14))
     }
 
-    private fun onChange(vararg fields: EditText, block: () -> Unit) = fields.forEach {
+    internal fun onChange(vararg fields: EditText, block: () -> Unit) = fields.forEach {
         it.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -223,7 +224,7 @@ class SettingsActivity : Activity() {
 
     // ============================== construção ==============================
 
-    private fun askChangePassword() {
+    internal fun askChangePassword() {
         fun pf(h: String) = k.field(h).apply { inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD }
         val a = pf("Senha atual"); val b = pf("Nova senha (mín. 8)"); val c = pf("Repita a nova senha")
         val box = k.vbox(22, 8).apply { addView(a); addView(b, k.lp(top = 10)); addView(c, k.lp(top = 10)) }
@@ -248,7 +249,7 @@ class SettingsActivity : Activity() {
         d.show()
     }
 
-    private fun buildUi() {
+    internal fun buildUi() {
         col = k.vbox().apply { setPadding(k.dp(18), k.dp(18), k.dp(18), k.dp(110)) }
         val scroll = ScrollView(this).apply {
             setBackgroundColor(Palette.BG); isVerticalScrollBarEnabled = false; addView(col)
@@ -271,225 +272,9 @@ class SettingsActivity : Activity() {
         // Status
         statusBox = k.card().also { col.addView(it, k.lp(top = 18)) }
 
-        // Custos
-        val cCost = card("Seus custos", "Quanto custa rodar cada km")
-        cCost.addView(k.hbox().apply {
-            listOf("🛵 Moto" to "moto", "🚗 Carro" to "carro", "🚲 Bike" to "bike").forEachIndexed { i, (label, preset) ->
-                addView(k.chip(label, Palette.ACCENT).apply {
-                    isClickable = true; setOnClickListener { applyPreset(preset) }
-                }, k.lp(w = -2).apply { if (i > 0) marginStart = k.dp(8) })
-            }
-        }, k.lp(top = 12))
-        cCost.addView(k.text("No tanque agora", 13, Palette.MUTED, k.medium), k.lp(top = 16))
-        segFuel = k.hbox().apply {
-            background = k.rounded(Palette.SURFACE2, 12)
-            setPadding(k.dp(4), k.dp(4), k.dp(4), k.dp(4))
-        }
-        cCost.addView(segFuel, k.lp(top = 6))
-        etFuel = numRow(cCost, "⛽ Gasolina", "R$/L")
-        etKml = numRow(cCost, "Consumo com gasolina", "km/L", "média real na cidade")
-        etFuelE = numRow(cCost, "🌱 Etanol", "R$/L")
-        etKmlE = numRow(cCost, "Consumo com etanol", "km/L", "costuma ser uns 70% do da gasolina")
-        tvFuelCmp = k.text("", 13, Palette.MUTED).apply {
-            setPadding(k.dp(14), k.dp(10), k.dp(14), k.dp(10))
-            background = k.rounded(Palette.SURFACE2, 12)
-        }
-        cCost.addView(tvFuelCmp, k.lp(top = 12))
-        etOther = numRow(cCost, "Outros custos", "R$/km", "óleo, pneu, manutenção, desgaste")
-        tvCost = k.text("", 15, Palette.ACCENT, k.bold).apply {
-            setPadding(k.dp(14), k.dp(12), k.dp(14), k.dp(12))
-            background = k.rounded(Palette.alpha(Palette.ACCENT, 0x1F), 14)
-        }
-        cCost.addView(tvCost, k.lp(top = 14))
-        onChange(etFuel, etKml, etFuelE, etKmlE, etOther) { showCost() }
-        cCost.addView(k.ghost("🧮  Calcular custos do mês") {
-            save(silent = true)
-            startActivity(Intent(this, CostsActivity::class.java))
-        }, k.lp(top = 12))
-
-        // Meta
-        val cGoal = card("Meta do dia", "Aparece no dashboard, no cartão de cada oferta, na notificação e no widget")
-        etGoal = numRow(cGoal, "Quero ganhar por dia", "R$", "0 = sem meta")
-
-        // Semáforo
-        val cLight = card("Suas faixas", "A cor final é a pior entre R$/km, R$/h e nota")
-        bandsBox = k.vbox().also { cLight.addView(it, k.lp(top = 14)) }
-        fun lightHeader(color: Int, label: String) = cLight.addView(k.hbox().apply {
-            addView(k.dot(color, 12))
-            addView(k.text(label, 14, color, k.bold), k.lp(w = -2).apply { marginStart = k.dp(8) })
-        }, k.lp(top = 16))
-        lightHeader(Palette.GREEN, "Verde a partir de")
-        etGreenKm = numRow(cLight, "Por km", "R$/km")
-        etGreenH = numRow(cLight, "Por hora", "R$/h")
-        lightHeader(Palette.YELLOW, "Amarelo a partir de")
-        etYellowKm = numRow(cLight, "Por km", "R$/km")
-        etYellowH = numRow(cLight, "Por hora", "R$/h")
-        lightHeader(Palette.RED, "Vermelho: abaixo do amarelo")
-        cLight.addView(k.text("Nota do passageiro (quando o app mostra)", 13, Palette.MUTED, k.medium), k.lp(top = 16))
-        etGreenStars = numRow(cLight, "Aceitar a partir de", "★", "0 = não usa")
-        etMinRating = numRow(cLight, "Atenção a partir de", "★", "abaixo disso é vermelho")
-        etSpeed = numRow(cLight, "Velocidade média", "km/h", "usada quando a oferta não mostra o tempo (~)")
-        swAutoSpeed = toggle(cLight, "Aprender com meus pedidos", "Cada app usa a velocidade dos SEUS pedidos nele (aceite até o fim). Sem 5 pedidos medidos, usa o valor acima")
-        tvSpeed = k.text("", 13, Palette.ACCENT, k.medium).also { cLight.addView(it, k.lp(top = 8)) }
-        swGps = toggle(cLight, "📍 Medir pelo GPS (durante o turno)", "Mede km do dia e velocidade real de cada pedido. Só sugere no dashboard: nada muda sem você tocar em \"Usar\"")
-        swGps.setOnCheckedChangeListener { _, on ->
-            if (on && !com.farol.app.service.GpsService.hasPermission(this))
-                requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION), 12)
-        }
-        onChange(etGreenKm, etYellowKm, etGreenH, etYellowH, etGreenStars, etMinRating) { renderBands() }
-
-        // Condições mínimas
-        val cMin = card("Condições mínimas", "Abaixo disso o cartão fica vermelho (0 = não usa)")
-        etMinPrice = numRow(cMin, "Valor da corrida", "R$")
-        etMinNet = numRow(cMin, "Lucro líquido mínimo", "R$")
-        etMinNetPct = numRow(cMin, "Lucro mínimo", "%", "do valor da corrida")
-
-        // Tempo e distância
-        val cTD = card("Tempo e distância", "Acima disso o cartão fica vermelho (0 = não usa)")
-        etMaxPickup = numRow(cTD, "Busca máxima", "km", "até o restaurante ou passageiro")
-        etMaxKm = numRow(cTD, "Distância total máxima", "km")
-        etMaxMin = numRow(cTD, "Tempo total máximo", "min")
-
-        // Filtros
-        val cFilter = card("Bairros", "Alerta deixa o cartão vermelho; favorito ganha uma ⭐")
-        etAlerts = textField("ex.: Jardim Exemplo, Vila Tal", multi = true)
-        labeledText(cFilter, "🔴 Bairros ou ruas de alerta (separados por vírgula)", etAlerts)
-        etFavorites = textField("ex.: São Caetano, Vila Tal", multi = true)
-        labeledText(cFilter, "⭐ Bairros favoritos: perto de casa ou bons (só destaca, não muda a cor)", etFavorites)
-
-        // Cartão
-        val cCard = card("Cartão flutuante")
-        cCard.addView(k.text("Tamanho", 12, Palette.MUTED, k.medium), k.lp(top = 12))
-        segSize = k.hbox().apply { background = k.rounded(Palette.SURFACE2, 12); setPadding(k.dp(4), k.dp(4), k.dp(4), k.dp(4)) }
-        cCard.addView(segSize, k.lp(top = 6))
-        swCompact = toggle(cCard, "Modo compacto", "Só a cor, o R$/km bem grande e o preço: para ler de relance no guidão")
-        swEnabled = toggle(cCard, "Farol ligado", "Pausa a leitura sem desligar a acessibilidade")
-        swVibrate = toggle(cCard, "Vibrar na oferta verde")
-        swSpeak = toggle(cCard, "Falar o resumo", "\"Verde. R$ 2,10 por quilômetro...\"")
-        etHide = numRow(cCard, "Esconder após", "seg")
-        cCard.addView(k.text("Testar o cartão", 12, Palette.MUTED, k.medium), k.lp(top = 16))
-        cCard.addView(k.hbox().apply {
-            listOf(Rating.GREEN to Palette.GREEN, Rating.YELLOW to Palette.YELLOW, Rating.RED to Palette.RED).forEachIndexed { i, (r, c) ->
-                val label = when (r) { Rating.GREEN -> "Verde"; Rating.YELLOW -> "Amarelo"; Rating.RED -> "Vermelho" }
-                addView(k.pill(label, Palette.alpha(c, 0x33), c) { test(r) },
-                    LinearLayout.LayoutParams(0, -2, 1f).apply { if (i > 0) marginStart = k.dp(8) })
-            }
-        }, k.lp(top = 8))
-
-        // Leitura
-        val cRead = card("Leitura das ofertas")
-        swAutoEarn = toggle(cRead, "Ganhos automáticos", "Lê o 'ganhos de hoje' na tela inicial de cada app e preenche o dashboard")
-        swHint = toggle(cRead, "Só com botão de aceitar", "Evita ler telas que não são oferta (recomendado)")
-        swOcr = toggle(cRead, "OCR de reserva", "Lê a imagem quando o app esconde o texto (Android 11+)")
-        swCapture = toggle(cRead, "Modo captura", "Grava o texto lido para calibrar")
-        swScreens = toggle(cRead, "Registrar telas após oferta", "Envia nos logs as telas de aceite, coleta e entrega por 90 min (para somar ganhos sozinho no futuro)")
-        etTargets = textField("pacote=Nome", multi = true, mono = true).apply { minLines = 4 }
-        labeledText(cRead, "Apps monitorados (pacote=Nome, um por linha)", etTargets)
-        tvRecent = k.text("", 12, Palette.MUTED).also { cRead.addView(it, k.lp(top = 8)) }
-        hint(cRead, "Por segurança, o Farol só lê os apps desta lista. Para descobrir o pacote de um app novo, toque abaixo e abra o app em até 2 minutos.")
-        buttons(cRead, "🔎 Descobrir app novo (2 min)" to {
-            val s = com.farol.app.service.OfferReaderService.instance
-            if (s == null) toast("Ligue o Farol na acessibilidade primeiro")
-            else { s.discover(120); toast("Abra o app novo agora. Depois volte aqui e veja \"Apps vistos recentemente\".") }
-        })
-
-        // Logs
-        val cLog = card("Envio de logs", "Manda o que o Farol lê para análise e calibração")
-        segRemote = k.hbox().apply {
-            background = k.rounded(Palette.SURFACE2, 12)
-            setPadding(k.dp(4), k.dp(4), k.dp(4), k.dp(4))
-        }
-        cLog.addView(segRemote, k.lp(top = 14))
-        boxServer = k.vbox().also { cLog.addView(it) }
-        etServer = textField("https://farol-logs.SEU-NOME.workers.dev"); labeledText(boxServer, "Endereço do servidor", etServer)
-        hint(boxServer, "Sem token: o servidor grava no banco e guarda a cópia no GitHub. Toque em \"Enviar teste\" para conferir.")
-        boxRemoteCommon = k.vbox().also { cLog.addView(it) }
-        etInterval = numRow(boxRemoteCommon, "Enviar a cada", "seg")
-        swMask = toggle(boxRemoteCommon, "Mascarar endereços", "Rua, número, telefone e CEP saem como [endereço]")
-        tvRemote = k.text("", 13, Palette.MUTED).apply {
-            setPadding(k.dp(14), k.dp(10), k.dp(14), k.dp(10))
-            background = k.rounded(Palette.SURFACE2, 12)
-        }.also { boxRemoteCommon.addView(it, k.lp(top = 14)) }
-        buttons(boxRemoteCommon,
-            "Enviar teste" to { save(); RemoteLog.get(this).test(); flushRemote() },
-            "Enviar agora" to { save(); flushRemote() })
-
-        // Notificações
-        val cNotif = card("Notificações")
-        swShiftNotif = toggle(cNotif, "Resumo do turno na barra", "Tempo, ganhos, meta e ofertas; com botão de pausar o Farol")
-        swWeekly = toggle(cNotif, "Resumo da semana", "Domingo à noite: ganhos, km, melhor dia e melhor horário")
-
-        // Conta
-        val user = com.farol.app.data.Account.user(this)
-        val cAcc = card("Conta", user?.let { "${it.name.ifBlank { "—" }} · ${it.email}" } ?: "Sem conta")
-        buttons(cAcc,
-            "🔑 Trocar senha" to { askChangePassword() },
-            "Sair da conta" to {
-                android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setTitle("Sair da conta?")
-                    .setMessage("Seus dados continuam no celular. Para usar o Farol de novo, entre com e-mail e senha.")
-                    .setPositiveButton("Sair") { _, _ ->
-                        Thread {
-                            com.farol.app.data.Account.logout(this)
-                            runOnUiThread {
-                                startActivity(Intent(this, LoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-                            }
-                        }.start()
-                    }.setNegativeButton("Cancelar", null).show()
-            })
-        hint(cAcc, "Seus dados ficam separados por conta no servidor e no painel web.")
-
-        // Atualizações
-        val cUpd = card("Atualizações", "Versão instalada: " + com.farol.app.service.Updater.installedName(this))
-        buttons(cUpd, "🔄 Procurar atualização" to { com.farol.app.service.Updater.checkNow(this) }, primaryFirst = true)
-        hint(cUpd, "O Farol procura sozinho a cada 6 horas e instala a versão nova. Na primeira vez o Android pede para permitir \"Instalar apps desconhecidos\" e confirmar; depois disso atualiza sem perguntar (Android 12 ou mais novo).")
-
-        // Backup
-        val cBackup = card("Backup", "Turnos, ganhos, abastecimentos, histórico e ajustes num arquivo")
-        buttons(cBackup,
-            "Exportar" to {
-                save(silent = true)
-                val name = "farol-backup-" + java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()) + ".json"
-                startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
-                    .setType("application/json").putExtra(Intent.EXTRA_TITLE, name), REQ_EXPORT)
-            },
-            "Restaurar" to {
-                startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
-                    .setType("*/*"), REQ_IMPORT)
-            }, primaryFirst = true)
-        hint(cBackup, "Faça antes de reinstalar ou trocar de celular. Nenhuma senha ou token vai no arquivo.")
-
-        // Acesso
-        val cAccess = card("Permissões", "Se o leitor parar de funcionar")
-        buttons(cAccess, "📖 Guia de instalação" to { startActivity(Intent(this, OnboardingActivity::class.java)) }, primaryFirst = true)
-        buttons(cAccess,
-            "Acessibilidade" to { startActivity(Intent(AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS)) },
-            "Restritas" to {
-                startActivity(Intent(AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-                toast("Toque nos ⋮ → 'Permitir configurações restritas'")
-            })
-        buttons(cAccess, "Bateria sem restrição" to {
-            startActivity(Intent(AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-            toast("Bateria → Sem restrições")
-        })
-
-        // Histórico
-        val cHist = card("Histórico de ofertas")
-        tvHistSummary = k.text("", 14, Palette.TEXT, k.medium).also { cHist.addView(it, k.lp(top = 10)) }
-        boxHist = k.vbox().also { cHist.addView(it, k.lp(top = 6)) }
-        buttons(cHist, "Abrir histórico completo" to {
-            startActivity(Intent(this, HistoryActivity::class.java))
-        }, primaryFirst = true)
-        buttons(cHist,
-            "Copiar CSV" to { copyText("farol.csv", history.toCsv(), "Histórico copiado — cole numa planilha") },
-            "Limpar" to { confirm("Apagar o histórico de ofertas?") { history.clear(); refreshStatus() } })
-
-        // Calibração
-        val cCal = card("Calibração", "Texto bruto lido nas telas (Modo captura)")
-        buttons(cCal,
-            "Copiar" to { copyCapture() },
-            "Ver" to { showCapture() },
-            "Limpar" to { capture.clear(); toast("Captura apagada") })
+        buildCostSections()
+        buildReadingSections()
+        buildAccountSections()
 
         // Raiz com botão Salvar fixo embaixo
         val save = k.pill("Salvar alterações") { save() }.apply { elevation = k.dp(8).toFloat() }
@@ -512,7 +297,7 @@ class SettingsActivity : Activity() {
         }
     }
 
-    private fun renderSegment() {
+    internal fun renderSegment() {
         segRemote.removeAllViews()
         remoteModes.forEach { (mode, label) ->
             val active = mode == remoteMode
@@ -530,10 +315,10 @@ class SettingsActivity : Activity() {
 
     // ============================== dados ==============================
 
-    private fun fmt(d: Double) = if (d == Math.floor(d)) d.toLong().toString() else d.toString().replace('.', ',')
-    private fun EditText.num(def: Double) = text.toString().trim().replace(',', '.').toDoubleOrNull() ?: def
+    internal fun fmt(d: Double) = if (d == Math.floor(d)) d.toLong().toString() else d.toString().replace('.', ',')
+    internal fun EditText.num(def: Double) = text.toString().trim().replace(',', '.').toDoubleOrNull() ?: def
 
-    private fun loadValues() {
+    internal fun loadValues() {
         val p = settings.profile
         activeFuel = settings.fuelType
         settings.fuel("gasolina").let { etFuel.setText(fmt(it.price)); etKml.setText(fmt(it.kml)) }
@@ -583,7 +368,7 @@ class SettingsActivity : Activity() {
         renderBands()
     }
 
-    private fun currentProfile(): CostProfile {
+    internal fun currentProfile(): CostProfile {
         val d = CostProfile()
         return CostProfile(
             fuelPrice = if (activeFuel == "etanol") etFuelE.num(3.89) else etFuel.num(d.fuelPrice),
@@ -606,7 +391,7 @@ class SettingsActivity : Activity() {
     }
 
     /** Retorna o motivo se algo estiver errado, ou null se estiver tudo certo. */
-    private fun problem(p: CostProfile): String? = when {
+    internal fun problem(p: CostProfile): String? = when {
         p.greenPerKm > 20 || p.yellowPerKm > 20 -> "Meta por km muito alta. Use vírgula: 1,80 e 1,40"
         p.otherCostPerKm > 5 || p.kmPerLiter > 120 || p.fuelPrice > 30 -> "Confira os custos: use vírgula (ex.: 0,15)"
         p.yellowPerKm > p.greenPerKm || p.yellowPerHour > p.greenPerHour -> "O amarelo precisa ser menor que o verde"
@@ -615,7 +400,7 @@ class SettingsActivity : Activity() {
         else -> null
     }
 
-    private fun save(silent: Boolean = false) {
+    internal fun save(silent: Boolean = false) {
         val p = currentProfile()
         problem(p)?.let { if (!silent) toast(it); return }
         settings.alertWordsText = etAlerts.text.toString()  // antes do profile: profile lê as palavras
@@ -652,7 +437,7 @@ class SettingsActivity : Activity() {
         if (!silent) toast("Salvo ✓")
     }
 
-    private fun renderFuel() {
+    internal fun renderFuel() {
         segFuel.removeAllViews()
         listOf("gasolina" to "⛽ Gasolina", "etanol" to "🌱 Etanol").forEach { (type, label) ->
             val on = type == activeFuel
@@ -664,7 +449,7 @@ class SettingsActivity : Activity() {
         }
     }
 
-    private fun showCost() {
+    internal fun showCost() {
         val p = currentProfile()
         tvCost.text = "Seu custo: ${Fmt.money(p.costPerKm)}/km   (combustível ${Fmt.money(p.fuelCostPerKm)} + outros ${Fmt.money(p.otherCostPerKm)})"
         // Qual compensa: compara o custo por km de cada um (o consumo real de cada carro manda, não só a regra dos 70%)
@@ -681,7 +466,7 @@ class SettingsActivity : Activity() {
         } else tvFuelCmp.text = "Preencha preço e consumo dos dois para comparar."
     }
 
-    private fun renderSize() {
+    internal fun renderSize() {
         segSize.removeAllViews()
         listOf("P", "M", "G").forEachIndexed { i, label ->
             val on = i == cardSize
@@ -693,7 +478,7 @@ class SettingsActivity : Activity() {
         }
     }
 
-    companion object { private const val REQ_EXPORT = 31; private const val REQ_IMPORT = 32 }
+    companion object { internal const val REQ_EXPORT = 31; internal const val REQ_IMPORT = 32 }
 
     @Deprecated("startActivityForResult é suficiente aqui (sem AndroidX)")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -719,7 +504,7 @@ class SettingsActivity : Activity() {
     }
 
     /** Tabela "Suas faixas": Ruim | Atenção | Aceitar para R$/km, R$/h e nota. */
-    private fun renderBands() {
+    internal fun renderBands() {
         if (!::bandsBox.isInitialized) return
         val p = currentProfile()
         bandsBox.removeAllViews()
@@ -767,7 +552,7 @@ class SettingsActivity : Activity() {
         bandsBox.addView(table)
     }
 
-    private fun applyPreset(kind: String) {
+    internal fun applyPreset(kind: String) {
         val (kml, other, gKm, yKm, gH, yH, speed) = when (kind) {
             "moto" -> listOf(30.0, 0.15, 1.80, 1.40, 30.0, 20.0, 25.0)
             "carro" -> listOf(11.0, 0.30, 2.00, 1.50, 45.0, 30.0, 25.0)
@@ -787,13 +572,13 @@ class SettingsActivity : Activity() {
     private operator fun <T> List<T>.component6() = this[5]
     private operator fun <T> List<T>.component7() = this[6]
 
-    private fun isServiceEnabled(): Boolean {
+    internal fun isServiceEnabled(): Boolean {
         val enabled = AndroidSettings.Secure.getString(contentResolver, AndroidSettings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
         val me = ComponentName(this, OfferReaderService::class.java)
         return enabled.split(':').any { ComponentName.unflattenFromString(it) == me }
     }
 
-    private fun refreshStatus() {
+    internal fun refreshStatus() {
         // Status
         val on = isServiceEnabled() && OfferReaderService.instance != null
         val color = if (on) Palette.GREEN else Palette.RED
@@ -832,24 +617,24 @@ class SettingsActivity : Activity() {
         }
     }
 
-    private fun test(r: Rating) {
+    internal fun test(r: Rating) {
         save(silent = true)
         val svc = OfferReaderService.instance
         if (svc == null) toast("Ative o leitor primeiro") else svc.showTest(r)
     }
 
-    private fun copyCapture() {
+    internal fun copyCapture() {
         val txt = capture.read()
         if (txt.isEmpty()) { toast("Captura vazia. Ligue o Modo captura e abra uma oferta."); return }
         copyText("farol", txt, "Copiado (${txt.length} caracteres)")
     }
 
-    private fun copyText(label: String, txt: String, msg: String) {
+    internal fun copyText(label: String, txt: String, msg: String) {
         (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText(label, txt))
         toast(msg)
     }
 
-    private fun showCapture() {
+    internal fun showCapture() {
         val txt = capture.read().takeLast(6000).ifEmpty { "(vazia)" }
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setTitle("Últimas leituras")
@@ -862,15 +647,15 @@ class SettingsActivity : Activity() {
             .setPositiveButton("Fechar", null).show()
     }
 
-    private fun confirm(msg: String, onYes: () -> Unit) {
+    internal fun confirm(msg: String, onYes: () -> Unit) {
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setMessage(msg).setPositiveButton("Sim") { _, _ -> onYes() }.setNegativeButton("Cancelar", null).show()
     }
 
-    private fun flushRemote() {
+    internal fun flushRemote() {
         tvRemote.text = "Enviando..."
         RemoteLog.get(this).flushNow { status -> runOnUiThread { toast(status); refreshStatus() } }
     }
 
-    private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
+    internal fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
 }

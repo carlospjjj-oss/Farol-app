@@ -3,7 +3,6 @@ package com.farol.app.data
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
 
 /**
  * Backup completo num único JSON: diário (turnos, ganhos, abastecimentos, pedidos),
@@ -14,9 +13,8 @@ object Backup {
     private const val VERSION = 1
 
     fun export(ctx: Context): String {
-        val dir = ctx.filesDir
-        fun journalOf(suffix: String) = File(dir, "journal$suffix.json").takeIf { it.exists() }?.readText()?.let { runCatching { JSONObject(it) }.getOrNull() }
-        fun historyOf(suffix: String) = File(dir, "history$suffix.jsonl").takeIf { it.exists() }?.readLines()?.filter { it.isNotBlank() } ?: emptyList()
+        fun journalOf(suffix: String) = runCatching { JournalStore.exportJson(ctx, suffix) }.getOrNull()
+        fun historyOf(suffix: String) = runCatching { History.exportLines(ctx, suffix) }.getOrElse { emptyList() }
         val journal = journalOf("")
         val history = historyOf("")
         val prefs = prefsJson(Settings(ctx).prefs)
@@ -51,16 +49,15 @@ object Backup {
     fun restore(ctx: Context, json: String): String {
         val o = JSONObject(json)
         require(o.optString("app") == "farol") { "Este arquivo não é um backup do Farol" }
-        val dir = ctx.filesDir
         val journal = o.optJSONObject("journal") ?: JSONObject()
-        File(dir, "journal.json").writeText(journal.toString())
+        JournalStore.importJson(ctx, "", journal)
         val h = o.optJSONArray("history") ?: JSONArray()
-        File(dir, "history.jsonl").writeText((0 until h.length()).joinToString("") { h.getString(it) + "\n" })
+        History.importLines(ctx, "", (0 until h.length()).map { h.getString(it) })
         restorePrefs(Settings(ctx).prefs, o.optJSONObject("prefs") ?: JSONObject())
         o.optJSONObject("carro")?.let { c ->
-            File(dir, "journal_carro.json").writeText((c.optJSONObject("journal") ?: JSONObject()).toString())
+            JournalStore.importJson(ctx, "_carro", c.optJSONObject("journal") ?: JSONObject())
             val ch = c.optJSONArray("history") ?: JSONArray()
-            File(dir, "history_carro.jsonl").writeText((0 until ch.length()).joinToString("") { ch.getString(it) + "\n" })
+            History.importLines(ctx, "_carro", (0 until ch.length()).map { ch.getString(it) })
             restorePrefs(ctx.getSharedPreferences("farol_carro", Context.MODE_PRIVATE), c.optJSONObject("prefs") ?: JSONObject())
         }
         val days = journal.optJSONObject("days")?.length() ?: 0

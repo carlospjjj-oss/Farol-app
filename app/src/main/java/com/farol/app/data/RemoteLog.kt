@@ -136,6 +136,15 @@ class RemoteLog private constructor(context: Context) {
     }
 
     /** Inclui os pacotes vistos recentemente: ajuda a descobrir o nome de apps novos (ex.: Keeta). */
+    /** Travamento da última vez (ver CrashReporter). Vai mesmo com o envio de telas desligado. */
+    fun crash(o: JSONObject) {
+        if (settings.remoteMode == "off" && !Account.isLoggedIn(ctx)) return
+        enqueue(o.put("aparelho", deviceId).put("modo", settings.vehicleMode))
+    }
+
+    /** Envio pedido pelas tarefas de fundo (JobScheduler). Retorna o status. */
+    fun flushBlocking(): String = runCatching { flush(force = true) }.getOrElse { "erro: ${it.message}" }
+
     fun test() = enqueue(base("teste", ctx.packageName, "app", "Teste de envio do Farol | R$ 10,00 | 5 km | Aceitar")
         .put("pacotes_vistos", JSONArray(synchronized(com.farol.app.service.OfferReaderService.recentPackages) {
             com.farol.app.service.OfferReaderService.recentPackages.toList()

@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import com.farol.app.core.CostProfile
 
 /** Configurações persistidas (SharedPreferences). Lidas pelo serviço e pela tela principal. */
-class Settings(context: Context) {
+class Settings(context: Context, private val modeOverride: String? = null) {
 
     private val appCtx: Context = context.applicationContext
 
@@ -17,7 +17,8 @@ class Settings(context: Context) {
     var vehicleMode: String
         get() = prefs.getString("vehicleMode", "moto") ?: "moto"
         set(v) = prefs.edit().putString("vehicleMode", v).apply()
-    val isCar: Boolean get() = vehicleMode == "carro"
+    /** modeOverride: ler os ajustes de um modo específico sem trocar o modo do app (sincronização). */
+    val isCar: Boolean get() = (modeOverride ?: vehicleMode) == "carro"
 
     /** Ajustes do veículo atual: moto usa o arquivo de sempre; carro usa um separado. */
     val vprefs: SharedPreferences
@@ -29,19 +30,9 @@ class Settings(context: Context) {
     val modeLabel: String get() = if (isCar) "🚗 Carro" else "🛵 Moto"
 
     companion object {
-        const val DEFAULT_TARGETS_CAR = """com.ubercab.driver=Uber
-com.app99.driver=99
-sinet.startup.inDriver=inDrive"""
-
-        /** pacote=Nome. Edite na tela do app se algum pacote for diferente no seu aparelho. */
-        const val DEFAULT_TARGETS = """com.ubercab.driver=Uber
-com.app99.driver=99
-sinet.startup.inDriver=inDrive
-br.com.ifood.driver.app=iFood
-com.sankuai.sailor.courier=Keeta"""
-
-        /** O Keeta usa mais de um nome de pacote (visto nos logs). */
-        val KEETA_PACKAGES = listOf("com.sankuai.sailor.courier", "com.sankuai.sailor.afooddelivery")
+        /** pacote=Nome. Vêm do catálogo único (core/AppCatalog); dá para editar nos ajustes. */
+        val DEFAULT_TARGETS_CAR = com.farol.app.core.AppCatalog.defaultTargets(com.farol.app.core.AppCatalog.Mode.CARRO)
+        val DEFAULT_TARGETS = com.farol.app.core.AppCatalog.defaultTargets(com.farol.app.core.AppCatalog.Mode.MOTO)
     }
 
     private fun d(key: String, def: Double) = vprefs.getString(key, null)?.toDoubleOrNull() ?: def
@@ -136,7 +127,7 @@ com.sankuai.sailor.courier=Keeta"""
      * Apps reconhecidos pelo NOME do pacote mesmo sem estar na lista
      * (ex.: Keeta, cujo pacote varia por país/versão).
      */
-    private val builtInPatterns = listOf("keeta" to "Keeta", "sankuai" to "Keeta")
+    private val builtInPatterns = com.farol.app.core.AppCatalog.namePatterns
 
     /** Nome amigável do app, ou null se o pacote não for monitorado. Aceita "*parte*=Nome" na lista. */
     fun labelFor(pkg: String): String? {
@@ -306,7 +297,7 @@ com.sankuai.sailor.courier=Keeta"""
         fun parse(text: String) = text.lines().mapNotNull { l -> l.substringBefore('=').trim().takeIf { it.contains('.') && !it.contains('*') } }
         val moto = appCtx.getSharedPreferences("farol", Context.MODE_PRIVATE).getString("targets", DEFAULT_TARGETS) ?: DEFAULT_TARGETS
         val car = appCtx.getSharedPreferences("farol_carro", Context.MODE_PRIVATE).getString("targets", DEFAULT_TARGETS_CAR) ?: DEFAULT_TARGETS_CAR
-        return (parse(moto) + parse(car) + KEETA_PACKAGES).toSet()
+        return (parse(moto) + parse(car) + com.farol.app.core.AppCatalog.allPackages).toSet()
     }
 
     fun purgeLegacySecrets(loggedIn: Boolean) {

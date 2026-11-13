@@ -10,12 +10,10 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-/** Histórico das ofertas vistas, uma por linha (JSON). Fica só no aparelho. */
+/** Histórico das ofertas vistas, no banco do modo atual (FarolDb). Fica só no aparelho. */
 class History(context: Context) {
     private val ctx = context.applicationContext
-    /** history.jsonl (moto) ou history_carro.jsonl (carro). */
-    private val file: File get() = File(ctx.filesDir, "history${Settings(ctx).fileSuffix}.jsonl")
-    private val maxLines = 5000
+    private val db: FarolDb get() = FarolDb.get(ctx)
 
     private val recentKeys = mutableMapOf<String, Long>()
 
@@ -28,7 +26,7 @@ class History(context: Context) {
         recentKeys[key] = now
         recentKeys.entries.removeAll { now - it.value > com.farol.app.core.OfferDedup.WINDOW_MS }
         val o = JSONObject()
-            .put("t", System.currentTimeMillis())
+            .put("t", now)
             .put("app", r.offer.app)
             .put("price", r.offer.price)
             .put("km", r.offer.totalKm)
@@ -45,39 +43,51 @@ class History(context: Context) {
         r.offer.pickupKm?.let { o.put("pickup", it) }
         r.offer.passengerRating?.let { o.put("stars", it) }
         if (r.warnings.isNotEmpty()) o.put("warnings", org.json.JSONArray(r.warnings))
-        file.appendText(o.toString() + "\n")
-        trimIfNeeded()
+        db.insertOffer(db.writableDatabase, o)
         return true
     }
 
-    /** Remove do arquivo as repetições já gravadas (mesma oferta em menos de 3 min). @return quantas saíram. */
+    /** Remove as repetições já gravadas (mesma oferta em menos de 3 min). @return quantas saíram. */
     @Synchronized
     fun removeDuplicates(): Int {
-        if (!file.exists()) return 0
-        val lines = file.readLines().filter { it.isNotBlank() }
-        val objs = lines.map { runCatching { JSONObject(it) }.getOrNull() }
-        val flags = com.farol.app.core.OfferDedup.keepFlags(objs.map { o ->
-            if (o == null) 0L to "x${System.nanoTime()}"
+        val rows = mutableListOf<Pair<Long, JSONObject?>>()
+        db.readableDatabase.rawQuery("SELECT id, data FROM offers ORDER BY t, id", null).use { c ->
+            while (c.moveToNext()) rows += c.getLong(0) to runCatching { JSONObject(c.getString(1)) }.getOrNull()
+        }
+        val flags = com.farol.app.core.OfferDedup.keepFlags(rows.map { (id, o) ->
+            if (o == null) 0L to "x$id"
             else o.optLong("t") to com.farol.app.core.OfferDedup.key(o.optString("app"), o.optDouble("price"), o.optDouble("km"))
         })
-        val kept = lines.filterIndexed { i, _ -> flags[i] }
-        if (kept.size != lines.size) file.writeText(kept.joinToString("") { it + "\n" })
-        return lines.size - kept.size
+        val drop = rows.filterIndexed { i, _ -> !flags[i] }.map { it.first }
+        if (drop.isNotEmpty()) {
+            val w = db.writableDatabase
+            w.beginTransaction()
+            try { drop.forEach { w.delete("offers", "id = ?", arrayOf(it.toString())) }; w.setTransactionSuccessful() } finally { w.endTransaction() }
+        }
+        return drop.size
     }
 
-    @Synchronized
-    fun recent(n: Int): List<JSONObject> {
-        if (!file.exists()) return emptyList()
-        return file.readLines().takeLast(n).reversed().mapNotNull {
-            runCatching { JSONObject(it) }.getOrNull()
+    /** As [n] mais recentes, da mais nova para a mais antiga. */
+    fun recent(n: Int): List<JSONObject> = query("SELECT data FROM offers ORDER BY t DESC, id DESC LIMIT ?", arrayOf(n.toString()))
+
+    /** Ofertas a partir de [sinceMs], da mais nova para a mais antiga. */
+    fun since(sinceMs: Long): List<JSONObject> = query("SELECT data FROM offers WHERE t >= ? ORDER BY t DESC, id DESC", arrayOf(sinceMs.toString()))
+
+    fun count(): Int = db.readableDatabase.rawQuery("SELECT COUNT(*) FROM offers", null).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+
+    private fun query(sql: String, args: Array<String>): List<JSONObject> {
+        val out = ArrayList<JSONObject>()
+        db.readableDatabase.rawQuery(sql, args).use { c ->
+            while (c.moveToNext()) runCatching { JSONObject(c.getString(0)) }.getOrNull()?.let { out += it }
         }
+        return out
     }
 
     fun todaySummary(): String {
         val start = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
         }.timeInMillis
-        val today = recent(maxLines).filter { it.optLong("t") >= start }
+        val today = since(start)
         if (today.isEmpty()) return "Nenhuma oferta lida hoje."
         val avgKm = today.map { it.optDouble("perKm") }.average()
         val greens = today.count { it.optString("rating") == "GREEN" }
@@ -99,7 +109,7 @@ class History(context: Context) {
     fun toCsv(): String {
         val df = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("pt", "BR"))
         fun n(v: Double) = String.format(Locale("pt", "BR"), "%.2f", v)
-        val rows = recent(maxLines).reversed().map { o ->
+        val rows = query("SELECT data FROM offers ORDER BY t, id", emptyArray()).map { o ->
             listOf(df.format(Date(o.optLong("t"))), o.optString("app"), n(o.optDouble("price")),
                 n(o.optDouble("km")), n(o.optDouble("min")), n(o.optDouble("perKm")),
                 n(o.optDouble("perHour")), n(o.optDouble("net")), o.optString("rating")).joinToString(";")
@@ -108,11 +118,27 @@ class History(context: Context) {
     }
 
     @Synchronized
-    fun clear() { file.delete() }
+    fun clear() { db.writableDatabase.delete("offers", null, null) }
 
-    private fun trimIfNeeded() {
-        val lines = file.readLines()
-        if (lines.size > maxLines * 1.2) file.writeText(lines.takeLast(maxLines).joinToString("\n", postfix = "\n"))
+    // ---------- backup ----------
+    companion object {
+        fun exportLines(ctx: Context, suffix: String): List<String> {
+            val out = ArrayList<String>()
+            FarolDb.of(ctx, suffix).readableDatabase.rawQuery("SELECT data FROM offers ORDER BY t, id", null).use { c ->
+                while (c.moveToNext()) out += c.getString(0)
+            }
+            return out
+        }
+
+        fun importLines(ctx: Context, suffix: String, lines: List<String>) {
+            val db = FarolDb.of(ctx, suffix); val w = db.writableDatabase
+            w.beginTransaction()
+            try {
+                w.delete("offers", null, null)
+                lines.forEach { l -> runCatching { JSONObject(l) }.getOrNull()?.let { db.insertOffer(w, it) } }
+                w.setTransactionSuccessful()
+            } finally { w.endTransaction() }
+        }
     }
 }
 
