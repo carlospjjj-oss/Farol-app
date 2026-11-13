@@ -15,8 +15,16 @@ class History(context: Context) {
     private val file = File(context.filesDir, "history.jsonl")
     private val maxLines = 5000
 
+    private val recentKeys = mutableMapOf<String, Long>()
+
+    /** @return false se a mesma oferta já foi gravada nos últimos 3 minutos. */
     @Synchronized
-    fun add(r: OfferResult, source: String = "") {
+    fun add(r: OfferResult, source: String = ""): Boolean {
+        val now = System.currentTimeMillis()
+        val key = com.farol.app.core.OfferDedup.key(r.offer.app, r.offer.price, r.offer.totalKm)
+        recentKeys[key]?.let { if (now - it <= com.farol.app.core.OfferDedup.WINDOW_MS) { recentKeys[key] = now; return false } }
+        recentKeys[key] = now
+        recentKeys.entries.removeAll { now - it.value > com.farol.app.core.OfferDedup.WINDOW_MS }
         val o = JSONObject()
             .put("t", System.currentTimeMillis())
             .put("app", r.offer.app)
@@ -37,6 +45,22 @@ class History(context: Context) {
         if (r.warnings.isNotEmpty()) o.put("warnings", org.json.JSONArray(r.warnings))
         file.appendText(o.toString() + "\n")
         trimIfNeeded()
+        return true
+    }
+
+    /** Remove do arquivo as repetições já gravadas (mesma oferta em menos de 3 min). @return quantas saíram. */
+    @Synchronized
+    fun removeDuplicates(): Int {
+        if (!file.exists()) return 0
+        val lines = file.readLines().filter { it.isNotBlank() }
+        val objs = lines.map { runCatching { JSONObject(it) }.getOrNull() }
+        val flags = com.farol.app.core.OfferDedup.keepFlags(objs.map { o ->
+            if (o == null) 0L to "x${System.nanoTime()}"
+            else o.optLong("t") to com.farol.app.core.OfferDedup.key(o.optString("app"), o.optDouble("price"), o.optDouble("km"))
+        })
+        val kept = lines.filterIndexed { i, _ -> flags[i] }
+        if (kept.size != lines.size) file.writeText(kept.joinToString("") { it + "\n" })
+        return lines.size - kept.size
     }
 
     @Synchronized

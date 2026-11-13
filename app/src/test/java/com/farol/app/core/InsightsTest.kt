@@ -138,4 +138,13 @@ class InsightsTest {
         assertEquals(2.5, GpsMath.kmBetween(pts, 5 * m, 15 * m)!!, 0.001)   // interpolado
         assertNull(GpsMath.kmBetween(pts, 60 * m, 70 * m))                  // fora do período medido
     }
+
+    // ---- histórico sem duplicadas ----
+
+    @Test fun duplicadasDoHistorico() {
+        val m = 60_000L
+        val k1 = OfferDedup.key("99", 11.85, 9.5); val k2 = OfferDedup.key("Keeta", 7.5, 3.3)
+        val flags = OfferDedup.keepFlags(listOf(0L to k1, 30_000L to k1, 60_000L to k1, 70_000L to k2, 10 * m to k1))
+        assertEquals(listOf(true, false, false, true, true), flags)   // repetições em <3 min somem; 10 min depois é outra
+    }
 }

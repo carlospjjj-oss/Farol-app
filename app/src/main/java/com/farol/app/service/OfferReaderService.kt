@@ -101,6 +101,11 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         ocr = OcrFallback(this)
         remote = RemoteLog.get(this)
         journal = JournalStore(this)
+        // Uma vez: limpa as ofertas repetidas gravadas pelas versões antigas
+        if (!settings.prefs.getBoolean("dedupDone", false)) {
+            runCatching { history.removeDuplicates() }
+            settings.prefs.edit().putBoolean("dedupDone", true).apply()
+        }
         seedSpeed()
         reload()
         settings.prefs.registerOnSharedPreferenceChangeListener(this)

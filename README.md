@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 3.2**
+**Versão atual: 3.2.1**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -182,7 +182,7 @@ app/src/main/java/com/farol/app/
   data/      Settings, JournalStore, GpsStore, History, CaptureLog, RemoteLog, Backup
   service/   OfferReaderService, ScreenTextCollector, OcrFallback, GpsService, ShiftNotifier, FarolTileService
   ui/        DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OnboardingActivity, OverlayCard, FarolWidget, Kit
-app/src/test/  81 testes, quase todos com textos REAIS de ofertas e telas dos logs
+app/src/test/  82 testes, quase todos com textos REAIS de ofertas e telas dos logs
 ```
 
 - Build local: abra no Android Studio, ou `gradle testDebugUnitTest assembleDebug`.
@@ -194,6 +194,7 @@ app/src/test/  81 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 3.2.1 | Histórico sem ofertas duplicadas (e limpeza das antigas); teste inclui o estado do GPS |
 | 3.2 | GPS do turno (opcional): km do dia, velocidade em movimento e velocidade real de cada pedido, só como sugestão com botão "Usar" |
 | 3.1.1 | Velocidade aprendida separada por app: Keeta usa os próprios pedidos (aceite → fim); sem 5 pedidos, usa o valor fixo |
 | 3.1 | Velocidade de entrega aprendida com seus pedidos (iFood e Keeta); OCR só registra telas com o app na frente |

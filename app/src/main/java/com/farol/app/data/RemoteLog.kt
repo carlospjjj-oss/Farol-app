@@ -169,6 +169,7 @@ class RemoteLog private constructor(context: Context) {
             .put("vibrar", settings.vibrateOnGreen).put("voz", settings.speak)
             .put("notif_turno", settings.shiftNotification).put("resumo_semana", settings.weeklySummary)
             .put("mascarar", settings.maskAddresses)
+            .put("gps", settings.gpsEnabled).put("gps_medindo", com.farol.app.service.GpsService.running)
             .put("apps", JSONArray(settings.targets.values.toList()))
     }
 
