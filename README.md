@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 4.1**
+**Versão atual: 4.2**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -204,6 +204,7 @@ app/src/test/  89 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 4.2 | Atualização automática: o Farol procura a versão nova no GitHub a cada 6 h, baixa e instala (Ajustes → Atualizações → Procurar atualização) |
 | 4.1 | Pede seu nome e mostra na saudação do painel (toque na saudação para trocar). inDrive do motorista ("Pedido de viagem", "Preço justo", contraofertas ignoradas, busca, nota "5.0 (1)") |
 | 4.0.1 | Leitor de corridas com prints reais: 99 nova ("Não afeta a TA", dinâmica, "por km", "incluídos", nota sem ★, área de risco) e Uber (viagem longa "mais de X min", Black) |
 | 4.0 | Modo Moto / Carro com dados separados; ajustes enviados sozinhos nos logs |

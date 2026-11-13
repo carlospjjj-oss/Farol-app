@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Só para o envio de logs (opcional, desligado por padrão) -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Atualização automática pelo GitHub -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <!-- Notificação do turno e resumo da semana -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- GPS do turno (opcional, desligado por padrão). Só "durante o uso": roda como serviço em primeiro plano -->
@@ -55,6 +58,10 @@
             android:name=".service.GpsService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <receiver
+            android:name=".service.UpdateReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".service.PauseReceiver"

@@ -380,6 +380,11 @@ class SettingsActivity : Activity() {
         swShiftNotif = toggle(cNotif, "Resumo do turno na barra", "Tempo, ganhos, meta e ofertas; com botão de pausar o Farol")
         swWeekly = toggle(cNotif, "Resumo da semana", "Domingo à noite: ganhos, km, melhor dia e melhor horário")
 
+        // Atualizações
+        val cUpd = card("Atualizações", "Versão instalada: " + com.farol.app.service.Updater.installedName(this))
+        buttons(cUpd, "🔄 Procurar atualização" to { com.farol.app.service.Updater.checkNow(this) }, primaryFirst = true)
+        hint(cUpd, "O Farol procura sozinho a cada 6 horas e instala a versão nova. Na primeira vez o Android pede para permitir \"Instalar apps desconhecidos\" e confirmar; depois disso atualiza sem perguntar (Android 12 ou mais novo).")
+
         // Backup
         val cBackup = card("Backup", "Turnos, ganhos, abastecimentos, histórico e ajustes num arquivo")
         buttons(cBackup,

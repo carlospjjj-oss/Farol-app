@@ -121,6 +121,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
             runCatching { ShiftNotifier.refresh(this@OfferReaderService) }
             runCatching { ShiftNotifier.maybeWeekly(this@OfferReaderService) }
             runCatching { remote.settingsChanged("diário") }
+            runCatching { Updater.maybeCheck(this@OfferReaderService, foreground = false) }
             handler.postDelayed(this, 60_000)
         }
     }

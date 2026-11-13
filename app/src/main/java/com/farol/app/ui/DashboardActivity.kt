@@ -95,6 +95,7 @@ class DashboardActivity : Activity() {
             askedNotif = true
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 9)
         }
+        runCatching { com.farol.app.service.Updater.maybeCheck(this, foreground = true) }
         val d = store.day()
         if (settings.gpsEnabled && d.kmStart != null && d.kmEnd == null) com.farol.app.service.GpsService.start(this)
         render()

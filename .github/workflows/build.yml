@@ -30,7 +30,10 @@ jobs:
         run: gradle --no-daemon testDebugUnitTest assembleDebug
 
       - name: Renomear APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Farol.apk
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk Farol.apk
+          echo "VCODE=$(grep -oP 'versionCode = \K\d+' app/build.gradle.kts)" >> $GITHUB_ENV
+          echo "VNAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)" >> $GITHUB_ENV
 
       - uses: actions/upload-artifact@v4
         with:
@@ -43,7 +46,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.${{ github.run_number }}
-          name: Farol v1.${{ github.run_number }}
-          body: "APK gerado automaticamente a partir de ${{ github.sha }}."
+          name: Farol ${{ env.VNAME }}
+          # O app lê versionCode daqui para saber se há atualização.
+          body: |
+            versionCode=${{ env.VCODE }}
+            versionName=${{ env.VNAME }}
+            APK gerado automaticamente a partir de ${{ github.sha }}.
           files: Farol.apk
           make_latest: true
