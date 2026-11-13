@@ -155,22 +155,28 @@ com.sankuai.sailor.courier=Keeta"""
         get() = prefs.getBoolean("autoSpeed", true)
         set(v) = prefs.edit().putBoolean("autoSpeed", v).apply()
 
-    var speedSamples: List<Double>
-        get() = (prefs.getString("speedSamples", "") ?: "").split(';').mapNotNull { it.toDoubleOrNull() }
-        set(v) = prefs.edit().putString("speedSamples", v.joinToString(";") { String.format(java.util.Locale.US, "%.2f", it) }).apply()
+    /** Amostras de velocidade de entrega de cada app (aceite → fim, ou tempo informado pelo app). */
+    fun speedSamples(app: String): List<Double> {
+        // Migração da 3.1: as amostras antigas eram todas do iFood
+        if (app == "iFood" && !prefs.contains("speedSamples_iFood") && prefs.contains("speedSamples"))
+            prefs.edit().putString("speedSamples_iFood", prefs.getString("speedSamples", "")).remove("speedSamples").apply()
+        return (prefs.getString("speedSamples_$app", "") ?: "").split(';').mapNotNull { it.toDoubleOrNull() }
+    }
 
-    fun addSpeedSample(v: Double) { speedSamples = com.farol.app.core.SpeedLearner.add(speedSamples, v) }
+    fun setSpeedSamples(app: String, v: List<Double>) =
+        prefs.edit().putString("speedSamples_$app", v.joinToString(";") { String.format(java.util.Locale.US, "%.2f", it) }).apply()
 
-    /** Velocidade aprendida (null se ainda tiver poucas amostras). */
-    val learnedSpeed: Double? get() = com.farol.app.core.SpeedLearner.learned(speedSamples)
+    fun addSpeedSample(app: String, v: Double) = setSpeedSamples(app, com.farol.app.core.SpeedLearner.add(speedSamples(app), v))
 
-    /** Perfil usado nas ofertas: com a velocidade aprendida, se ligada e disponível. */
-    val effectiveProfile: CostProfile
-        get() {
-            val p = profile
-            val l = learnedSpeed
-            return if (autoSpeed && l != null) p.copy(avgSpeedKmh = l) else p
-        }
+    /** Velocidade aprendida do app (null se ainda tiver menos de 5 amostras dele). */
+    fun learnedSpeed(app: String): Double? = com.farol.app.core.SpeedLearner.learned(speedSamples(app))
+
+    /** Perfil para as ofertas de [app]: com a velocidade aprendida DESSE app, se houver; senão o valor fixo. */
+    fun effectiveProfile(app: String): CostProfile {
+        val p = profile
+        val l = learnedSpeed(app)
+        return if (autoSpeed && l != null) p.copy(avgSpeedKmh = l) else p
+    }
 
     var onboarded: Boolean
         get() = prefs.getBoolean("onboarded", false)

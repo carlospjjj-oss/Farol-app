@@ -290,7 +290,7 @@ class SettingsActivity : Activity() {
         etGreenStars = numRow(cLight, "Aceitar a partir de", "★", "0 = não usa")
         etMinRating = numRow(cLight, "Atenção a partir de", "★", "abaixo disso é vermelho")
         etSpeed = numRow(cLight, "Velocidade média", "km/h", "usada quando a oferta não mostra o tempo (~)")
-        swAutoSpeed = toggle(cLight, "Aprender com meus pedidos", "Usa a velocidade real (ofertas do iFood e pedidos do Keeta) no lugar do valor acima")
+        swAutoSpeed = toggle(cLight, "Aprender com meus pedidos", "Cada app usa a velocidade dos SEUS pedidos nele (aceite até o fim). Sem 5 pedidos medidos, usa o valor acima")
         tvSpeed = k.text("", 13, Palette.ACCENT, k.medium).also { cLight.addView(it, k.lp(top = 8)) }
         onChange(etGreenKm, etYellowKm, etGreenH, etYellowH, etGreenStars, etMinRating) { renderBands() }
 
@@ -481,9 +481,15 @@ class SettingsActivity : Activity() {
         swShiftNotif.isChecked = settings.shiftNotification
         swWeekly.isChecked = settings.weeklySummary
         swAutoSpeed.isChecked = settings.autoSpeed
-        val n = settings.speedSamples.size
-        tvSpeed.text = settings.learnedSpeed?.let { "Velocidade aprendida: ${Fmt.dec(it, 1)} km/h ($n amostras)" }
-            ?: "Aprendendo: $n de ${com.farol.app.core.SpeedLearner.MIN_SAMPLES} amostras (até lá usa o valor acima)"
+        tvSpeed.text = listOf("Keeta", "99", "iFood").joinToString("\n") { app ->
+            val n = settings.speedSamples(app).size
+            val l = settings.learnedSpeed(app)
+            when {
+                app == "iFood" -> "iFood: o app mostra o tempo" + (l?.let { " (média real ${Fmt.dec(it, 1)} km/h)" } ?: "")
+                l != null -> "$app: ${Fmt.dec(l, 1)} km/h aprendida ($n pedidos)"
+                else -> "$app: usando o valor acima ($n de ${com.farol.app.core.SpeedLearner.MIN_SAMPLES} pedidos medidos)"
+            }
+        }
         etHide.setText(settings.autoHideSec.toString())
         etTargets.setText(settings.targetsText)
         swEnabled.isChecked = settings.enabled

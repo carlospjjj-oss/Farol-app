@@ -153,8 +153,11 @@ class RemoteLog private constructor(context: Context) {
             .put("nota_verde", p.greenStars).put("nota_min", p.minPassengerRating)
             .put("velocidade", p.avgSpeedKmh)
             .put("velocidade_auto", settings.autoSpeed)
-            .put("velocidade_aprendida", settings.learnedSpeed ?: JSONObject.NULL)
-            .put("amostras_velocidade", settings.speedSamples.size)
+            .put("velocidade_aprendida", JSONObject().apply {
+                listOf("Keeta", "99", "iFood").forEach { a ->
+                    put(a, JSONObject().put("kmh", settings.learnedSpeed(a) ?: JSONObject.NULL).put("amostras", settings.speedSamples(a).size))
+                }
+            })
             .put("busca_max", p.maxPickupKm).put("dist_max", p.maxTotalKm).put("tempo_max", p.maxMinutes)
             .put("valor_min", p.minPrice).put("lucro_min", p.minNet).put("lucro_min_pct", p.minNetPct)
             .put("meta_dia", settings.dailyGoal)
