@@ -47,7 +47,8 @@ internal fun DashboardActivity.header() {
     }
     val left = k.vbox().apply {
         addView(k.hbox().apply {
-            addView(k.text(date, 13, Palette.MUTED, k.medium))
+            // a data encolhe (e quebra) antes do seletor de modo, que fica sempre inteiro
+            addView(k.text(date, 13, Palette.MUTED, k.medium), LinearLayout.LayoutParams(0, -2, 1f))
             addView(modeChip, k.lp(w = -2).apply { marginStart = k.dp(10) })
         })
         val name = settings.userName.substringBefore(' ')
