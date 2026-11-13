@@ -1,5 +1,9 @@
 # Servidor de logs do Farol (Cloudflare)
 
+> **Publicação automática:** toda mudança em `server/worker.js` no ramo `main` vai sozinha para a Cloudflare
+> (`.github/workflows/deploy-server.yml`, usando o segredo `CLOUDFLARE_API_TOKEN` do GitHub).
+> As variáveis e os segredos continuam no painel da Cloudflare e não são apagados (`keep_vars = true`).
+
 O celular manda os logs para um endereço seu, **sem chave nenhuma no app**.
 O servidor grava tudo num banco de dados (D1) e guarda uma cópia no repositório
 privado `Farol` para análise. A chave do GitHub fica só no servidor, como segredo.

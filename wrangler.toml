@@ -1,0 +1,16 @@
+# Publicação automática do servidor (Cloudflare Worker) pelo GitHub Actions.
+# Variáveis e segredos continuam no painel da Cloudflare (keep_vars = true não apaga nenhum).
+name = "farol-logs"
+main = "server/worker.js"
+compatibility_date = "2026-11-01"
+account_id = "742459a670c86d97d01450611f86824f"
+workers_dev = true
+keep_vars = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "farol"
+database_id = "41eaae62-a9b8-4f78-b381-4aa5731b0eeb"
+
+[observability]
+enabled = true

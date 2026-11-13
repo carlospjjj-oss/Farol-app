@@ -6,6 +6,9 @@ on:
       - "logs/**"      # lotes de log enviados pelo celular não geram build
       - "tools/**"
       - "server/**"
+      - "wrangler.toml"
+      - ".github/workflows/deploy-server.yml"
+      - ".github/workflows/android-tests.yml"
       - "**.md"
   workflow_dispatch:
 

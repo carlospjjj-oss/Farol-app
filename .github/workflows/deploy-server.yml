@@ -1,0 +1,30 @@
+name: Publicar servidor (Cloudflare)
+on:
+  push:
+    branches: [main]
+    paths: ["server/worker.js", "wrangler.toml", ".github/workflows/deploy-server.yml"]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Conferir sintaxe
+        run: node --check server/worker.js
+      - name: Conferir chave da Cloudflare
+        env: { T: "${{ secrets.CLOUDFLARE_API_TOKEN }}" }
+        run: |
+          if [ -z "$T" ]; then echo "::warning::Falta o segredo CLOUDFLARE_API_TOKEN: servidor não publicado automaticamente."; exit 1; fi
+      - name: Publicar na Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 742459a670c86d97d01450611f86824f
+          command: deploy
+      - name: Conferir se está no ar
+        run: |
+          sleep 5
+          curl -fsS https://farol-logs.carlos-pjjj.workers.dev/v1/ping
+          curl -fsS -o /dev/null -w "privacidade: %{http_code}\n" https://farol-logs.carlos-pjjj.workers.dev/privacidade
