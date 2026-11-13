@@ -1,4 +1,4 @@
-// Farol · servidor de logs (Cloudflare Worker + banco D1)
+// Farol · servidor de logs (Cloudflare Worker + banco D1) · publicado automaticamente pelo GitHub Actions
 //
 // Contas: cada pessoa entra no app com e-mail e senha (POST /v1/auth/*).
 // O celular manda os lotes com o token da sessão (nunca com chave do GitHub). Aqui:
