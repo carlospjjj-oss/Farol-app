@@ -38,7 +38,7 @@ No painel, abra **D1 → farol → Console** para rodar consultas. Exemplos:
 
 ```sql
 SELECT tipo, COUNT(*) FROM events GROUP BY tipo;
-SELECT t, app, json_extract(data, '$.preco') AS preco, json_extract(data, '$.rating') AS cor
+SELECT t, app, json_extract(data, '$.preco') AS preco, json_extract(data, '$.cor') AS cor
   FROM events WHERE tipo = 'offer' ORDER BY id DESC LIMIT 50;
 ```
 
