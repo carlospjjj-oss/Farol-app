@@ -32,6 +32,21 @@ Plano grátis: 100 mil envios por dia e 5 GB de banco. O Farol usa uma fração 
    - Se aparecer ✅, está funcionando.
    - Depois disso, apague o token do GitHub do app (aba GitHub). Ele não é mais necessário no celular.
 
+## Painel web
+
+Abra `https://farol-logs.SEU-NOME.workers.dev/painel` no celular ou no computador.
+
+- Para liberar, crie em **Settings → Variables and Secrets** um **Secret** chamado `ADMIN_KEY` com uma senha sua.
+- O painel pede essa senha uma vez e mostra:
+  - ganhos, líquido, R$/km e R$/h;
+  - ganhos por dia;
+  - ofertas por cor;
+  - números por app;
+  - melhores horários;
+  - últimas ofertas;
+  - tempos dos pedidos.
+- Dá para filtrar por Hoje, 7 ou 30 dias e por Moto ou Carro. A página se atualiza sozinha a cada minuto.
+
 ## Ver os dados
 
 No painel, abra **D1 → farol → Console** para rodar consultas. Exemplos:
