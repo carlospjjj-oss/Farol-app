@@ -121,4 +121,21 @@ class InsightsTest {
         assertEquals(6.4, done[0].km!!, 0.001)
         assertEquals(23.0, done[0].totalMin!!, 0.01)
     }
+
+    // ---- GPS ----
+
+    @Test fun gpsFiltraRuido() {
+        assertEquals(0.0, GpsMath.step(5.0, 4.0, 10f), 0.0)       // tremido parado
+        assertEquals(0.0, GpsMath.step(50.0, 4.0, 80f), 0.0)      // ponto impreciso
+        assertEquals(0.0, GpsMath.step(900.0, 4.0, 10f), 0.0)     // salto (810 km/h)
+        assertEquals(40.0, GpsMath.step(40.0, 4.0, 10f), 0.0)     // 36 km/h: vale
+    }
+
+    @Test fun gpsKmEntreHorarios() {
+        val m = 60_000L
+        val pts = listOf(0L to 0.0, 10 * m to 3.0, 20 * m to 5.0, 30 * m to 9.0)
+        assertEquals(6.0, GpsMath.kmBetween(pts, 10 * m, 30 * m)!!, 0.001)
+        assertEquals(2.5, GpsMath.kmBetween(pts, 5 * m, 15 * m)!!, 0.001)   // interpolado
+        assertNull(GpsMath.kmBetween(pts, 60 * m, 70 * m))                  // fora do período medido
+    }
 }

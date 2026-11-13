@@ -178,6 +178,18 @@ com.sankuai.sailor.courier=Keeta"""
         return if (autoSpeed && l != null) p.copy(avgSpeedKmh = l) else p
     }
 
+    /** Mede km e velocidade pelo GPS durante o turno (só sugere; nada muda sem confirmar). */
+    var gpsEnabled: Boolean
+        get() = prefs.getBoolean("gpsEnabled", false)
+        set(v) = prefs.edit().putBoolean("gpsEnabled", v).apply()
+
+    /** Velocidades de entrega medidas pelo GPS por app (aguardando você tocar em "Usar"). */
+    fun gpsSpeedSamples(app: String): List<Double> =
+        (prefs.getString("gpsSpeed_$app", "") ?: "").split(';').mapNotNull { it.toDoubleOrNull() }
+
+    fun addGpsSpeedSample(app: String, v: Double) = prefs.edit().putString("gpsSpeed_$app",
+        com.farol.app.core.SpeedLearner.add(gpsSpeedSamples(app), v).joinToString(";") { String.format(java.util.Locale.US, "%.2f", it) }).apply()
+
     var onboarded: Boolean
         get() = prefs.getBoolean("onboarded", false)
         set(v) = prefs.edit().putBoolean("onboarded", v).apply()

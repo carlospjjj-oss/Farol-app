@@ -91,8 +91,19 @@ class DashboardActivity : Activity() {
             askedNotif = true
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 9)
         }
+        val d = store.day()
+        if (settings.gpsEnabled && d.kmStart != null && d.kmEnd == null) com.farol.app.service.GpsService.start(this)
         render()
         runCatching { com.farol.app.service.ShiftNotifier.refresh(this) }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 11) {
+            val d = store.day()
+            if (settings.gpsEnabled && d.kmStart != null && d.kmEnd == null) com.farol.app.service.GpsService.start(this)
+            render()
+        }
     }
 
     private var askedNotif = false
@@ -108,6 +119,7 @@ class DashboardActivity : Activity() {
         hero(day, s)
         kpis(s)
         shiftCard(day, s)
+        gpsCard(day)
         earningsCard(day)
         offersCard()
         deliveriesCard()
@@ -246,6 +258,57 @@ class DashboardActivity : Activity() {
             }
         }
         add(card, 18)
+    }
+
+    // GPS: só mostra e sugere; nada muda sem tocar em "Usar"
+    private fun gpsCard(day: DayRecord) {
+        if (!settings.gpsEnabled) return
+        val g = com.farol.app.data.GpsStore.today(this)
+        val on = com.farol.app.service.GpsService.running
+        val card = k.card()
+        card.addView(k.hbox().apply {
+            val t = k.overline("📍 GPS do turno")
+            addView(t, weighted(t))
+            addView(k.chip(if (on) "● medindo" else "parado", if (on) Palette.GREEN else Palette.MUTED))
+        })
+        if (!com.farol.app.service.GpsService.hasPermission(this)) {
+            card.addView(k.text("Falta a permissão de localização.", 13, Palette.MUTED), k.lp(top = 10))
+            card.addView(k.pill("Permitir localização") {
+                requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION), 11)
+            }, k.lp(top = 12))
+            add(card); return
+        }
+        fun stat(label: String, value: String) = k.vbox().apply {
+            addView(k.text(value, 18, Palette.TEXT, k.bold))
+            addView(k.text(label, 12, Palette.MUTED), k.lp(top = 3))
+        }
+        val a = stat("km pelo GPS hoje", Fmt.km(g.km))
+        val b = stat("velocidade em movimento", g.movingKmh?.let { "${Fmt.dec(it, 1)} km/h" } ?: "—")
+        card.addView(k.hbox().apply { addView(a, weighted(a)); addView(b, weighted(b)) }, k.lp(top = 12))
+        if (!on && day.kmStart == null) card.addView(k.text("Começa a medir quando você inicia o turno.", 12, Palette.MUTED), k.lp(top = 8))
+
+        // Velocidade de entrega por app, medida pelo GPS: sugestão com botão "Usar"
+        listOf("Keeta", "99", "iFood").forEach { app ->
+            val samples = settings.gpsSpeedSamples(app)
+            val med = com.farol.app.core.SpeedLearner.learned(samples) ?: return@forEach
+            card.addView(k.hbox().apply {
+                addView(k.dot(Palette.app(app), 10))
+                val t = k.text("$app: ${Fmt.dec(med, 1)} km/h por pedido (${samples.size})", 13, Palette.TEXT)
+                addView(t, weighted(t, 10))
+                addView(k.chip("Usar", Palette.ACCENT).apply {
+                    isClickable = true
+                    setOnClickListener {
+                        settings.setSpeedSamples(app, samples)
+                        settings.autoSpeed = true
+                        toast("$app passa a usar ${Fmt.dec(med, 1)} km/h")
+                        render()
+                    }
+                })
+            }, k.lp(top = 12))
+        }
+        if (listOf("Keeta", "99", "iFood").none { com.farol.app.core.SpeedLearner.learned(settings.gpsSpeedSamples(it)) != null })
+            card.addView(k.text("A velocidade de entrega por app aparece depois de 5 pedidos medidos com o GPS.", 12, Palette.MUTED), k.lp(top = 10))
+        add(card)
     }
 
     // earnings
@@ -550,6 +613,7 @@ class DashboardActivity : Activity() {
             val km = f.num() ?: return@dialog fail("Digite o km do painel")
             val d = store.day()
             store.putDay(d.copy(kmStart = km, startAt = d.startAt ?: System.currentTimeMillis()))
+            if (settings.gpsEnabled) com.farol.app.service.GpsService.start(this)
             toast("Turno iniciado. Boas corridas!"); true
         }
     }
@@ -585,11 +649,21 @@ class DashboardActivity : Activity() {
         val box = k.vbox().apply {
             addView(labeled("Km do painel agora (início: ${fmtKm(d.kmStart)})", f))
             addView(preview, k.lp(top = 10))
+            val st = d.kmStart
+            val gkm = if (settings.gpsEnabled) com.farol.app.data.GpsStore.today(this@DashboardActivity).km else 0.0
+            if (st != null && gkm > 1) {
+                val sug = Math.round((st + gkm) * 10) / 10.0
+                addView(k.text("📍 Pelo GPS você rodou ${Fmt.km(gkm)} → km final ≈ ${fmtKm(sug)}. Toque para usar.", 13, Palette.ACCENT, k.medium).apply {
+                    isClickable = true
+                    setOnClickListener { f.setText(String.format(ptBR, "%.1f", sug)) }
+                }, k.lp(top = 10))
+            }
         }
         dialog("Encerrar turno", box, "Encerrar") {
             val km = f.num() ?: return@dialog fail("Digite o km do painel")
             if (d.kmStart != null && km < d.kmStart) return@dialog fail("O km final é menor que o inicial")
             val finish = {
+                com.farol.app.service.GpsService.stop(this)
                 val up = d.copy(kmEnd = km, endAt = System.currentTimeMillis())
                 store.putDay(up)
                 sendDaySummary(up)

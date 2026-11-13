@@ -7,6 +7,11 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Notificação do turno e resumo da semana -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- GPS do turno (opcional, desligado por padrão). Só "durante o uso": roda como serviço em primeiro plano -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <!-- Atalho "Bateria sem restrição" do guia de instalação -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
@@ -40,6 +45,11 @@
             android:name=".ui.OnboardingActivity"
             android:exported="false"
             android:label="Guia de instalação" />
+
+        <service
+            android:name=".service.GpsService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <receiver
             android:name=".service.PauseReceiver"

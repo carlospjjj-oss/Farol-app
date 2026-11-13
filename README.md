@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 3.1.1**
+**Versão atual: 3.2**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -78,6 +78,9 @@ Toque no atalho **🛵 Moto** e ajuste:
   **Tempo e distância:** busca máxima, distância total máxima e tempo máximo. Tudo com 0 = não usa.
 - **🧮 Calcular custos do mês:** financiamento/aluguel, depreciação, manutenção, IPVA, seguro e outros, mais os km
   do mês → custo por km e % de cada item. **Aplicar ao semáforo** grava o "outros custos".
+- **📍 GPS (opcional):** em Suas faixas → "Medir pelo GPS". Mede só durante o turno (permissão "durante o uso"),
+  mostra os km do dia e a velocidade real de cada pedido no dashboard, e sugere o km final ao encerrar.
+  **Nada muda sem você tocar em "Usar".**
 - **Hodômetro com décimo:** se o último número do painel for décimo de km, digite com vírgula: `58081,7`.
   Se esquecer, o Farol percebe (ex.: "947 km" em um dia) e oferece corrigir para 94,7 km com um toque.
 
@@ -176,10 +179,10 @@ ou rode `python3 tools/analisar_logs.py --dias 7` dentro do repositório de logs
 ```
 app/src/main/java/com/farol/app/
   core/      OfferParser, ProfitCalculator, EarningsReader, Insights, Journal, CostBreakdown, Rejections, LogSanitizer  ← Kotlin puro
-  data/      Settings, JournalStore, History, CaptureLog, RemoteLog, Backup
-  service/   OfferReaderService, ScreenTextCollector, OcrFallback, ShiftNotifier, FarolTileService
+  data/      Settings, JournalStore, GpsStore, History, CaptureLog, RemoteLog, Backup
+  service/   OfferReaderService, ScreenTextCollector, OcrFallback, GpsService, ShiftNotifier, FarolTileService
   ui/        DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OnboardingActivity, OverlayCard, FarolWidget, Kit
-app/src/test/  79 testes, quase todos com textos REAIS de ofertas e telas dos logs
+app/src/test/  81 testes, quase todos com textos REAIS de ofertas e telas dos logs
 ```
 
 - Build local: abra no Android Studio, ou `gradle testDebugUnitTest assembleDebug`.
@@ -191,6 +194,7 @@ app/src/test/  79 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 3.2 | GPS do turno (opcional): km do dia, velocidade em movimento e velocidade real de cada pedido, só como sugestão com botão "Usar" |
 | 3.1.1 | Velocidade aprendida separada por app: Keeta usa os próprios pedidos (aceite → fim); sem 5 pedidos, usa o valor fixo |
 | 3.1 | Velocidade de entrega aprendida com seus pedidos (iFood e Keeta); OCR só registra telas com o app na frente |
 | 3.0 | Aviso de recusas, meta do dia, backup, notificação do turno, bairros favoritos, resumo da semana, cartão P/M/G e compacto, widget, guia de instalação e ícone novo |

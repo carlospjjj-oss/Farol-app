@@ -63,6 +63,13 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         // Pedido completo com km da oferta: amostra real de velocidade de entrega
         val km = r.km; val mins = r.totalMin
         if (km != null && mins != null) com.farol.app.core.SpeedLearner.sample(km, mins)?.let { settings.addSpeedSample(r.app, it) }
+        // Com GPS ligado: km REAL rodado no pedido (vira sugestão no dashboard)
+        val end = r.endAt
+        if (GpsService.running && mins != null && end != null) {
+            com.farol.app.data.GpsStore.kmBetween(this, r.collectAt, end)?.let { gkm ->
+                com.farol.app.core.SpeedLearner.sample(gkm, mins)?.let { settings.addGpsSpeedSample(r.app, it) }
+            }
+        }
     }
 
     /** Última oferta de cada app (km e hora) para ligar ao pedido aceito. */

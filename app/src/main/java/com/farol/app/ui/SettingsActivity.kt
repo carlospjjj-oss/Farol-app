@@ -73,6 +73,7 @@ class SettingsActivity : Activity() {
     private lateinit var swShiftNotif: Switch
     private lateinit var swWeekly: Switch
     private lateinit var swAutoSpeed: Switch
+    private lateinit var swGps: Switch
     private lateinit var tvSpeed: TextView
     private lateinit var etAlerts: EditText
     // cartão / leitura
@@ -292,6 +293,11 @@ class SettingsActivity : Activity() {
         etSpeed = numRow(cLight, "Velocidade média", "km/h", "usada quando a oferta não mostra o tempo (~)")
         swAutoSpeed = toggle(cLight, "Aprender com meus pedidos", "Cada app usa a velocidade dos SEUS pedidos nele (aceite até o fim). Sem 5 pedidos medidos, usa o valor acima")
         tvSpeed = k.text("", 13, Palette.ACCENT, k.medium).also { cLight.addView(it, k.lp(top = 8)) }
+        swGps = toggle(cLight, "📍 Medir pelo GPS (durante o turno)", "Mede km do dia e velocidade real de cada pedido. Só sugere no dashboard: nada muda sem você tocar em \"Usar\"")
+        swGps.setOnCheckedChangeListener { _, on ->
+            if (on && !com.farol.app.service.GpsService.hasPermission(this))
+                requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION), 12)
+        }
         onChange(etGreenKm, etYellowKm, etGreenH, etYellowH, etGreenStars, etMinRating) { renderBands() }
 
         // Condições mínimas
@@ -481,6 +487,7 @@ class SettingsActivity : Activity() {
         swShiftNotif.isChecked = settings.shiftNotification
         swWeekly.isChecked = settings.weeklySummary
         swAutoSpeed.isChecked = settings.autoSpeed
+        swGps.isChecked = settings.gpsEnabled
         tvSpeed.text = listOf("Keeta", "99", "iFood").joinToString("\n") { app ->
             val n = settings.speedSamples(app).size
             val l = settings.learnedSpeed(app)
@@ -553,6 +560,9 @@ class SettingsActivity : Activity() {
         settings.shiftNotification = swShiftNotif.isChecked
         settings.weeklySummary = swWeekly.isChecked
         settings.autoSpeed = swAutoSpeed.isChecked
+        val gpsWas = settings.gpsEnabled
+        settings.gpsEnabled = swGps.isChecked
+        if (gpsWas && !swGps.isChecked) com.farol.app.service.GpsService.stop(this)
         settings.profile = p
         settings.autoHideSec = etHide.num(15.0).toInt()
         settings.targetsText = etTargets.text.toString()

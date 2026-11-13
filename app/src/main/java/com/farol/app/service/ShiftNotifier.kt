@@ -27,7 +27,7 @@ object ShiftNotifier {
 
     private const val CH_SHIFT = "farol_turno"
     private const val CH_WEEK = "farol_semana"
-    private const val ID_SHIFT = 41
+    const val ID_SHIFT = 41
     private const val ID_WEEK = 42
 
     private fun nm(ctx: Context) = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -50,15 +50,24 @@ object ShiftNotifier {
     private fun builder(ctx: Context, ch: String) =
         if (Build.VERSION.SDK_INT >= 26) Notification.Builder(ctx, ch) else @Suppress("DEPRECATION") Notification.Builder(ctx)
 
+    /** Notificação usada pelo GPS (serviço em primeiro plano precisa de uma). */
+    fun buildForeground(ctx: Context): Notification { channels(ctx); return build(ctx) }
+
     /** Atualiza (ou remove) a notificação do turno e o widget. Barato: pode chamar a cada oferta. */
     fun refresh(ctx: Context) {
         runCatching { FarolWidget.updateAll(ctx) }
         val settings = Settings(ctx)
-        val store = JournalStore(ctx)
-        val day = store.day()
+        val day = JournalStore(ctx).day()
         val active = day.kmStart != null && day.kmEnd == null
-        if (!settings.shiftNotification || !active || !canNotify(ctx)) { nm(ctx).cancel(ID_SHIFT); return }
+        val gps = GpsService.running
+        if (!gps && (!settings.shiftNotification || !active || !canNotify(ctx))) { nm(ctx).cancel(ID_SHIFT); return }
         channels(ctx)
+        runCatching { nm(ctx).notify(ID_SHIFT, build(ctx)) }
+    }
+
+    private fun build(ctx: Context): Notification {
+        val settings = Settings(ctx)
+        val day = JournalStore(ctx).day()
 
         val elapsed = day.startAt?.let { Fmt.min((System.currentTimeMillis() - it) / 60_000.0) } ?: "—"
         val start = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0) }.timeInMillis
@@ -67,11 +76,14 @@ object ShiftNotifier {
         val goal = settings.dailyGoal
         val title = "⏱ $elapsed  ·  💰 ${Fmt.money(day.totalEarnings)}" +
             if (goal > 0) "  ·  🎯 ${((day.totalEarnings / goal) * 100).toInt().coerceAtMost(999)}%" else ""
-        val text = "${offers.size} ofertas hoje (🟢 $greens)" + (if (settings.enabled) "" else "  ·  ⏸ Farol pausado")
+        val gpsKm = if (GpsService.running) runCatching { com.farol.app.data.GpsStore.today(ctx).km }.getOrNull() else null
+        val text = "${offers.size} ofertas hoje (🟢 $greens)" +
+            (gpsKm?.let { "  ·  📍 ${Fmt.km(it)}" } ?: "") +
+            (if (settings.enabled) "" else "  ·  ⏸ Farol pausado")
 
         val toggle = PendingIntent.getBroadcast(ctx, 1, Intent(ctx, PauseReceiver::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val n = builder(ctx, CH_SHIFT)
+        return builder(ctx, CH_SHIFT)
             .setSmallIcon(com.farol.app.R.drawable.ic_tile)
             .setContentTitle(title)
             .setContentText(text)
@@ -80,7 +92,6 @@ object ShiftNotifier {
             .setContentIntent(openApp(ctx))
             .addAction(Notification.Action.Builder(null, if (settings.enabled) "⏸ Pausar Farol" else "▶ Retomar Farol", toggle).build())
             .build()
-        runCatching { nm(ctx).notify(ID_SHIFT, n) }
     }
 
     /** Domingo a partir das 20h: resumo da semana (uma vez por semana). */
