@@ -12,10 +12,28 @@ data class DayRecord(
     val startAt: Long? = null,              // epoch ms
     val endAt: Long? = null,
     val earnings: Map<String, Double> = emptyMap(), // app -> R$ ganhos no dia
+    val pausedMs: Long = 0L,                // pausas já encerradas (não contam como trabalho)
+    val pauseAt: Long? = null,              // pausa em andamento desde
 ) {
     val kmDriven: Double? get() = if (kmStart != null && kmEnd != null && kmEnd >= kmStart) kmEnd - kmStart else null
     val totalEarnings: Double get() = earnings.values.sum()
-    val hours: Double? get() = if (startAt != null && endAt != null && endAt > startAt) (endAt - startAt) / 3_600_000.0 else null
+    val isPaused: Boolean get() = pauseAt != null && endAt == null
+    val hasShift: Boolean get() = kmStart != null || startAt != null
+
+    /** Tempo trabalhado em ms (do início até o fim, ou até agora), sem as pausas. */
+    fun workedMs(now: Long = System.currentTimeMillis()): Long? {
+        val s = startAt ?: return null
+        val e = endAt ?: now
+        val open = pauseAt?.let { (e - it).coerceAtLeast(0) } ?: 0L
+        return (e - s - pausedMs - open).coerceAtLeast(0)
+    }
+
+    val hours: Double? get() = if (startAt != null && endAt != null && endAt > startAt) workedMs()!! / 3_600_000.0 else null
+
+    fun pause(now: Long) = if (isPaused || endAt != null) this else copy(pauseAt = now)
+    fun resume(now: Long) = pauseAt?.let { copy(pausedMs = pausedMs + (now - it).coerceAtLeast(0), pauseAt = null) } ?: this
+    /** Exclui o turno, mas mantém os ganhos do dia. */
+    fun clearShift() = copy(kmStart = null, kmEnd = null, startAt = null, endAt = null, pausedMs = 0L, pauseAt = null)
 }
 
 data class FuelEntry(

@@ -58,4 +58,18 @@ class JournalMathTest {
         assertEquals(320.0 - 220 * 0.36, p.net, 0.001)
         assertEquals(31.5, p.fuelSpent, 0.001)
     }
+
+    @Test fun pausa_naoContaNasHoras_eExcluirMantemGanhos() {
+        val h = 3_600_000L
+        var d = DayRecord("2026-11-13", kmStart = 100.0, startAt = 0L, earnings = mapOf("iFood" to 80.0))
+        d = d.pause(2 * h)
+        assertEquals(2 * h, d.workedMs(3 * h))          // parado de 2h a 3h
+        d = d.resume(3 * h)
+        assertEquals(h, d.pausedMs)
+        d = d.copy(kmEnd = 150.0, endAt = 6 * h)
+        assertEquals(5.0, d.hours!!, 0.001)            // 6h de turno - 1h de pausa
+        val x = d.clearShift()
+        assertNull(x.kmStart); assertNull(x.startAt); assertEquals(0L, x.pausedMs)
+        assertEquals(80.0, x.totalEarnings, 0.001)
+    }
 }

@@ -69,7 +69,7 @@ object ShiftNotifier {
         val settings = Settings(ctx)
         val day = JournalStore(ctx).day()
 
-        val elapsed = day.startAt?.let { Fmt.min((System.currentTimeMillis() - it) / 60_000.0) } ?: "—"
+        val elapsed = day.workedMs()?.let { Fmt.min(it / 60_000.0) + if (day.isPaused) " (pausado)" else "" } ?: "—"
         val start = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0) }.timeInMillis
         val offers = History(ctx).recent(1000).filter { it.optLong("t") >= start }
         val greens = offers.count { it.optString("rating") == "GREEN" }

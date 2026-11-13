@@ -137,6 +137,8 @@ class JournalStore(context: Context) {
             startAt = o.optLongOrNull("startAt"),
             endAt = o.optLongOrNull("endAt"),
             earnings = e?.keys()?.asSequence()?.associateWith { e.getDouble(it) } ?: emptyMap(),
+            pausedMs = o.optLong("pausedMs", 0L),
+            pauseAt = o.optLongOrNull("pauseAt"),
         )
     }
 
@@ -145,6 +147,8 @@ class JournalStore(context: Context) {
         r.kmEnd?.let { put("kmEnd", it) }
         r.startAt?.let { put("startAt", it) }
         r.endAt?.let { put("endAt", it) }
+        if (r.pausedMs > 0) put("pausedMs", r.pausedMs)
+        r.pauseAt?.let { put("pauseAt", it) }
         put("earnings", JSONObject().apply { r.earnings.forEach { (k, v) -> put(k, v) } })
     }
 

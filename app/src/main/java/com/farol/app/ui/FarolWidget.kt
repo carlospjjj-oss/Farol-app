@@ -42,6 +42,7 @@ class FarolWidget : AppWidgetProvider() {
             val hhmm = SimpleDateFormat("HH:mm", Locale("pt", "BR"))
             v.setTextViewText(R.id.w_shift, when {
                 day.kmStart == null -> "▶ Toque para iniciar o turno"
+                day.kmEnd == null && day.isPaused -> "⏸ Turno pausado"
                 day.kmEnd == null -> "● Em turno desde ${day.startAt?.let { hhmm.format(Date(it)) } ?: "—"}"
                 else -> "✓ Turno encerrado"
             })
