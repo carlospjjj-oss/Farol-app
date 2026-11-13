@@ -46,7 +46,8 @@ class DashboardActivity : Activity() {
     private lateinit var col: LinearLayout
     private lateinit var headerBox: LinearLayout
 
-    private val apps = listOf("iFood", "99", "Keeta", "Uber", "inDrive", "Outros")
+    private val apps: List<String>
+        get() = if (settings.isCar) listOf("Uber", "99", "inDrive", "Outros") else listOf("iFood", "99", "Keeta", "Uber", "inDrive", "Outros")
     private val ptBR = Locale("pt", "BR")
     private val hhmm = SimpleDateFormat("HH:mm", ptBR)
     private val ddmm = SimpleDateFormat("dd/MM", ptBR)
@@ -140,9 +141,16 @@ class DashboardActivity : Activity() {
         val greeting = when (h) { in 5..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
         val date = SimpleDateFormat("EEEE, d 'de' MMMM", ptBR).format(Date()).replaceFirstChar { it.uppercase() }
 
+        val modeChip = k.chip("${settings.modeLabel}  ⇄", Palette.ACCENT).apply {
+            isClickable = true
+            setOnClickListener { startActivity(Intent(this@DashboardActivity, ModeActivity::class.java)); finish() }
+        }
         val left = k.vbox().apply {
-            addView(k.text(date, 13, Palette.MUTED, k.medium))
-            addView(k.text("$greeting 👋", 26, Palette.TEXT, k.bold), k.lp(top = 4))
+            addView(k.hbox().apply {
+                addView(k.text(date, 13, Palette.MUTED, k.medium))
+                addView(modeChip, k.lp(w = -2).apply { marginStart = k.dp(10) })
+            })
+            addView(k.text("$greeting 👋", 26, Palette.TEXT, k.bold), k.lp(top = 6))
         }
         val gear = k.text("⚙️", 20).apply {
             gravity = Gravity.CENTER
@@ -235,7 +243,7 @@ class DashboardActivity : Activity() {
         when {
             day.kmStart == null -> {
                 card.addView(k.text("Pronto para rodar?", 18, Palette.TEXT, k.bold), k.lp(top = 8))
-                card.addView(k.text("Anote o km do painel da moto para medir o dia.", 13, Palette.MUTED), k.lp(top = 4))
+                card.addView(k.text("Anote o km do painel para medir o dia.", 13, Palette.MUTED), k.lp(top = 4))
                 card.addView(k.pill("▶  Iniciar turno") { askStart() }, k.lp(top = 14))
             }
             day.kmEnd == null -> {
@@ -397,7 +405,8 @@ class DashboardActivity : Activity() {
             addView(k.text("${today.size} hoje", 15, Palette.TEXT, k.bold))
         })
         if (recent.isEmpty()) {
-            card.addView(k.text("Ainda sem pedidos medidos. O Farol acompanha as telas de coleta e entrega do Keeta (iFood e 99 em breve).",
+            card.addView(k.text(if (settings.isCar) "Ainda sem corridas medidas. As etapas das corridas entram quando os logs mostrarem as telas de Uber, 99 e inDrive."
+                else "Ainda sem pedidos medidos. O Farol acompanha as telas de coleta e entrega do Keeta (iFood e 99 em breve).",
                 13, Palette.MUTED), k.lp(top = 10))
             add(card); return
         }

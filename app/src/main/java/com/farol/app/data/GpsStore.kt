@@ -29,15 +29,15 @@ object GpsStore {
     private var lastPointAt = 0L
     private var lastSaveAt = 0L
 
-    private fun file(ctx: Context) = File(ctx.filesDir, "gps.json")
+    private fun file(ctx: Context) = File(ctx.filesDir, "gps${Settings(ctx).fileSuffix}.json")
 
     @Synchronized
     private fun ensureDay(ctx: Context) {
-        val today = dayFmt.format(Date())
+        val today = dayFmt.format(Date()) + Settings(ctx).fileSuffix   // dia + modo
         if (today == date) return
         if (date.isNotEmpty()) save(ctx)
         date = today
-        val d = read(ctx, today)
+        val d = readRaw(ctx, today.substring(0, 10))
         meters = d.meters; moving = d.movingSec
         points.clear(); points.addAll(d.points)
     }
@@ -62,7 +62,7 @@ object GpsStore {
         val root = runCatching { JSONObject(file(ctx).readText()) }.getOrNull() ?: JSONObject()
         val pts = JSONArray()
         points.forEach { pts.put(JSONArray().put(it.first).put(it.second)) }
-        root.put(date, JSONObject().put("m", meters).put("mv", moving).put("p", pts))
+        root.put(date.substring(0, 10), JSONObject().put("m", meters).put("mv", moving).put("p", pts))
         // guarda só os últimos 60 dias
         val keys = root.keys().asSequence().toList().sorted()
         keys.dropLast(60).forEach { root.remove(it) }
@@ -73,7 +73,11 @@ object GpsStore {
     fun today(ctx: Context): Day { ensureDay(ctx); return Day(meters, moving, points.toList()) }
 
     fun read(ctx: Context, day: String): Day {
-        if (day == date) return Day(meters, moving, points.toList())
+        if (day + Settings(ctx).fileSuffix == date) return Day(meters, moving, points.toList())
+        return readRaw(ctx, day)
+    }
+
+    private fun readRaw(ctx: Context, day: String): Day {
         val o = runCatching { JSONObject(file(ctx).readText()).optJSONObject(day) }.getOrNull() ?: return Day(0.0, 0.0, emptyList())
         val a = o.optJSONArray("p") ?: JSONArray()
         return Day(o.optDouble("m", 0.0), o.optDouble("mv", 0.0),

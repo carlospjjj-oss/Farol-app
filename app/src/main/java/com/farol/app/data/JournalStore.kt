@@ -15,7 +15,9 @@ import java.util.Locale
 /** Diário (turnos, ganhos por app, abastecimentos) salvo em journal.json, só no aparelho. */
 class JournalStore(context: Context) {
 
-    private val file = File(context.filesDir, "journal.json")
+    private val ctx = context.applicationContext
+    /** journal.json (moto) ou journal_carro.json (carro). */
+    private val file: File get() = File(ctx.filesDir, "journal${Settings(ctx).fileSuffix}.json")
     private val dayFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     fun dateOf(ms: Long): String = dayFmt.format(Date(ms))
@@ -45,7 +47,7 @@ class JournalStore(context: Context) {
 
     @Synchronized
     private fun save(o: JSONObject) {
-        val tmp = File(file.parentFile, "journal.tmp")
+        val tmp = File(file.parentFile, "journal${Settings(ctx).fileSuffix}.tmp")
         tmp.writeText(o.toString())
         tmp.renameTo(file)
     }

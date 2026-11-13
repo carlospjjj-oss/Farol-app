@@ -12,7 +12,9 @@ import java.util.Locale
 
 /** Histórico das ofertas vistas, uma por linha (JSON). Fica só no aparelho. */
 class History(context: Context) {
-    private val file = File(context.filesDir, "history.jsonl")
+    private val ctx = context.applicationContext
+    /** history.jsonl (moto) ou history_carro.jsonl (carro). */
+    private val file: File get() = File(ctx.filesDir, "history${Settings(ctx).fileSuffix}.jsonl")
     private val maxLines = 5000
 
     private val recentKeys = mutableMapOf<String, Long>()

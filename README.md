@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 3.2.1**
+**Versão atual: 4.0**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -16,6 +16,16 @@ Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** 
 │  │ 2,48     34,70    5,21 (79%)   │
 └──┴────────────────────────────────┘   toque = fecha · arraste = move
 ```
+
+## ✨ Novidades da 4.0
+
+- **🛵 Moto ou 🚗 Carro** na abertura. Cada modo tem **tudo separado**: custos, faixas, meta, bairros, apps monitorados,
+  velocidade aprendida, calculadora de custos, turnos, ganhos, abastecimentos, histórico e GPS.
+  - **Moto** = entregas (iFood, 99 Entrega, Keeta). Continua exatamente como antes (mesmos dados).
+  - **Carro** = corridas (Uber, 99, inDrive), com valores típicos de carro para começar.
+  - Para trocar: selo **"🛵 Moto ⇄"** no topo do dashboard.
+- **Ajustes nos logs sem precisar tocar em nada:** enviados sozinhos ao salvar, ao trocar de modo e uma vez por dia.
+  Todo evento leva o modo (`moto`/`carro`).
 
 ## ✨ Novidades da 3.0
 
@@ -181,7 +191,7 @@ app/src/main/java/com/farol/app/
   core/      OfferParser, ProfitCalculator, EarningsReader, Insights, Journal, CostBreakdown, Rejections, LogSanitizer  ← Kotlin puro
   data/      Settings, JournalStore, GpsStore, History, CaptureLog, RemoteLog, Backup
   service/   OfferReaderService, ScreenTextCollector, OcrFallback, GpsService, ShiftNotifier, FarolTileService
-  ui/        DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OnboardingActivity, OverlayCard, FarolWidget, Kit
+  ui/        ModeActivity, DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OnboardingActivity, OverlayCard, FarolWidget, Kit
 app/src/test/  82 testes, quase todos com textos REAIS de ofertas e telas dos logs
 ```
 
@@ -194,6 +204,7 @@ app/src/test/  82 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 4.0 | Modo Moto / Carro com dados separados; ajustes enviados sozinhos nos logs |
 | 3.2.1 | Histórico sem ofertas duplicadas (e limpeza das antigas); teste inclui o estado do GPS |
 | 3.2 | GPS do turno (opcional): km do dia, velocidade em movimento e velocidade real de cada pedido, só como sugestão com botão "Usar" |
 | 3.1.1 | Velocidade aprendida separada por app: Keeta usa os próprios pedidos (aceite → fim); sem 5 pedidos, usa o valor fixo |

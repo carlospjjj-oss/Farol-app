@@ -142,6 +142,23 @@ class RemoteLog private constructor(context: Context) {
         }))
         .put("ajustes", settingsSnapshot()))
 
+    /**
+     * Ajustes enviados sozinhos (sem precisar do "Enviar teste"): ao salvar mudanças, ao trocar de modo
+     * e uma vez por dia. Só manda se algo mudou desde o último envio (ou se for o primeiro do dia).
+     */
+    fun settingsChanged(motivo: String) {
+        if (!enabled) return
+        val snap = settingsSnapshot()
+        val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        val sig = (snap.toString() + settings.vehicleMode).hashCode().toString()
+        val last = settings.prefs.getString("lastAjustesSig", "")
+        val lastDay = settings.prefs.getString("lastAjustesDay", "")
+        if (sig == last && day == lastDay) return
+        settings.prefs.edit().putString("lastAjustesSig", sig).putString("lastAjustesDay", day).apply()
+        enqueue(JSONObject().put("t", iso(Date())).put("tipo", "ajustes").put("modo", settings.vehicleMode)
+            .put("motivo", motivo).put("versao", appVersion).put("aparelho", deviceId).put("ajustes", snap))
+    }
+
     /** Ajustes atuais para conferência remota. Nunca inclui o token nem a URL/senha do webhook. */
     private fun settingsSnapshot(): JSONObject {
         val p = settings.profile
@@ -170,12 +187,14 @@ class RemoteLog private constructor(context: Context) {
             .put("notif_turno", settings.shiftNotification).put("resumo_semana", settings.weeklySummary)
             .put("mascarar", settings.maskAddresses)
             .put("gps", settings.gpsEnabled).put("gps_medindo", com.farol.app.service.GpsService.running)
+            .put("modo", settings.vehicleMode)
             .put("apps", JSONArray(settings.targets.values.toList()))
     }
 
     private fun base(type: String, pkg: String, source: String, raw: String) = JSONObject()
         .put("t", iso(Date()))
         .put("tipo", type)
+        .put("modo", settings.vehicleMode)
         .put("app", pkg)
         .put("fonte", source)
         .put("texto", clean(raw))

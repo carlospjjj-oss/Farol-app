@@ -7,10 +7,32 @@ import com.farol.app.core.CostProfile
 /** Configurações persistidas (SharedPreferences). Lidas pelo serviço e pela tela principal. */
 class Settings(context: Context) {
 
+    private val appCtx: Context = context.applicationContext
+
+    /** Ajustes gerais (logs, cartão, voz...) e também os da MOTO (compatível com as versões antigas). */
     val prefs: SharedPreferences =
         context.applicationContext.getSharedPreferences("farol", Context.MODE_PRIVATE)
 
+    /** "moto" ou "carro". Cada modo tem custos, faixas, apps, diário e histórico próprios. */
+    var vehicleMode: String
+        get() = prefs.getString("vehicleMode", "moto") ?: "moto"
+        set(v) = prefs.edit().putString("vehicleMode", v).apply()
+    val isCar: Boolean get() = vehicleMode == "carro"
+
+    /** Ajustes do veículo atual: moto usa o arquivo de sempre; carro usa um separado. */
+    val vprefs: SharedPreferences
+        get() = if (isCar) appCtx.getSharedPreferences("farol_carro", Context.MODE_PRIVATE) else prefs
+
+    /** Sufixo dos arquivos do modo (diário, histórico, GPS). Moto = sem sufixo. */
+    val fileSuffix: String get() = if (isCar) "_carro" else ""
+
+    val modeLabel: String get() = if (isCar) "🚗 Carro" else "🛵 Moto"
+
     companion object {
+        const val DEFAULT_TARGETS_CAR = """com.ubercab.driver=Uber
+com.app99.driver=99
+sinet.startup.inDriver=inDrive"""
+
         /** pacote=Nome. Edite na tela do app se algum pacote for diferente no seu aparelho. */
         const val DEFAULT_TARGETS = """com.ubercab.driver=Uber
 com.app99.driver=99
@@ -19,7 +41,7 @@ br.com.ifood.driver.app=iFood
 com.sankuai.sailor.courier=Keeta"""
     }
 
-    private fun d(key: String, def: Double) = prefs.getString(key, null)?.toDoubleOrNull() ?: def
+    private fun d(key: String, def: Double) = vprefs.getString(key, null)?.toDoubleOrNull() ?: def
 
     var profile: CostProfile
         get() {
@@ -46,7 +68,7 @@ com.sankuai.sailor.courier=Keeta"""
             )
         }
         set(p) {
-            prefs.edit()
+            vprefs.edit()
                 .putString("fuelPrice", p.fuelPrice.toString())
                 .putString("kmPerLiter", p.kmPerLiter.toString())
                 .putString("otherCostPerKm", p.otherCostPerKm.toString())
@@ -67,8 +89,8 @@ com.sankuai.sailor.courier=Keeta"""
         }
 
     var targetsText: String
-        get() = prefs.getString("targets", DEFAULT_TARGETS) ?: DEFAULT_TARGETS
-        set(v) = prefs.edit().putString("targets", v).apply()
+        get() = (if (isCar) DEFAULT_TARGETS_CAR else DEFAULT_TARGETS).let { def -> vprefs.getString("targets", def) ?: def }
+        set(v) = vprefs.edit().putString("targets", v).apply()
 
     /**
      * Apps reconhecidos pelo NOME do pacote mesmo sem estar na lista
@@ -86,7 +108,7 @@ com.sankuai.sailor.courier=Keeta"""
                 if (rx.matches(pkg)) return label
             }
         }
-        return builtInPatterns.firstOrNull { pkg.contains(it.first, ignoreCase = true) }?.second
+        return if (isCar) null else builtInPatterns.firstOrNull { pkg.contains(it.first, ignoreCase = true) }?.second
     }
 
     /** Mapa pacote -> nome amigável. */
@@ -102,29 +124,30 @@ com.sankuai.sailor.courier=Keeta"""
     /** Custos mensais da calculadora (Ajustes → Calcular custos do mês). */
     var monthlyCosts: com.farol.app.core.MonthlyCosts
         get() {
-            val o = runCatching { org.json.JSONObject(prefs.getString("monthlyCosts", "{}")!!) }.getOrNull() ?: org.json.JSONObject()
-            val d = com.farol.app.core.MonthlyCosts()
+            val o = runCatching { org.json.JSONObject(vprefs.getString("monthlyCosts", "{}")!!) }.getOrNull() ?: org.json.JSONObject()
+            val d = if (isCar) com.farol.app.core.MonthlyCosts(kmPerMonth = 4000.0, depreciation = 400.0, maintenance = 300.0,
+                ipva = 150.0, insurance = 200.0, other = 100.0) else com.farol.app.core.MonthlyCosts()
             fun g(k: String, def: Double) = if (o.has(k)) o.optDouble(k, def) else def
             return com.farol.app.core.MonthlyCosts(g("km", d.kmPerMonth), o.optString("vehicle", d.vehicle), g("fin", d.financing),
                 g("dep", d.depreciation), g("man", d.maintenance), g("ipva", d.ipva), g("seg", d.insurance), g("out", d.other))
         }
-        set(c) = prefs.edit().putString("monthlyCosts", org.json.JSONObject()
+        set(c) = vprefs.edit().putString("monthlyCosts", org.json.JSONObject()
             .put("km", c.kmPerMonth).put("vehicle", c.vehicle).put("fin", c.financing).put("dep", c.depreciation)
             .put("man", c.maintenance).put("ipva", c.ipva).put("seg", c.insurance).put("out", c.other).toString()).apply()
 
     /** Bairros/ruas separados por vírgula ou linha. */
     var alertWordsText: String
-        get() = prefs.getString("alertWords", "") ?: ""
-        set(v) = prefs.edit().putString("alertWords", v).apply()
+        get() = vprefs.getString("alertWords", "") ?: ""
+        set(v) = vprefs.edit().putString("alertWords", v).apply()
 
     var favoriteWordsText: String
-        get() = prefs.getString("favoriteWords", "") ?: ""
-        set(v) = prefs.edit().putString("favoriteWords", v).apply()
+        get() = vprefs.getString("favoriteWords", "") ?: ""
+        set(v) = vprefs.edit().putString("favoriteWords", v).apply()
 
     /** Meta de ganhos do dia em R$ (0 = sem meta). */
     var dailyGoal: Double
-        get() = prefs.getString("dailyGoal", null)?.toDoubleOrNull() ?: 0.0
-        set(v) = prefs.edit().putString("dailyGoal", v.toString()).apply()
+        get() = vprefs.getString("dailyGoal", null)?.toDoubleOrNull() ?: 0.0
+        set(v) = vprefs.edit().putString("dailyGoal", v.toString()).apply()
 
     /** Tamanho do cartão: 0 = P, 1 = M, 2 = G. */
     var cardSize: Int
@@ -158,13 +181,13 @@ com.sankuai.sailor.courier=Keeta"""
     /** Amostras de velocidade de entrega de cada app (aceite → fim, ou tempo informado pelo app). */
     fun speedSamples(app: String): List<Double> {
         // Migração da 3.1: as amostras antigas eram todas do iFood
-        if (app == "iFood" && !prefs.contains("speedSamples_iFood") && prefs.contains("speedSamples"))
-            prefs.edit().putString("speedSamples_iFood", prefs.getString("speedSamples", "")).remove("speedSamples").apply()
-        return (prefs.getString("speedSamples_$app", "") ?: "").split(';').mapNotNull { it.toDoubleOrNull() }
+        if (app == "iFood" && !vprefs.contains("speedSamples_iFood") && vprefs.contains("speedSamples"))
+            vprefs.edit().putString("speedSamples_iFood", vprefs.getString("speedSamples", "")).remove("speedSamples").apply()
+        return (vprefs.getString("speedSamples_$app", "") ?: "").split(';').mapNotNull { it.toDoubleOrNull() }
     }
 
     fun setSpeedSamples(app: String, v: List<Double>) =
-        prefs.edit().putString("speedSamples_$app", v.joinToString(";") { String.format(java.util.Locale.US, "%.2f", it) }).apply()
+        vprefs.edit().putString("speedSamples_$app", v.joinToString(";") { String.format(java.util.Locale.US, "%.2f", it) }).apply()
 
     fun addSpeedSample(app: String, v: Double) = setSpeedSamples(app, com.farol.app.core.SpeedLearner.add(speedSamples(app), v))
 
@@ -185,9 +208,9 @@ com.sankuai.sailor.courier=Keeta"""
 
     /** Velocidades de entrega medidas pelo GPS por app (aguardando você tocar em "Usar"). */
     fun gpsSpeedSamples(app: String): List<Double> =
-        (prefs.getString("gpsSpeed_$app", "") ?: "").split(';').mapNotNull { it.toDoubleOrNull() }
+        (vprefs.getString("gpsSpeed_$app", "") ?: "").split(';').mapNotNull { it.toDoubleOrNull() }
 
-    fun addGpsSpeedSample(app: String, v: Double) = prefs.edit().putString("gpsSpeed_$app",
+    fun addGpsSpeedSample(app: String, v: Double) = vprefs.edit().putString("gpsSpeed_$app",
         com.farol.app.core.SpeedLearner.add(gpsSpeedSamples(app), v).joinToString(";") { String.format(java.util.Locale.US, "%.2f", it) }).apply()
 
     var onboarded: Boolean
@@ -260,8 +283,8 @@ com.sankuai.sailor.courier=Keeta"""
         set(v) = prefs.edit().putBoolean("autoEarnings", v).apply()
 
     /** Marca que o ganho de [app] em [date] veio do painel do app (para mostrar "auto" no dashboard). */
-    fun markAuto(date: String, app: String) = prefs.edit().putLong("auto_${date}_$app", System.currentTimeMillis()).apply()
-    fun autoAt(date: String, app: String): Long = prefs.getLong("auto_${date}_$app", 0L)
+    fun markAuto(date: String, app: String) = vprefs.edit().putLong("auto_${date}_$app", System.currentTimeMillis()).apply()
+    fun autoAt(date: String, app: String): Long = vprefs.getLong("auto_${date}_$app", 0L)
 
     var enabled: Boolean
         get() = prefs.getBoolean("enabled", true)

@@ -89,7 +89,7 @@ class CostsActivity : Activity() {
         col.addView(k.hbox().apply {
             addView(back, LinearLayout.LayoutParams(k.dp(44), k.dp(44)))
             addView(k.vbox().apply {
-                addView(k.text("Custos do mês", 22, Palette.TEXT, k.bold))
+                addView(k.text("Custos do mês · ${settings.modeLabel}", 22, Palette.TEXT, k.bold))
                 addView(k.text("Quanto custa rodar cada km de verdade", 13, Palette.MUTED), k.lp(top = 2))
             }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = k.dp(14) })
         })
@@ -101,7 +101,7 @@ class CostsActivity : Activity() {
             background = k.rounded(Palette.SURFACE2, 12); setPadding(k.dp(4), k.dp(4), k.dp(4), k.dp(4))
         }
         cv.addView(segVehicle, k.lp(top = 12))
-        val (_, km) = row(cv, "🛵", "Km por mês", "quanto você roda trabalhando", "km")
+        val (_, km) = row(cv, if (settings.isCar) "🚗" else "🛵", "Km por mês", "quanto você roda trabalhando", "km")
         etKm = km
         val jr = JournalStore(this)
         val monthKm = jr.days().filter { it.date in jr.lastDays(30) }.mapNotNull { it.kmDriven }
@@ -117,7 +117,7 @@ class CostsActivity : Activity() {
         cg.addView(k.text("Gastos mensais", 17, Palette.TEXT, k.bold))
         cg.addView(k.text("Combustível é calculado pelo consumo e preço do litro dos Ajustes.", 12, Palette.MUTED), k.lp(top = 4))
         val (fr, fin) = row(cg, "💳", "Financiamento", "parcela mensal"); finRow = fr; etFin = fin
-        etDep = row(cg, "📉", "Depreciação", "quanto a moto perde de valor por mês").second
+        etDep = row(cg, "📉", "Depreciação", "quanto o veículo perde de valor por mês").second
         etMan = row(cg, "🔧", "Manutenção", "óleo, pneus, correia, freio, revisão").second
         etIpva = row(cg, "📄", "IPVA e licenciamento", "valor do ano ÷ 12").second
         etSeg = row(cg, "🛡️", "Seguro", "por mês").second

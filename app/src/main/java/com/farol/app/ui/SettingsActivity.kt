@@ -238,7 +238,7 @@ class SettingsActivity : Activity() {
         col.addView(k.hbox().apply {
             addView(back, LinearLayout.LayoutParams(k.dp(44), k.dp(44)))
             addView(k.vbox().apply {
-                addView(k.text("Ajustes do Farol", 22, Palette.TEXT, k.bold))
+                addView(k.text("Ajustes · ${settings.modeLabel}", 22, Palette.TEXT, k.bold))
                 addView(k.text("Seus números e como o cartão se comporta", 13, Palette.MUTED), k.lp(top = 2))
             }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = k.dp(14) })
         })
@@ -582,6 +582,7 @@ class SettingsActivity : Activity() {
         settings.webhookAuth = etHookAuth.text.toString().trim()
         settings.remoteIntervalSec = etInterval.num(60.0).toInt()
         settings.maskAddresses = swMask.isChecked
+        runCatching { RemoteLog.get(this).settingsChanged(if (silent) "auto" else "salvar") }
         if (!silent) toast("Salvo ✓")
     }
 
