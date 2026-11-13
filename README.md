@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 5.2**
+**Versão atual: 5.3**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -192,7 +192,7 @@ app/src/main/java/com/farol/app/
   data/      Settings, JournalStore, GpsStore, History, CaptureLog, RemoteLog, Backup
   service/   OfferReaderService, ScreenTextCollector, OcrFallback, GpsService, ShiftNotifier, FarolTileService
   ui/        ModeActivity, DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OnboardingActivity, OverlayCard, FarolWidget, Kit
-app/src/test/  90 testes, quase todos com textos REAIS de ofertas e telas dos logs
+app/src/test/  94 testes, quase todos com textos REAIS de ofertas e telas dos logs
 ```
 
 - Build local: abra no Android Studio, ou `gradle testDebugUnitTest assembleDebug`.
@@ -204,6 +204,7 @@ app/src/test/  90 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 5.3 | Atualizador confere SHA-256 do arquivo, pacote, versão e certificado da chave antes de instalar. 99 do carro: km pelos pares "N min (X km)", sem somar a seta de navegação do mapa |
 | 5.2 | Segurança: chave de assinatura nova (rotação v3, a antiga não substitui mais o app no Android 9+), APK de produção, nenhuma chave no repositório, SHA-256 na publicação |
 | 5.1 | Gasolina e etanol guardados em cada modo (preço e consumo de cada); escolha do que está no tanque; comparação de qual compensa; abastecimento atualiza o preço do combustível escolhido |
 | 5.0 | Login obrigatório (e-mail e senha no servidor próprio); token no cofre do Android; dados separados por conta; painel por conta com administração |

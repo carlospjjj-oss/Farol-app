@@ -228,4 +228,40 @@ class OfferParserTest {
         assertEquals(5.0, o.passengerRating!!, 0.01)
         assertNull(o.totalMin)
     }
+
+    @Test fun car99_ocr_15h25_ignoraSetaDoMapa() {
+        val o = p("611 m | [endereço] | [endereço] | [endereço] | [endereço] | R\$4,63/km | R\$7,40 | # 5,00 3 corridas | V CPF e Cartão verif. | 2 min (339 m) | [endereço] | ouatorZe de Outubro | CRAS Centro | 9 R\$1,02 Tarifa base dinâmica incl. | B | H | [endereço] | X Não afeta a TA | 3 | [endereço], Vila Maria Rosa | 3 min (1,3 km) | Saint | Cent | Paróquia+Nossa+Senhora+Aparecida+- | +R.+Tiradentes, +31 3+-+Vila+Andeyara,. | ci", "99")!!
+        assertEquals(7.4, o.price, 0.01)
+        assertEquals(1.64, o.totalKm, 0.02)
+        assertEquals(5.0, o.totalMin!!, 0.01)
+        assertEquals(0.34, o.pickupKm!!, 0.02)
+        assertEquals(5.0, o.passengerRating!!, 0.01)
+    }
+
+    @Test fun car99_ocr_15h32_ignoraSetaDoMapa() {
+        val o = p("ooster | 11 m | [endereço] | R.Treze de Maio | Pgto. no app | R\$7,50 | R\$2,68/km | 2 min (427 m) | [endereço] | Ouiu | de | ubro | R\$1,02 Tarifa base dinâmica incl. | 6 min (2,4 km) | CRAS ent | X Não afeta a TA | t 4,94 +999 corridas O CPF verif. | Charles Cell, Rua Treze de Maio, 68 - | Vila Andeyara | 3 | Atacadāão - Ferraz de Vasconcelos, | [endereço], .. | e", "99")!!
+        assertEquals(7.5, o.price, 0.01)
+        assertEquals(2.83, o.totalKm, 0.02)
+        assertEquals(8.0, o.totalMin!!, 0.01)
+        assertEquals(0.43, o.pickupKm!!, 0.02)
+        assertEquals(4.94, o.passengerRating!!, 0.01)
+    }
+
+    @Test fun car99_ocr_15h41_ignoraSetaDoMapa() {
+        val o = p("444 m | Mantenha-se à direita | Pgto. no app | R\$15,70 | R\$1,63/km | S R\$1,02 Tarifa base dinâmica incl. | Taxa de parada de R\$0,80 inclusa | 5 min (1,6 km) | O 1 parada(s) | X Não afeta a TA | t 4,81 334 corridas O Perfil Premium | [endereço], Vila Santa | Margarida | 24 min (8,1 km) | [endereço], Vila Santa | Margarida | 3", "99")!!
+        assertEquals(15.7, o.price, 0.01)
+        assertEquals(9.7, o.totalKm, 0.02)
+        assertEquals(29.0, o.totalMin!!, 0.01)
+        assertEquals(1.6, o.pickupKm!!, 0.02)
+        assertEquals(4.81, o.passengerRating!!, 0.01)
+    }
+
+    @Test fun car99_ocr_15h51_ignoraSetaDoMapa() {
+        val o = p("[endereço] | 214 m | Pgto. no app | R\$2,61/km | R\$9,30 | t 4,82 165 corridas | OCPFe Cartão verif. | 3 min (562 m) | S R\$2,18 por deslocamento incl. | X Não afeta a TA | [endereço], Jardim Sao Joao | 10 min (3 km) | [endereço] | Jardim do Castelo", "99")!!
+        assertEquals(9.3, o.price, 0.01)
+        assertEquals(3.56, o.totalKm, 0.02)
+        assertEquals(13.0, o.totalMin!!, 0.01)
+        assertEquals(0.56, o.pickupKm!!, 0.02)
+        assertEquals(4.82, o.passengerRating!!, 0.01)
+    }
 }

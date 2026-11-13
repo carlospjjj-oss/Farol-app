@@ -32,6 +32,11 @@ object Updater {
     private const val CH = "farol_update"
     private const val NOTIF_ID = 77
     const val ACTION_DONE = "com.farol.app.UPDATE_DONE"
+    /**
+     * Impressão digital (SHA-256) do certificado da chave de assinatura atual (5.2+).
+     * Uma atualização só é instalada se for assinada por ela.
+     */
+    private const val SIGNER_SHA256 = "2e9d588c0e239c94a35214f41bddcca428944da509027cc9f01fb879a7f6583f"
     @Volatile private var running = false
 
     fun installedCode(ctx: Context): Long {
@@ -71,6 +76,12 @@ object Updater {
                     else -> {
                         if (manual) toast(app, "Baixando a versão ${rel.name}…")
                         val apk = download(app, rel.url)
+                        verify(app, apk, rel.sha256)?.let { problem ->
+                            apk.delete()
+                            if (manual) toast(app, "Atualização recusada: $problem")
+                            runCatching { com.farol.app.data.RemoteLog.get(app).settingsChanged("atualização recusada: $problem") }
+                            return@Thread
+                        }
                         install(app, apk, rel.name, foreground)
                         runCatching { com.farol.app.data.RemoteLog.get(app).settingsChanged("atualização ${rel.name}") }
                     }
@@ -83,7 +94,7 @@ object Updater {
         }.start()
     }
 
-    private data class Release(val code: Long, val name: String, val url: String)
+    private data class Release(val code: Long, val name: String, val url: String, val sha256: String?)
 
     private fun fetchLatest(): Release? {
         val c = (URL(API).openConnection() as HttpURLConnection).apply {
@@ -97,13 +108,47 @@ object Updater {
             val body = j.optString("body")
             val code = Regex("""versionCode=(\d+)""").find(body)?.groupValues?.get(1)?.toLongOrNull() ?: return null
             val name = Regex("""versionName=([\w.\-]+)""").find(body)?.groupValues?.get(1) ?: j.optString("tag_name")
+            val sha = Regex("""sha256=([0-9a-f]{64})""").find(body)?.groupValues?.get(1)
             val assets = j.optJSONArray("assets") ?: return null
             for (i in 0 until assets.length()) {
                 val a = assets.getJSONObject(i)
-                if (a.optString("name").endsWith(".apk")) return Release(code, name, a.getString("browser_download_url"))
+                if (a.optString("name").endsWith(".apk")) return Release(code, name, a.getString("browser_download_url"), sha)
             }
             return null
         } finally { c.disconnect() }
+    }
+
+    private fun hex(b: ByteArray) = b.joinToString("") { "%02x".format(it) }
+
+    /**
+     * Confere o APK baixado antes de instalar. Retorna o problema, ou null se estiver tudo certo.
+     * 1) o SHA-256 do arquivo bate com o publicado na versão (arquivo inteiro, sem adulteração);
+     * 2) é o pacote do Farol, com versão maior que a instalada;
+     * 3) (Android 9+) foi assinado pela chave do Farol (certificado fixo no app).
+     */
+    private fun verify(ctx: Context, apk: File, expectedSha: String?): String? {
+        if (expectedSha == null) return "versão sem impressão digital"
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        apk.inputStream().use { inp -> val buf = ByteArray(64 * 1024); while (true) { val n = inp.read(buf); if (n < 0) break; md.update(buf, 0, n) } }
+        if (hex(md.digest()) != expectedSha) return "arquivo diferente do publicado"
+        val pm = ctx.packageManager
+        val flags = if (Build.VERSION.SDK_INT >= 28) android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES else 0
+        @Suppress("DEPRECATION")
+        val info = pm.getPackageArchiveInfo(apk.path, flags) ?: return "não é um APK válido"
+        if (info.packageName != ctx.packageName) return "pacote errado (${info.packageName})"
+        val code = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
+        if (code <= installedCode(ctx)) return "versão não é mais nova"
+        if (Build.VERSION.SDK_INT >= 28) {
+            val si = info.signingInfo
+            if (si != null) {
+                val certs = if (si.hasMultipleSigners()) si.apkContentsSigners else si.signingCertificateHistory
+                val current = certs?.lastOrNull() ?: return "APK sem assinatura"
+                val sha = hex(java.security.MessageDigest.getInstance("SHA-256").digest(current.toByteArray()))
+                if (sha != SIGNER_SHA256) return "assinatura desconhecida"
+            }
+            // signingInfo nulo (alguns Android 9–12 com APK fora do sistema): o próprio Android ainda confere a chave.
+        }
+        return null
     }
 
     private fun download(ctx: Context, url: String): File {

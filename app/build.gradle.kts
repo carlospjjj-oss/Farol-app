@@ -11,8 +11,8 @@ android {
         applicationId = "com.farol.app"
         minSdk = 26          // Android 8.0
         targetSdk = 35
-        versionCode = 34
-        versionName = "5.2"
+        versionCode = 35
+        versionName = "5.3"
     }
 
     // Assinatura: feita no GitHub Actions (.github/scripts/sign.sh) com rotação de chave.

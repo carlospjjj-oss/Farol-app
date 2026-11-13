@@ -46,6 +46,12 @@ object OfferParser {
     )
 
     // Grupo 1+2: "1 h 5 min" / "18 min"; grupo 3: "2 h" sozinho.
+    /** "3 min (1,3 km)" / "2 min (339 m)": busca e viagem na 99 e na Uber. */
+    private val PAIRED = Regex(
+        """(?<![\d.,])(?:(\d+)\s*h(?:oras?)?\s*(?:e\s*)?)?(\d+)\s*min\s*\(\s*(\d+(?:[.,]\d+)?)\s*(km|m)\s*\)""",
+        RegexOption.IGNORE_CASE
+    )
+
     private val DUR = Regex(
         """(?<![\d.,])(?:(\d+)\s*h(?:oras?|rs?)?\s*(?:e\s*)?)?(\d+)\s*min(?:utos?|s)?\b|(?<![\d.,])(\d+)\s*h(?:oras?|rs?)?\b""",
         RegexOption.IGNORE_CASE
@@ -65,7 +71,7 @@ object OfferParser {
 
     /** Valores em R$ seguidos disto também não são o preço ("R$ 3,00 Bônus", "R$ 2 por pedido", "R$ 3,97/L"). */
     private val MONEY_EXCLUDE_AFTER = Regex(
-        """^\s*(b[oô]nus|extra|inclu[ií]|por pedido|em recompensas?|de desconto|/\s*l\b|o litro)""",
+        """^\s*(b[oô]nus|extra|inclu\w*|incl\b|por pedido|por deslocamento|tarifa base|em recompensas?|de desconto|/\s*l\b|o litro)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -104,7 +110,7 @@ object OfferParser {
 
         // 2) Distâncias
         data class Measure(val value: Double, val pos: Int, val isTotal: Boolean)
-        val dists = DIST.findAll(clean).mapNotNull { m ->
+        val dists0 = DIST.findAll(clean).mapNotNull { m ->
             val n = parseDecimal(m.groupValues[1]) ?: return@mapNotNull null
             val unit = m.groupValues[2].lowercase()
             val km = if (unit.startsWith("k") || unit.startsWith("q")) n else n / 1000.0
@@ -113,10 +119,10 @@ object OfferParser {
             if (km <= 0.0 || km > 600.0) null
             else Measure(km, m.range.first, isTotalAt(clean, m.range.first, m.range.last + 1))
         }.toList()
-        if (dists.isEmpty()) return null
+        if (dists0.isEmpty()) return null
 
         // 3) Tempos
-        val durs = DUR.findAll(clean).mapNotNull { m ->
+        val durs0 = DUR.findAll(clean).mapNotNull { m ->
             val g = m.groupValues
             if (Regex("""(mais|menos) de\s*$""", RegexOption.IGNORE_CASE).containsMatchIn(clean.substring(maxOf(0, m.range.first - 12), m.range.first)))
                 return@mapNotNull null
@@ -128,6 +134,19 @@ object OfferParser {
             if (min <= 0.0 || min > 600.0) null
             else Measure(min, m.range.first, isTotalAt(clean, m.range.first))
         }.toList()
+
+        // 99/Uber: com dois ou mais pares "N min (X km)", só eles valem. A seta de navegação do
+        // mapa ("611 m"), "232 m mais longo" e "1 min mais lento" ficam de fora.
+        val pairs = PAIRED.findAll(clean).toList()
+        val dists: List<Measure>
+        val durs: List<Measure>
+        if (pairs.size >= 2) {
+            dists = pairs.map { m ->
+                val n = parseDecimal(m.groupValues[3]) ?: 0.0
+                Measure(if (m.groupValues[4].equals("km", true)) n else n / 1000.0, m.range.first, false)
+            }
+            durs = pairs.map { m -> Measure((m.groupValues[1].toIntOrNull() ?: 0) * 60.0 + m.groupValues[2].toDouble(), m.range.first, false) }
+        } else { dists = dists0; durs = durs0 }
 
         val hasTotal = dists.any { it.isTotal }
         val totalKm = dists.firstOrNull { it.isTotal }?.value ?: dists.sumOf { it.value }
