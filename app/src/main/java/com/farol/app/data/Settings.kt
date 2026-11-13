@@ -245,6 +245,11 @@ class Settings(context: Context, private val modeOverride: String? = null) {
         com.farol.app.core.SpeedLearner.add(gpsSpeedSamples(app), v).joinToString(";") { String.format(java.util.Locale.US, "%.2f", it) }).apply()
 
     /** Nome do usuário (aparece na saudação do painel). Global, vale para Moto e Carro. */
+    /** Tema do app: "escuro", "claro" ou "sistema" (segue o celular). */
+    var theme: String
+        get() = prefs.getString("theme", "escuro") ?: "escuro"
+        set(v) = prefs.edit().putString("theme", v).apply()
+
     var userName: String
         get() = prefs.getString("user_name", "") ?: ""
         set(v) = prefs.edit().putString("user_name", v.trim().take(24)).apply()

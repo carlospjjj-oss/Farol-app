@@ -35,6 +35,23 @@ import com.farol.app.service.OfferReaderService
 
 /** Seções do cartão (tamanho, posição) e da leitura (OCR, apps monitorados, descoberta). */
 internal fun SettingsActivity.buildReadingSections() {
+    // Aparência
+    val cTheme = card("Aparência", "Tema do app")
+    val segTheme = k.hbox().apply { background = k.rounded(Palette.SURFACE2, 12); setPadding(k.dp(4), k.dp(4), k.dp(4), k.dp(4)) }
+    listOf("escuro" to "🌙 Escuro", "claro" to "☀️ Claro", "sistema" to "📱 Automático").forEach { (mode, label) ->
+        val on = settings.theme == mode
+        segTheme.addView(k.text(label, 13, if (on) Palette.ON_ACCENT else Palette.MUTED, k.bold).apply {
+            gravity = Gravity.CENTER; setPadding(0, k.dp(9), 0, k.dp(9))
+            if (on) background = k.rounded(Palette.ACCENT, 10)
+            isClickable = true
+            setOnClickListener {
+                if (settings.theme != mode) { save(silent = true); settings.theme = mode; recreate() }
+            }
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+    }
+    cTheme.addView(segTheme, k.lp(top = 12))
+    hint(cTheme, "Automático segue o tema do celular. O card das ofertas fica sempre escuro, para aparecer bem sobre qualquer app.")
+
     // Cartão
     val cCard = card("Cartão flutuante")
     cCard.addView(k.text("Tamanho", 12, Palette.MUTED, k.medium), k.lp(top = 12))

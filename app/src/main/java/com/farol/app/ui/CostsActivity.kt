@@ -42,6 +42,7 @@ class CostsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Themes.apply(this)
         settings = Settings(this)
         k = Kit(this)
         window.statusBarColor = Palette.BG

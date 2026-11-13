@@ -72,5 +72,13 @@ class VisualPreviewTest {
         open(ModeActivity::class.java, "3-modo")
         open(DashboardActivity::class.java, "4-painel")
         open(SettingsActivity::class.java, "5-ajustes")
+        // tema claro
+        Settings(ctx).theme = "claro"
+        open(ModeActivity::class.java, "6-claro-modo")
+        open(DashboardActivity::class.java, "7-claro-painel")
+        open(SettingsActivity::class.java, "8-claro-ajustes")
+        Account.clear(ctx)
+        open(LoginActivity::class.java, "9-claro-login")
+        Settings(ctx).theme = "escuro"
     }
 }

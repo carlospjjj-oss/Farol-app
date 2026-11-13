@@ -41,6 +41,7 @@ internal fun DashboardActivity.header() {
     val date = SimpleDateFormat("EEEE, d 'de' MMMM", ptBR).format(Date()).replaceFirstChar { it.uppercase() }
 
     val modeChip = k.chip("${settings.modeLabel}  ⇄", Palette.ACCENT).apply {
+        maxLines = 1; isSingleLine = true          // não quebrar em várias linhas
         isClickable = true
         setOnClickListener { startActivity(Intent(self, ModeActivity::class.java)); finish() }
     }
@@ -85,7 +86,7 @@ internal fun DashboardActivity.header() {
 
 // hero
 internal fun DashboardActivity.hero(day: DayRecord, s: DaySummary) {
-    val dark = Palette.ON_ACCENT
+    val dark = Palette.ON_LIME   // texto escuro sobre o limão, nos dois temas
     val card = k.vbox(22, 22).apply {
         background = k.gradient(0xFFD6F75A.toInt(), Palette.ACCENT2, radiusDp = 26)
         elevation = k.dp(6).toFloat()

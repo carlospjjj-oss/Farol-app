@@ -37,6 +37,7 @@ class HistoryActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Themes.apply(this)
         history = History(this)
         k = Kit(this)
         window.statusBarColor = Palette.BG
@@ -265,7 +266,7 @@ class HistoryActivity : Activity() {
             o.optString("source").takeIf { it.isNotEmpty() }?.let { add("Leitura: $it") }
         }
         val verdict = when (o.optString("rating")) { "GREEN" -> "🟢 Verde"; "YELLOW" -> "🟡 Amarela"; else -> "🔴 Vermelha" }
-        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
             .setTitle("$verdict · ${Fmt.money(o.optDouble("price"))}")
             .setMessage(lines.joinToString("\n"))
             .setPositiveButton("Fechar", null)

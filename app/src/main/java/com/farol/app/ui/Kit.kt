@@ -17,17 +17,40 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 
-/** Paleta 6.3: grafite + verde-limão (destaque). As cores do semáforo continuam as mesmas. */
+/**
+ * Paleta com dois temas: escuro (grafite + verde-limão) e claro (branco + verde-oliva).
+ * As cores do semáforo (GREEN/YELLOW/RED) são iguais nos dois. Trocada por Themes.apply().
+ */
 object Palette {
-    const val BG = 0xFF0E0F11.toInt()
-    const val SURFACE = 0xFF17191C.toInt()
-    const val SURFACE2 = 0xFF202327.toInt()
-    const val STROKE = 0xFF2A2E33.toInt()
-    const val TEXT = 0xFFF4F6F3.toInt()
-    const val MUTED = 0xFF8D949A.toInt()
-    const val ACCENT = 0xFFC8F23C.toInt()   // verde-limão
-    const val ACCENT2 = 0xFF8FD42A.toInt()  // limão escuro (degradês)
-    const val ON_ACCENT = 0xFF0F1408.toInt()
+    var BG = 0xFF0E0F11.toInt(); private set
+    var SURFACE = 0xFF17191C.toInt(); private set
+    var SURFACE2 = 0xFF202327.toInt(); private set
+    var STROKE = 0xFF2A2E33.toInt(); private set
+    var TEXT = 0xFFF4F6F3.toInt(); private set
+    var MUTED = 0xFF8D949A.toInt(); private set
+    var ACCENT = 0xFFC8F23C.toInt(); private set      // destaque (botões, links, abas)
+    var ACCENT2 = 0xFF8FD42A.toInt(); private set
+    var ON_ACCENT = 0xFF0F1408.toInt(); private set   // texto sobre o destaque
+    var isLight = false; private set
+    var dialogTheme = android.R.style.Theme_DeviceDefault_Dialog_Alert; private set
+
+    /** Texto escuro fixo para fundos limão (cartão de ganhos), nos dois temas. */
+    const val ON_LIME = 0xFF0F1408.toInt()
+
+    fun set(light: Boolean) {
+        isLight = light
+        if (light) {
+            BG = 0xFFF3F5F0.toInt(); SURFACE = 0xFFFFFFFF.toInt(); SURFACE2 = 0xFFEDF0E8.toInt(); STROKE = 0xFFDFE4D8.toInt()
+            TEXT = 0xFF15180F.toInt(); MUTED = 0xFF687064.toInt()
+            ACCENT = 0xFF5C9300.toInt(); ACCENT2 = 0xFF8FD42A.toInt(); ON_ACCENT = 0xFFFFFFFF.toInt()
+            dialogTheme = android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+        } else {
+            BG = 0xFF0E0F11.toInt(); SURFACE = 0xFF17191C.toInt(); SURFACE2 = 0xFF202327.toInt(); STROKE = 0xFF2A2E33.toInt()
+            TEXT = 0xFFF4F6F3.toInt(); MUTED = 0xFF8D949A.toInt()
+            ACCENT = 0xFFC8F23C.toInt(); ACCENT2 = 0xFF8FD42A.toInt(); ON_ACCENT = 0xFF0F1408.toInt()
+            dialogTheme = android.R.style.Theme_DeviceDefault_Dialog_Alert
+        }
+    }
     const val GREEN = 0xFF22C55E.toInt()
     const val YELLOW = 0xFFF5B014.toInt()
     const val RED = 0xFFEF4444.toInt()
@@ -36,6 +59,46 @@ object Palette {
 
     /** Cor de cada app na lista de ganhos. */
     fun app(name: String) = com.farol.app.core.AppCatalog.color(name).toInt()
+}
+
+/** Cores fixas do card flutuante: ele fica escuro em qualquer tema, para contrastar com o app por baixo. */
+object DarkPalette {
+    const val TEXT = 0xFFF4F6F3.toInt()
+    const val MUTED = 0xFF8D949A.toInt()
+    const val ON_ACCENT = 0xFF0F1408.toInt()
+    const val SURFACE = 0xFF17191C.toInt()
+    const val SURFACE2 = 0xFF202327.toInt()
+    const val STROKE = 0xFF2A2E33.toInt()
+    const val ACCENT = 0xFFC8F23C.toInt()
+}
+
+/** Escolhe o tema (escuro, claro ou o do sistema) e ajusta as barras do Android. */
+object Themes {
+    fun isLight(ctx: android.content.Context): Boolean = when (com.farol.app.data.Settings(ctx).theme) {
+        "claro" -> true
+        "escuro" -> false
+        else -> (ctx.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_NO
+    }
+
+    /** Chame no começo do onCreate de cada tela. */
+    fun apply(a: android.app.Activity) {
+        Palette.set(isLight(a))
+        val w = a.window
+        w.statusBarColor = Palette.BG
+        w.navigationBarColor = Palette.BG
+        @Suppress("DEPRECATION")
+        run {
+            var f = w.decorView.systemUiVisibility
+            val bits = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+            f = if (Palette.isLight) f or bits else f and bits.inv()
+            w.decorView.systemUiVisibility = f
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            val light = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+            w.insetsController?.setSystemBarsAppearance(if (Palette.isLight) light else 0, light)
+        }
+    }
 }
 
 /** Pequeno kit de componentes desenhados em código (sem bibliotecas extras). */

@@ -196,7 +196,7 @@ internal fun DashboardActivity.askEnd() {
         }
         val warn = d.kmStart?.let { suspicious(km - it, d.workedMs()?.let { w -> System.currentTimeMillis() - w }) }
         if (warn != null) {
-            AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
                 .setTitle("Confere o km?")
                 .setMessage("$warn\n\nInício: ${fmtKm(d.kmStart)}\nFim: ${fmtKm(km)}\n\nSe estiver errado, toque em Corrigir.")
                 .setPositiveButton("Está certo") { _, _ -> finish() }
@@ -239,7 +239,7 @@ internal fun DashboardActivity.togglePause() {
 
 internal fun DashboardActivity.askDeleteShift() {
     val d = store.day()
-    AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+    AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
         .setTitle("Excluir o turno de hoje?")
         .setMessage("Apaga km inicial/final, horários e pausas. Os ganhos dos apps continuam salvos.\n\nDepois é só iniciar de novo.")
         .setPositiveButton("Excluir") { _, _ ->
@@ -297,7 +297,7 @@ internal fun DashboardActivity.askEditShift() {
         val base = d.copy(startAt = st, endAt = en, pausedMs = pauseMin * 60_000)
         if (s != null && e != null && e - s > 350) {
             if (tenthsLikely(s, e)) {
-                AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
                     .setTitle("O último dígito é décimo?")
                     .setMessage("Deu ${Fmt.km(e - s)} no dia. No painel de muitas motos o último número é a casa decimal.\n\n" +
                         "${fmtKm(s / 10)} → ${fmtKm(e / 10)} = ${Fmt.km((e - s) / 10)}")

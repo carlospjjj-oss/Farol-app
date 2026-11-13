@@ -36,6 +36,7 @@ class LoginActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Themes.apply(this)
         if (Account.isLoggedIn(this)) { next(); return }
         k = Kit(this)
         window.statusBarColor = Palette.BG

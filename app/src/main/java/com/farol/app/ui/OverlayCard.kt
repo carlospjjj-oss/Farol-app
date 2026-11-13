@@ -151,7 +151,7 @@ class OverlayCard(private val svc: AccessibilityService, private val settings: S
         val stripe = k.vbox().apply {
             gravity = Gravity.CENTER
             background = k.rounded(main, 0)
-            addView(t(icon, 22f, if (r.rating == Rating.YELLOW) Palette.ON_ACCENT else 0xFFFFFFFF.toInt(), k.black)
+            addView(t(icon, 22f, if (r.rating == Rating.YELLOW) DarkPalette.ON_ACCENT else 0xFFFFFFFF.toInt(), k.black)
                 .apply { gravity = Gravity.CENTER })
         }
         card.addView(stripe, LinearLayout.LayoutParams(d(34f), -1))
@@ -162,21 +162,21 @@ class OverlayCard(private val svc: AccessibilityService, private val settings: S
         if (compact) {
             body.addView(k.hbox().apply {
                 addView(t(num(r.perKm), 34f, colorOf(r.ratingKm), k.black))
-                addView(t(" /km", 14f, Palette.MUTED, k.medium))
+                addView(t(" /km", 14f, DarkPalette.MUTED, k.medium))
             })
             body.addView(k.hbox().apply {
-                addView(t(Fmt.money(o.price), 15f, Palette.TEXT))
-                addView(t("  ${o.app.uppercase()}", 12f, Palette.MUTED))
+                addView(t(Fmt.money(o.price), 15f, DarkPalette.TEXT))
+                addView(t("  ${o.app.uppercase()}", 12f, DarkPalette.MUTED))
             }, k.lp(w = -2, top = 2))
         } else {
             body.addView(k.hbox().apply {
-                addView(t(Fmt.money(o.price), 26f, Palette.TEXT, k.black))
-                o.passengerRating?.let { addView(t("★ ${Fmt.dec(it, 2)}", 14f, Palette.ACCENT), k.lp(w = -2).apply { marginStart = d(8f) }) }
+                addView(t(Fmt.money(o.price), 26f, DarkPalette.TEXT, k.black))
+                o.passengerRating?.let { addView(t("★ ${Fmt.dec(it, 2)}", 14f, DarkPalette.ACCENT), k.lp(w = -2).apply { marginStart = d(8f) }) }
                 addView(View(svc), LinearLayout.LayoutParams(0, 1, 1f))
-                addView(t(o.app.uppercase(), 12f, Palette.MUTED).apply { letterSpacing = 0.05f }, k.lp(w = -2).apply { marginStart = d(10f) })
+                addView(t(o.app.uppercase(), 12f, DarkPalette.MUTED).apply { letterSpacing = 0.05f }, k.lp(w = -2).apply { marginStart = d(10f) })
             })
-            fun cell(label: String, value: String, color: Int = Palette.TEXT) = k.vbox().apply {
-                addView(t(label, 11f, Palette.MUTED, k.medium))
+            fun cell(label: String, value: String, color: Int = DarkPalette.TEXT) = k.vbox().apply {
+                addView(t(label, 11f, DarkPalette.MUTED, k.medium))
                 addView(t(value, 17f, color).apply {
                     if (value.length > 11) setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f * sc)
                 }, k.lp(w = -2, top = 2))
@@ -199,7 +199,7 @@ class OverlayCard(private val svc: AccessibilityService, private val settings: S
         }
 
         // linhas extras: avisos, favoritos, recusas, meta
-        if (r.warnings.isNotEmpty()) body.addView(t("⚠ " + r.warnings.joinToString(" • "), 13f, Palette.ACCENT), k.lp(w = -2, top = d(8f)))
+        if (r.warnings.isNotEmpty()) body.addView(t("⚠ " + r.warnings.joinToString(" • "), 13f, DarkPalette.ACCENT), k.lp(w = -2, top = d(8f)))
         if (r.favorites.isNotEmpty()) body.addView(t("⭐ " + r.favorites.joinToString(" • "), 13f, Palette.GREEN), k.lp(w = -2, top = d(6f)))
         extras.forEach { body.addView(t(it.text, 12f, it.color, k.medium), k.lp(w = -2, top = d(6f))) }
     }

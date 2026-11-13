@@ -20,6 +20,7 @@ class ConsentActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Themes.apply(this)
         k = Kit(this)
         window.statusBarColor = Palette.BG
         window.navigationBarColor = Palette.BG

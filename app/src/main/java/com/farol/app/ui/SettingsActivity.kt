@@ -111,6 +111,7 @@ class SettingsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Themes.apply(this)
         settings = Settings(this)
         history = History(this)
         capture = CaptureLog(this)
@@ -228,7 +229,7 @@ class SettingsActivity : Activity() {
         fun pf(h: String) = k.field(h).apply { inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD }
         val a = pf("Senha atual"); val b = pf("Nova senha (mín. 8)"); val c = pf("Repita a nova senha")
         val box = k.vbox(22, 8).apply { addView(a); addView(b, k.lp(top = 10)); addView(c, k.lp(top = 10)) }
-        val d = android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        val d = android.app.AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
             .setTitle("Trocar senha").setView(box).setPositiveButton("Trocar", null).setNegativeButton("Cancelar", null).create()
         d.setOnShowListener {
             d.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -646,7 +647,7 @@ class SettingsActivity : Activity() {
 
     internal fun showCapture() {
         val txt = capture.read().takeLast(6000).ifEmpty { "(vazia)" }
-        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
             .setTitle("Últimas leituras")
             .setView(ScrollView(this).apply {
                 addView(k.text(txt, 11, Palette.TEXT).apply {
@@ -658,7 +659,7 @@ class SettingsActivity : Activity() {
     }
 
     internal fun confirm(msg: String, onYes: () -> Unit) {
-        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
             .setMessage(msg).setPositiveButton("Sim") { _, _ -> onYes() }.setNegativeButton("Cancelar", null).show()
     }
 

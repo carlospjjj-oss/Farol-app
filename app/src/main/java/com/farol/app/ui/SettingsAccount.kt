@@ -67,7 +67,7 @@ internal fun SettingsActivity.buildAccountSections() {
     buttons(cAcc,
         "🔑 Trocar senha" to { askChangePassword() },
         "Sair da conta" to {
-            android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            android.app.AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
                 .setTitle("Sair da conta?")
                 .setMessage("Seus dados continuam no celular. Para usar o Farol de novo, entre com e-mail e senha.")
                 .setPositiveButton("Sair") { _, _ ->
@@ -175,7 +175,7 @@ internal fun SettingsActivity.askDeleteAccount() {
         addView(k.text("Apaga sua conta, seu diário, ofertas e sessões do servidor. Não dá para desfazer. Se quiser guardar uma cópia, use antes \"Baixar meus dados\".", 13, Palette.MUTED))
         addView(pass, k.lp(top = 12)); addView(local, k.lp(top = 8))
     }
-    val d = android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+    val d = android.app.AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
         .setTitle("Excluir minha conta").setView(box).setPositiveButton("Excluir", null).setNegativeButton("Cancelar", null).create()
     d.setOnShowListener {
         d.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {

@@ -17,6 +17,7 @@ class ModeActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Themes.apply(this)
         if (!com.farol.app.data.Account.isLoggedIn(this)) {
             startActivity(Intent(this, LoginActivity::class.java)); finish(); return
         }

@@ -204,7 +204,7 @@ app/src/test/  104 testes + 7 no emulador, quase todos com textos REAIS de ofert
 
 | Versão | Principais mudanças |
 |---|---|
-| 6.3 | Visual novo: grafite + verde-limão no app, no ícone, no widget e no painel web (cores do semáforo mantidas) |
+| 6.3 | Visual novo: grafite + verde-limão no app, no ícone, no widget e no painel web; tema claro (branco + verde-oliva) e automático, escolhidos em Ajustes → Aparência; card das ofertas sempre escuro |
 | 6.2 | Fase 2 (parte 1): saúde do leitor (ofertas lidas × telas não lidas por app/dia, só números; painel alerta quando a leitura cai) e resumo da semana no painel (comparação com a semana anterior, melhor dia/horário/app e dicas) |
 | 6.1 | LGPD: Aviso de Privacidade (servidor `/privacidade`), aceite no cadastro e para contas existentes, compartilhar textos das telas opcional (desligado por padrão; sem ele o texto não sai do celular), Ajustes → Privacidade com baixar meus dados e excluir conta; documentos em `docs/lgpd/` (registro das operações, RIPD, plano de incidentes, atendimento) |
 | 6.0 | Fase 1 (estrutura): relatório de travamentos no painel; catálogo único de apps; banco SQLite no lugar dos arquivos (sem limite de 5.000 ofertas, migração automática); turnos e abastecimentos sincronizados com a conta (celular novo recebe tudo; painel com ganhos ao vivo); tarefas de fundo pelo JobScheduler; telas separadas por assunto; testes com 102 ofertas reais anonimizadas + 7 testes no emulador Android |

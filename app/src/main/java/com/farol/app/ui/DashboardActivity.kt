@@ -56,6 +56,7 @@ class DashboardActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Themes.apply(this)
         settings = Settings(this)
         store = JournalStore(this)
         history = History(this)
@@ -83,6 +84,7 @@ class DashboardActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (Palette.isLight != Themes.isLight(this)) { recreate(); return }   // tema trocado em Ajustes
         if (!com.farol.app.data.Account.isLoggedIn(this)) {   // sessão recusada pelo servidor
             startActivity(Intent(this, LoginActivity::class.java)); finish(); return
         }

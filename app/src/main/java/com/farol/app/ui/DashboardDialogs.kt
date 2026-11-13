@@ -36,7 +36,7 @@ import java.util.Locale
 
 internal fun DashboardActivity.dialog(title: String, content: View, ok: String, onOk: () -> Boolean) {
     val wrap = k.vbox(22, 8).apply { addView(content) }
-    val d = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+    val d = AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
         .setTitle(title).setView(wrap)
         .setPositiveButton(ok, null).setNegativeButton("Cancelar", null).create()
     d.setOnShowListener {
@@ -129,7 +129,7 @@ internal fun DashboardActivity.askFuel() {
 }
 
 internal fun DashboardActivity.undoFuel() {
-    AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+    AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
         .setMessage("Apagar o último abastecimento registrado?")
         .setPositiveButton("Apagar") { _, _ -> store.removeLastFuel(); render() }
         .setNegativeButton("Cancelar", null).show()
