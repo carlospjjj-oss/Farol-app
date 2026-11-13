@@ -32,12 +32,22 @@ Plano grátis: 100 mil envios por dia e 5 GB de banco. O Farol usa uma fração 
    - Se aparecer ✅, está funcionando.
    - Depois disso, apague o token do GitHub do app (aba GitHub). Ele não é mais necessário no celular.
 
+## Contas (login)
+
+- O app pede e-mail e senha na abertura, e cada conta só vê os próprios dados.
+- **A primeira conta criada vira administradora.** Para garantir que seja a sua, crie a variável `ADMIN_EMAIL` com o seu e-mail.
+- **Senhas:** são guardadas só como código embaralhado (PBKDF2, 30 mil rodadas). Depois de 8 senhas erradas, a conta bloqueia por 15 minutos.
+- **Senha esquecida:** o administrador entra no painel, vai em **Contas → Nova senha** e passa a senha nova para a pessoa.
+- **Envios sem login:** enquanto houver celular na versão antiga, eles continuam aceitos. Quando todo mundo estiver na 5.0, crie a variável `REQUIRE_LOGIN` = `1` para recusar esses envios.
+
 ## Painel web
 
 Abra `https://farol-logs.SEU-NOME.workers.dev/painel` no celular ou no computador.
 
-- Para liberar, crie em **Settings → Variables and Secrets** um **Secret** chamado `ADMIN_KEY` com uma senha sua.
-- O painel pede essa senha uma vez e mostra:
+- Entre com a mesma conta do app.
+- O administrador vê todas as contas, ou uma de cada vez. Os outros veem só os próprios dados.
+- `ADMIN_KEY` (Secret) continua opcional, como acesso de emergência.
+- O painel mostra:
   - ganhos, líquido, R$/km e R$/h;
   - ganhos por dia;
   - ofertas por cor;

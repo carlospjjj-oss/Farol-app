@@ -1,7 +1,8 @@
 // Farol · servidor de logs (Cloudflare Worker + banco D1)
 //
-// O celular manda os lotes para cá SEM chave nenhuma. Aqui:
-//   1) confere o formato, o tamanho e o limite de envios por celular;
+// Contas: cada pessoa entra no app com e-mail e senha (POST /v1/auth/*).
+// O celular manda os lotes com o token da sessão (nunca com chave do GitHub). Aqui:
+//   1) confere a sessão, o formato, o tamanho e o limite de envios por celular;
 //   2) grava cada evento no banco D1 (ligação "DB");
 //   3) se houver o segredo GH_TOKEN, guarda uma cópia no repositório privado
 //      (logs/AAAA-MM-DD/HHMMSS-<celular>.jsonl), igual ao formato antigo.
@@ -10,7 +11,9 @@
 //   Bindings  → D1 database, nome da variável: DB
 //   Variables → GH_REPO = carlospjjj-oss/Farol   (texto)
 //   Secrets   → GH_TOKEN = github_pat_...        (segredo, opcional)
-//   Secrets   → ADMIN_KEY = uma senha sua           (para abrir o painel em /painel)
+//   Variables → ADMIN_EMAIL = seu e-mail            (essa conta vira administradora)
+//   Variables → REQUIRE_LOGIN = 1                   (recusa envios sem login; ligue depois que todos atualizarem)
+//   Secrets   → ADMIN_KEY = uma senha sua           (opcional: acesso de emergência ao painel)
 //
 // A tabela é criada sozinha no primeiro envio.
 
@@ -32,12 +35,29 @@ const SCHEMA = [
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      device TEXT NOT NULL, received_at INTEGER NOT NULL, n INTEGER NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS b_device_time ON batches(device, received_at)`,
+  `CREATE TABLE IF NOT EXISTS users (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     email TEXT NOT NULL UNIQUE, nome TEXT, senha TEXT NOT NULL,
+     papel TEXT NOT NULL DEFAULT 'user', ativo INTEGER NOT NULL DEFAULT 1, criado INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS sessions (
+     token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, criado INTEGER NOT NULL,
+     visto INTEGER NOT NULL, device TEXT, origem TEXT)`,
+  `CREATE INDEX IF NOT EXISTS s_user ON sessions(user_id)`,
+  `CREATE TABLE IF NOT EXISTS attempts (chave TEXT NOT NULL, ts INTEGER NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS a_key_ts ON attempts(chave, ts)`,
+];
+// Colunas novas em tabelas que já existiam (dá erro se já existir: ignorado).
+const MIGRATIONS = [
+  `ALTER TABLE events ADD COLUMN user_id INTEGER`,
+  `ALTER TABLE batches ADD COLUMN user_id INTEGER`,
+  `CREATE INDEX IF NOT EXISTS ev_user_time ON events(user_id, t)`,
 ];
 
 let schemaReady = false;
 async function ensureSchema(db) {
   if (schemaReady) return;
   await db.batch(SCHEMA.map((s) => db.prepare(s)));
+  for (const m of MIGRATIONS) { try { await db.prepare(m).run(); } catch (_) { /* já aplicada */ } }
   schemaReady = true;
 }
 
@@ -54,9 +74,17 @@ export default {
     if (req.method === "GET" && url.pathname === "/painel") {
       return new Response(PANEL_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
     }
+    if (!env.DB) return json({ erro: "banco D1 não ligado (Bindings → DB)" }, 500);
+    await ensureSchema(env.DB);
+    if (url.pathname.startsWith("/v1/auth/") || url.pathname.startsWith("/v1/admin/")) return authRoutes(req, env, url);
     if (req.method === "GET" && url.pathname === "/api/painel") return panelApi(req, env, url);
     if (req.method !== "POST" || url.pathname !== "/v1/logs") return json({ erro: "rota inválida" }, 404);
-    if (!env.DB) return json({ erro: "banco D1 não ligado (Bindings → DB)" }, 500);
+
+    // Sessão: token inválido → 401 (o app pede login de novo). Sem token → aceito só no período de transição.
+    const sess = await sessionFrom(req, env);
+    if (sess === "invalid") return json({ erro: "sessão expirada, entre de novo" }, 401);
+    if (!sess && env.REQUIRE_LOGIN === "1") return json({ erro: "faça login no app" }, 401);
+    const userId = sess ? sess.user_id : null;
 
     const len = Number(req.headers.get("content-length") || 0);
     if (len > MAX_BODY) return json({ erro: "lote grande demais" }, 413);
@@ -74,8 +102,6 @@ export default {
     if (!eventos.every((e) => e && typeof e === "object" && !Array.isArray(e))) return json({ erro: "evento inválido" }, 400);
 
     const db = env.DB;
-    await ensureSchema(db);
-
     const now = Date.now();
     const recent = await db
       .prepare("SELECT COUNT(*) AS n FROM batches WHERE device = ? AND received_at > ?")
@@ -84,13 +110,13 @@ export default {
 
     const s = (v, n) => (v == null ? null : String(v).slice(0, n));
     const ins = db.prepare(
-      "INSERT INTO events (device, received_at, t, tipo, modo, app, versao, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+      "INSERT INTO events (device, user_id, received_at, t, tipo, modo, app, versao, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     const stmts = eventos.map((e) =>
-      ins.bind(device, now, s(e.t, 40), s(e.tipo, 20), s(e.modo, 10), s(e.app, 40), versao, JSON.stringify(e)));
-    stmts.push(db.prepare("INSERT INTO batches (device, received_at, n) VALUES (?, ?, ?)").bind(device, now, eventos.length));
+      ins.bind(device, userId, now, s(e.t, 40), s(e.tipo, 20), s(e.modo, 10), s(e.app, 40), versao, JSON.stringify(e)));
+    stmts.push(db.prepare("INSERT INTO batches (device, user_id, received_at, n) VALUES (?, ?, ?, ?)").bind(device, userId, now, eventos.length));
     await db.batch(stmts);
 
-    if (env.GH_TOKEN && env.GH_REPO) ctx.waitUntil(mirrorToGitHub(env, device, eventos).catch(() => {}));
+    if (env.GH_TOKEN && env.GH_REPO) ctx.waitUntil(mirrorToGitHub(env, userId ? "u" + userId : device, eventos).catch(() => {}));
 
     return json({ ok: true, gravados: eventos.length });
   },
@@ -121,6 +147,163 @@ async function mirrorToGitHub(env, device, eventos) {
   if (!r.ok) throw new Error(`GitHub ${r.status}`);
 }
 
+
+// ============================== Contas ==============================
+
+const PBKDF2_ITER = 30000;            // ~7 ms: cabe no limite de CPU do plano grátis
+const SESSION_DAYS = 180;             // sessão do app dura 6 meses sem uso
+const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
+const enc = new TextEncoder();
+const b64 = (u8) => btoa(String.fromCharCode(...u8));
+const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const b64url = (u8) => b64(u8).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+async function pbkdf2(senha, salt, iter) {
+  const k = await crypto.subtle.importKey("raw", enc.encode(senha), "PBKDF2", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: iter }, k, 256));
+}
+async function hashSenha(senha) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return `pbkdf2$${PBKDF2_ITER}$${b64(salt)}$${b64(await pbkdf2(senha, salt, PBKDF2_ITER))}`;
+}
+function sameBytes(a, b) {            // comparação em tempo constante
+  if (a.length !== b.length) return false;
+  let d = 0; for (let i = 0; i < a.length; i++) d |= a[i] ^ b[i];
+  return d === 0;
+}
+async function confereSenha(senha, guardada) {
+  const [alg, iter, salt, hash] = String(guardada).split("$");
+  if (alg !== "pbkdf2") return false;
+  return sameBytes(await pbkdf2(senha, unb64(salt), Number(iter)), unb64(hash));
+}
+async function sha256hex(s) {
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(s)));
+  return [...h].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+/** Sessão a partir do "Authorization: Bearer". null = sem token; "invalid" = token ruim/expirado. */
+async function sessionFrom(req, env) {
+  const h = req.headers.get("authorization") || "";
+  const m = h.match(/^Bearer\s+([A-Za-z0-9_-]{20,100})$/);
+  if (!m) return null;
+  const th = await sha256hex(m[1]);
+  const row = await env.DB.prepare(
+    `SELECT s.user_id, s.visto, u.email, u.nome, u.papel, u.ativo FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = ?`).bind(th).first();
+  const now = Date.now();
+  if (!row || !row.ativo || now - row.visto > SESSION_DAYS * 86400_000) return "invalid";
+  if (now - row.visto > 3600_000) await env.DB.prepare("UPDATE sessions SET visto = ? WHERE token_hash = ?").bind(now, th).run();
+  return { ...row, token_hash: th };
+}
+
+async function tooMany(db, chave, max, janelaMs) {
+  const r = await db.prepare("SELECT COUNT(*) AS n FROM attempts WHERE chave = ? AND ts > ?").bind(chave, Date.now() - janelaMs).first();
+  return (r?.n || 0) >= max;
+}
+const marca = (db, chave) => db.prepare("INSERT INTO attempts (chave, ts) VALUES (?, ?)").bind(chave, Date.now()).run();
+
+async function novaSessao(env, user, device, origem) {
+  const raw = crypto.getRandomValues(new Uint8Array(32));
+  const token = b64url(raw);
+  const now = Date.now();
+  const db = env.DB;
+  const stmts = [db.prepare("INSERT INTO sessions (token_hash, user_id, criado, visto, device, origem) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(await sha256hex(token), user.id, now, now, device || null, origem || "app")];
+  // O que este celular mandou antes de ter conta passa a ser desta conta.
+  if (device && DEVICE_RE.test(device)) {
+    stmts.push(db.prepare("UPDATE events SET user_id = ? WHERE device = ? AND user_id IS NULL").bind(user.id, device));
+    stmts.push(db.prepare("UPDATE batches SET user_id = ? WHERE device = ? AND user_id IS NULL").bind(user.id, device));
+  }
+  stmts.push(db.prepare("DELETE FROM attempts WHERE ts < ?").bind(now - 86400_000));
+  await db.batch(stmts);
+  return { token, usuario: { id: user.id, email: user.email, nome: user.nome, papel: user.papel } };
+}
+
+async function authRoutes(req, env, url) {
+  const db = env.DB;
+  const ip = req.headers.get("cf-connecting-ip") || "?";
+  const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+  const p = url.pathname;
+
+  if (p === "/v1/auth/register" && req.method === "POST") {
+    const email = String(body.email || "").trim().toLowerCase();
+    const nome = String(body.nome || "").trim().slice(0, 40);
+    const senha = String(body.senha || "");
+    if (!EMAIL_RE.test(email)) return json({ erro: "e-mail inválido" }, 400);
+    if (senha.length < 8) return json({ erro: "a senha precisa ter pelo menos 8 caracteres" }, 400);
+    if (senha.length > 200) return json({ erro: "senha longa demais" }, 400);
+    if (!nome) return json({ erro: "digite seu nome" }, 400);
+    if (await tooMany(db, "reg:" + ip, 5, 3600_000)) return json({ erro: "muitas contas criadas daqui, tente mais tarde" }, 429);
+    await marca(db, "reg:" + ip);
+    if (await db.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first()) return json({ erro: "já existe conta com esse e-mail" }, 409);
+    const primeiro = !(await db.prepare("SELECT 1 FROM users LIMIT 1").first());
+    const papel = primeiro || (env.ADMIN_EMAIL && email === env.ADMIN_EMAIL.toLowerCase()) ? "admin" : "user";
+    const r = await db.prepare("INSERT INTO users (email, nome, senha, papel, criado) VALUES (?, ?, ?, ?, ?) RETURNING id")
+      .bind(email, nome, await hashSenha(senha), papel, Date.now()).first();
+    return json(await novaSessao(env, { id: r.id, email, nome, papel }, body.device, body.origem));
+  }
+
+  if (p === "/v1/auth/login" && req.method === "POST") {
+    const email = String(body.email || "").trim().toLowerCase();
+    const senha = String(body.senha || "");
+    if (await tooMany(db, "login:" + email, 8, 15 * 60_000) || await tooMany(db, "ip:" + ip, 30, 15 * 60_000))
+      return json({ erro: "muitas tentativas. Espere 15 minutos." }, 429);
+    const u = await db.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
+    const ok = u ? await confereSenha(senha, u.senha) : (await hashSenha(senha), false); // mesmo tempo com ou sem conta
+    if (!ok) { await marca(db, "login:" + email); await marca(db, "ip:" + ip); return json({ erro: "e-mail ou senha incorretos" }, 401); }
+    if (!u.ativo) return json({ erro: "conta desativada" }, 403);
+    return json(await novaSessao(env, u, body.device, body.origem));
+  }
+
+  const sess = await sessionFrom(req, env);
+  if (!sess || sess === "invalid") return json({ erro: "faça login" }, 401);
+
+  if (p === "/v1/auth/me") return json({ usuario: { id: sess.user_id, email: sess.email, nome: sess.nome, papel: sess.papel } });
+  if (p === "/v1/auth/logout" && req.method === "POST") {
+    await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(sess.token_hash).run();
+    return json({ ok: true });
+  }
+  if (p === "/v1/auth/password" && req.method === "POST") {
+    const u = await db.prepare("SELECT senha FROM users WHERE id = ?").bind(sess.user_id).first();
+    if (!(await confereSenha(String(body.atual || ""), u.senha))) return json({ erro: "senha atual incorreta" }, 401);
+    if (String(body.nova || "").length < 8) return json({ erro: "a senha nova precisa ter 8 caracteres" }, 400);
+    await db.batch([
+      db.prepare("UPDATE users SET senha = ? WHERE id = ?").bind(await hashSenha(String(body.nova)), sess.user_id),
+      db.prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?").bind(sess.user_id, sess.token_hash),
+    ]);
+    return json({ ok: true });
+  }
+
+  // ---- administração ----
+  if (sess.papel !== "admin") return json({ erro: "só para administrador" }, 403);
+  if (p === "/v1/admin/users") {
+    const r = await db.prepare(
+      `SELECT u.id, u.email, u.nome, u.papel, u.ativo, u.criado,
+         (SELECT MAX(t) FROM events e WHERE e.user_id = u.id) AS ultimo,
+         (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id) AS eventos
+       FROM users u ORDER BY u.id`).all();
+    return json({ usuarios: r.results || [] });
+  }
+  if (p === "/v1/admin/reset" && req.method === "POST") {
+    const nova = String(body.senha || "");
+    if (nova.length < 8) return json({ erro: "a senha precisa ter 8 caracteres" }, 400);
+    await db.batch([
+      db.prepare("UPDATE users SET senha = ? WHERE id = ?").bind(await hashSenha(nova), Number(body.user_id)),
+      db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(Number(body.user_id)),
+    ]);
+    return json({ ok: true });
+  }
+  if (p === "/v1/admin/toggle" && req.method === "POST") {
+    if (Number(body.user_id) === sess.user_id) return json({ erro: "não dá para desativar a própria conta" }, 400);
+    await db.batch([
+      db.prepare("UPDATE users SET ativo = 1 - ativo WHERE id = ?").bind(Number(body.user_id)),
+      db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(Number(body.user_id)),
+    ]);
+    return json({ ok: true });
+  }
+  return json({ erro: "rota inválida" }, 404);
+}
+
 // ============================== Painel web ==============================
 
 const APP_NAMES = {
@@ -133,63 +316,81 @@ function brtDate(offsetDays = 0) {
 }
 
 async function panelApi(req, env, url) {
-  if (!env.ADMIN_KEY) return json({ erro: "crie o segredo ADMIN_KEY no painel da Cloudflare" }, 503);
-  if (req.headers.get("x-farol-key") !== env.ADMIN_KEY) return json({ erro: "senha errada" }, 401);
-  if (!env.DB) return json({ erro: "banco D1 não ligado" }, 500);
-  await ensureSchema(env.DB);
+  // Quem pode ver: sessão de login (cada um vê o seu; admin vê todos) ou ADMIN_KEY de emergência.
+  let scopeUser = null, isAdmin = false, me = null;
+  const key = req.headers.get("x-farol-key");
+  if (key && env.ADMIN_KEY && key.length === env.ADMIN_KEY.length && sameBytes(enc.encode(key), enc.encode(env.ADMIN_KEY))) {
+    isAdmin = true;
+  } else {
+    const sess = await sessionFrom(req, env);
+    if (!sess || sess === "invalid") return json({ erro: "faça login" }, 401);
+    me = { id: sess.user_id, nome: sess.nome, email: sess.email, papel: sess.papel };
+    isAdmin = sess.papel === "admin";
+    if (!isAdmin) scopeUser = sess.user_id;
+  }
+  if (isAdmin) {
+    const u = url.searchParams.get("usuario");
+    if (u === "anon") scopeUser = "anon"; else if (u && /^\d+$/.test(u)) scopeUser = Number(u);
+  }
 
   const dias = Math.min(Math.max(parseInt(url.searchParams.get("dias") || "7", 10) || 7, 1), 365);
   const modo = ["moto", "carro"].includes(url.searchParams.get("modo")) ? url.searchParams.get("modo") : null;
   const since = brtDate(dias - 1);
   const db = env.DB;
-  const mf = modo ? " AND modo = ?2" : "";
-  const bind = (st) => (modo ? st.bind(since, modo) : st.bind(since));
-  const all = async (sql) => (await bind(db.prepare(sql)).all()).results || [];
+
+  // Monta WHERE só com os filtros usados (o D1 recusa parâmetros que sobram).
+  const q = async (select, where, rest = "", { useModo = true } = {}) => {
+    const conds = [...where, "substr(t,1,10) >= ?"], args = [since];
+    if (useModo && modo) { conds.push("modo = ?"); args.push(modo); }
+    if (scopeUser === "anon") conds.push("user_id IS NULL");
+    else if (scopeUser != null) { conds.push("user_id = ?"); args.push(scopeUser); }
+    return (await db.prepare(`${select} FROM events WHERE ${conds.join(" AND ")} ${rest}`).bind(...args).all()).results || [];
+  };
 
   const [cores, porApp, porHora, ultimas, pedidos, diasRows, totalEv] = await Promise.all([
-    all(`SELECT json_extract(data,'$.cor') AS cor, COUNT(*) AS n FROM events
-         WHERE tipo='offer' AND substr(t,1,10) >= ?1${mf} GROUP BY cor`),
-    all(`SELECT app, COUNT(*) AS n,
-           SUM(json_extract(data,'$.cor')='GREEN') AS verdes,
-           SUM(json_extract(data,'$.preco')) / NULLIF(SUM(json_extract(data,'$.km')),0) AS r_km,
-           SUM(json_extract(data,'$.preco')) * 60.0 / NULLIF(SUM(json_extract(data,'$.min')),0) AS r_h,
-           AVG(json_extract(data,'$.preco')) AS preco, AVG(json_extract(data,'$.km')) AS km
-         FROM events WHERE tipo='offer' AND substr(t,1,10) >= ?1${mf} GROUP BY app ORDER BY n DESC`),
-    all(`SELECT CAST(substr(t,12,2) AS INTEGER) AS h, COUNT(*) AS n,
-           SUM(json_extract(data,'$.cor')='GREEN') AS verdes,
-           SUM(json_extract(data,'$.preco')) / NULLIF(SUM(json_extract(data,'$.km')),0) AS r_km
-         FROM events WHERE tipo='offer' AND substr(t,1,10) >= ?1${mf} GROUP BY h ORDER BY h`),
-    all(`SELECT t, app, json_extract(data,'$.preco') AS preco, json_extract(data,'$.km') AS km,
-           json_extract(data,'$.min') AS min, json_extract(data,'$.r_km') AS r_km,
-           json_extract(data,'$.r_h') AS r_h, json_extract(data,'$.liquido') AS liquido,
-           json_extract(data,'$.cor') AS cor
-         FROM events WHERE tipo='offer' AND substr(t,1,10) >= ?1${mf} ORDER BY id DESC LIMIT 25`),
-    // pedidos não levam "modo": filtra só pela data
-    (async () => (await db.prepare(`SELECT app, COUNT(*) AS n, AVG(json_extract(data,'$.min_coleta')) AS coleta,
-           AVG(json_extract(data,'$.min_entrega')) AS entrega
-         FROM events WHERE tipo='pedido' AND substr(t,1,10) >= ?1 GROUP BY app ORDER BY n DESC`).bind(since).all()).results || [])(),
-    // resumo do dia: o último enviado de cada data (se o turno foi editado, vale o mais novo)
-    (async () => (await db.prepare(
-        `SELECT json_extract(data,'$.resumo') AS r FROM events WHERE id IN (
-           SELECT MAX(id) FROM events WHERE tipo='dia' GROUP BY json_extract(data,'$.resumo.data'))
-         AND json_extract(data,'$.resumo.data') >= ?1 ORDER BY json_extract(data,'$.resumo.data')`)
-      .bind(since).all()).results || [])(),
-    all(`SELECT COUNT(*) AS n, MAX(t) AS ultimo FROM events WHERE substr(t,1,10) >= ?1${mf}`),
+    q(`SELECT json_extract(data,'$.cor') AS cor, COUNT(*) AS n`, ["tipo='offer'"], "GROUP BY cor"),
+    q(`SELECT app, COUNT(*) AS n, SUM(json_extract(data,'$.cor')='GREEN') AS verdes,
+         SUM(json_extract(data,'$.preco')) / NULLIF(SUM(json_extract(data,'$.km')),0) AS r_km,
+         SUM(json_extract(data,'$.preco')) * 60.0 / NULLIF(SUM(json_extract(data,'$.min')),0) AS r_h,
+         AVG(json_extract(data,'$.preco')) AS preco, AVG(json_extract(data,'$.km')) AS km`, ["tipo='offer'"], "GROUP BY app ORDER BY n DESC"),
+    q(`SELECT CAST(substr(t,12,2) AS INTEGER) AS h, COUNT(*) AS n, SUM(json_extract(data,'$.cor')='GREEN') AS verdes,
+         SUM(json_extract(data,'$.preco')) / NULLIF(SUM(json_extract(data,'$.km')),0) AS r_km`, ["tipo='offer'"], "GROUP BY h ORDER BY h"),
+    q(`SELECT t, app, json_extract(data,'$.preco') AS preco, json_extract(data,'$.km') AS km,
+         json_extract(data,'$.min') AS min, json_extract(data,'$.r_km') AS r_km, json_extract(data,'$.r_h') AS r_h,
+         json_extract(data,'$.liquido') AS liquido, json_extract(data,'$.cor') AS cor`, ["tipo='offer'"], "ORDER BY id DESC LIMIT 25"),
+    // pedidos e resumo do dia não levam "modo"
+    q(`SELECT app, COUNT(*) AS n, AVG(json_extract(data,'$.min_coleta')) AS coleta, AVG(json_extract(data,'$.min_entrega')) AS entrega`,
+      ["tipo='pedido'"], "GROUP BY app ORDER BY n DESC", { useModo: false }),
+    // o último resumo de cada data (se o turno foi editado, vale o mais novo) — por conta
+    q(`SELECT json_extract(data,'$.resumo') AS r, COALESCE(user_id, device) AS dono, id`, ["tipo='dia'"], "ORDER BY id", { useModo: false }),
+    q(`SELECT COUNT(*) AS n, MAX(t) AS ultimo`, [], ""),
   ]);
 
   const name = (a) => APP_NAMES[a] || a || "?";
-  const days = diasRows.map((x) => { try { return JSON.parse(x.r); } catch { return null; } }).filter(Boolean);
+  const lastByDay = new Map();
+  for (const x of diasRows) { try { const r = JSON.parse(x.r); if (r && r.data >= since) lastByDay.set(x.dono + "|" + r.data, r); } catch (_) {} }
+  const perDate = new Map();   // várias contas no mesmo dia (visão do admin): soma
+  for (const r of lastByDay.values()) {
+    const c = perDate.get(r.data) || { data: r.data, ganho_total: 0, km: 0, horas: 0, liquido: 0 };
+    c.ganho_total += Number(r.ganho_total) || 0; c.km += Number(r.km) || 0; c.horas += Number(r.horas) || 0; c.liquido += Number(r.liquido) || 0;
+    perDate.set(r.data, c);
+  }
+  const days = [...perDate.values()].sort((a, b) => a.data.localeCompare(b.data));
   const sum = (k) => days.reduce((a, d) => a + (Number(d[k]) || 0), 0);
   const ganhos = sum("ganho_total"), km = sum("km"), horas = sum("horas"), liquido = sum("liquido");
 
+  let usuarios;
+  if (isAdmin) usuarios = (await db.prepare("SELECT id, nome, email FROM users ORDER BY nome").all()).results || [];
+
   return json({
+    eu: me, admin: isAdmin, usuarios, escopo: scopeUser,
     periodo: { dias, desde: since, ate: brtDate(0), modo: modo || "todos" },
     resumo: {
       ganhos, km, horas, liquido, dias_trabalhados: days.length,
       r_km: km > 0 ? ganhos / km : null, r_h: horas > 0 ? ganhos / horas : null,
       eventos: totalEv[0]?.n || 0, ultimo_evento: totalEv[0]?.ultimo || null,
     },
-    dias: days.map((d) => ({ data: d.data, ganho: d.ganho_total, km: d.km, horas: d.horas, liquido: d.liquido, ganhos: d.ganhos })),
+    dias: days.map((d) => ({ data: d.data, ganho: d.ganho_total, km: d.km, horas: d.horas, liquido: d.liquido })),
     cores: Object.fromEntries(cores.map((c) => [c.cor || "?", c.n])),
     apps: porApp.map((a) => ({ ...a, app: name(a.app) })),
     horas: porHora,
@@ -225,6 +426,12 @@ header{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:s
 .seg button:hover{color:var(--text)}
 .seg button.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#1C1300;box-shadow:0 4px 14px rgba(255,150,30,.35)}
 .live{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.sel{color:var(--text);font:600 13px Inter,system-ui;padding:9px 12px;appearance:none;cursor:pointer}
+.sel option{background:#151A21}
+.acct{cursor:pointer;font:500 12px Inter,system-ui;color:var(--muted)}.acct:hover{color:var(--text)}
+.users{display:grid;gap:8px}.u{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.025);border:1px solid var(--line)}
+.u .b{display:flex;gap:6px;flex-wrap:wrap}.u button{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:7px 10px;font:600 12px Inter,system-ui;cursor:pointer}
+.u .off{opacity:.5}.tagA{font-size:11px;font-weight:700;color:#1C1300;background:var(--acc);padding:1px 7px;border-radius:999px;margin-left:6px}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(34,197,94,.6);animation:pulse 2s infinite}
 @keyframes pulse{70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
 /* cards */
@@ -310,8 +517,9 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
 <div id="login" class="card" hidden>
   <div class="logo" style="margin:0 auto;width:56px;height:56px"><svg width="30" height="30"><use href="#lt"/></svg></div>
   <h1>Farol <b>Painel</b></h1>
-  <div class="sub">Digite a senha (ADMIN_KEY) que você criou na Cloudflare.</div>
-  <input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
+  <div class="sub">Entre com a mesma conta do app.</div>
+  <input id="em" type="email" placeholder="E-mail" autocomplete="username">
+  <input id="pw" type="password" placeholder="Senha" autocomplete="current-password" style="margin-top:10px">
   <button class="btn" id="go">Entrar</button><div class="err" id="err"></div>
 </div>
 <div class="wrap" id="app" hidden>
@@ -321,7 +529,9 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
     <div class="ctrls">
       <div class="seg" id="segDias"><button data-v="1">Hoje</button><button data-v="7" class="on">7 dias</button><button data-v="30">30 dias</button></div>
       <div class="seg" id="segModo"><button data-v="" class="on">Todos</button><button data-v="moto">🛵 Moto</button><button data-v="carro">🚗 Carro</button></div>
+      <select id="selUser" class="seg sel" hidden></select>
       <span class="live"><i></i><span id="upd">ao vivo</span></span>
+      <button class="live acct" id="acct" title="Sair">👤 <span id="who"></span> · Sair</button>
     </div>
   </header>
   <div class="grid row1">
@@ -336,6 +546,7 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
   <section><h2>Por app</h2><div class="grid apps" id="apps"></div></section>
   <section><h2>Últimas ofertas <span id="offCount"></span></h2><div class="card"><div class="offs" id="ultimas"></div></div></section>
   <section><h2>Pedidos <span>tempo medido pelo app</span></h2><div class="grid apps" id="pedidos"></div></section>
+  <section id="secUsers" hidden><h2>Contas <span>só o administrador vê</span></h2><div class="card"><div class="users" id="users"></div></div></section>
   <footer>Farol · dados do seu servidor Cloudflare</footer>
 </div>
 <script>
@@ -349,21 +560,31 @@ const num=(v,d=1)=>v==null||isNaN(v)?"—":fmt(v,d);
 const hm=h=>h==null||!h?"—":Math.floor(h)+"h"+String(Math.round((h%1)*60)).padStart(2,"0");
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const dm=s=>s.slice(8,10)+"/"+s.slice(5,7);
-let key=null,dias=7,modo="",showAll=false,last=null;
-try{key=localStorage.getItem("farolKey")}catch(e){}
+let tok=null,dias=7,modo="",usuario="",showAll=false,last=null;
+try{tok=localStorage.getItem("farolTok");localStorage.removeItem("farolKey")}catch(e){}
+const H=()=>({"authorization":"Bearer "+tok,"content-type":"application/json"});
 function seg(id,cb){$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   $(id).querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));cb(b.dataset.v);load();});}
 seg("#segDias",v=>dias=+v);seg("#segModo",v=>modo=v);
-$("#go").onclick=()=>{key=$("#pw").value.trim();load();};
+$("#go").onclick=async()=>{
+  $("#err").textContent="";$("#go").disabled=true;
+  try{const r=await fetch("/v1/auth/login",{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({email:$("#em").value.trim(),senha:$("#pw").value,origem:"painel"})});
+    const d=await r.json();if(!r.ok)throw new Error(d.erro||"erro");
+    tok=d.token;try{localStorage.setItem("farolTok",tok)}catch(e){};$("#pw").value="";load();
+  }catch(e){$("#err").textContent=e.message}finally{$("#go").disabled=false}};
 $("#pw").onkeydown=e=>{if(e.key==="Enter")$("#go").click();};
+$("#acct").onclick=async()=>{if(!confirm("Sair do painel?"))return;try{await fetch("/v1/auth/logout",{method:"POST",headers:H()})}catch(e){}
+  tok=null;try{localStorage.removeItem("farolTok")}catch(e){};showLogin();};
+$("#selUser").onchange=e=>{usuario=e.target.value;load();};
 function showLogin(msg){$("#app").hidden=true;$("#login").hidden=false;$("#err").textContent=msg||"";}
 async function load(){
-  if(!key)return showLogin();
-  let r;try{r=await fetch("/api/painel?dias="+dias+"&modo="+modo,{headers:{"x-farol-key":key}});}catch(e){return showLogin("Sem conexão");}
+  if(!tok)return showLogin();
+  let r;try{r=await fetch("/api/painel?dias="+dias+"&modo="+modo+"&usuario="+usuario,{headers:H()});}catch(e){return showLogin("Sem conexão");}
   const d=await r.json().catch(()=>({erro:"resposta inválida"}));
-  if(!r.ok){if(r.status===401){try{localStorage.removeItem("farolKey")}catch(e){}key=null;}return showLogin(d.erro);}
-  try{localStorage.setItem("farolKey",key)}catch(e){}
+  if(!r.ok){if(r.status===401){try{localStorage.removeItem("farolTok")}catch(e){}tok=null;}return showLogin(d.erro);}
   $("#login").hidden=true;$("#app").hidden=false;last=d;render(d);
+  if(d.admin)loadUsers();
 }
 function spark(vals,color){
   vals=vals.filter(v=>v!=null&&!isNaN(v));if(vals.length<2)return"";
@@ -430,6 +651,9 @@ function renderOffers(){
 }
 function render(d){
   const s=d.resumo,p=d.periodo,days=d.dias;
+  $("#who").textContent=d.eu?(d.eu.nome||d.eu.email).split(" ")[0]:"admin";
+  const sel=$("#selUser");sel.hidden=!d.admin;
+  if(d.admin){sel.innerHTML='<option value="">👥 Todas as contas</option>'+(d.usuarios||[]).map(u=>'<option value="'+u.id+'">'+esc(u.nome||u.email)+'</option>').join("")+'<option value="anon">Sem conta (antigos)</option>';sel.value=usuario;}
   $("#info").textContent=(p.dias===1?"Hoje, "+dm(p.ate):dm(p.desde)+" a "+dm(p.ate))+" · "+s.eventos+" eventos";
   $("#upd").textContent=s.ultimo_evento?"último dado "+s.ultimo_evento.slice(11,16):"ao vivo";
   const liq=s.liquido;
@@ -453,6 +677,17 @@ function render(d){
   $("#pedidos").innerHTML=d.pedidos.length?d.pedidos.map(x=>'<div class="card app"><div class="hd"><div class="badge" style="background:'+appc(x.app)+'">'+esc(x.app.slice(0,2))+'</div><div><div class="nm">'+esc(x.app)+'</div><div class="cnt">'+x.n+' pedidos</div></div></div>'+
     '<div class="ft" style="margin-top:0"><span>Até coletar <b>'+num(x.coleta,0)+' min</b></span><span>Até entregar <b>'+num(x.entrega,0)+' min</b></span></div></div>').join(""):'<div class="empty">Nenhum pedido medido no período.</div>';
 }
-load();setInterval(()=>{if(key&&!document.hidden)load()},60000);
+async function loadUsers(){
+  const r=await fetch("/v1/admin/users",{headers:H()}).catch(()=>null);if(!r||!r.ok)return;
+  const d=await r.json();$("#secUsers").hidden=false;
+  $("#users").innerHTML=d.usuarios.map(u=>'<div class="u"><div class="'+(u.ativo?"":"off")+'"><b>'+esc(u.nome||"—")+'</b>'+(u.papel==="admin"?'<span class="tagA">admin</span>':'')+
+    '<div class="sub">'+esc(u.email)+' · '+u.eventos+' eventos'+(u.ultimo?' · último '+dm(u.ultimo)+' '+u.ultimo.slice(11,16):'')+(u.ativo?'':' · desativada')+'</div></div>'+
+    '<div class="b"><button data-a="reset" data-id="'+u.id+'">Nova senha</button>'+(u.papel==="admin"?'':'<button data-a="toggle" data-id="'+u.id+'">'+(u.ativo?"Desativar":"Ativar")+'</button>')+'</div></div>').join("");
+}
+$("#users").addEventListener("click",async e=>{const b=e.target.closest("button");if(!b)return;const id=+b.dataset.id;
+  if(b.dataset.a==="reset"){const s=prompt("Nova senha para esta conta (mínimo 8 caracteres):");if(!s)return;
+    const r=await fetch("/v1/admin/reset",{method:"POST",headers:H(),body:JSON.stringify({user_id:id,senha:s})});const d=await r.json();alert(r.ok?"Senha trocada. Passe a senha nova para a pessoa.":d.erro);}
+  else{if(!confirm("Confirmar?"))return;const r=await fetch("/v1/admin/toggle",{method:"POST",headers:H(),body:JSON.stringify({user_id:id})});if(!r.ok)alert((await r.json()).erro);loadUsers();}});
+load();setInterval(()=>{if(tok&&!document.hidden)load()},60000);
 </script></body></html>
 `;
