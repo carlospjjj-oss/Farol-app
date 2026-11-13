@@ -1,0 +1,20 @@
+name: Status do servidor (só leitura)
+on:
+  push:
+    branches: [status]
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar D1 (sem e-mails nem textos)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
+        run: |
+          q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
+          echo "== contas =="
+          q "SELECT u.id, u.nome, u.ativo, u.consent_versao, u.compartilhar, datetime(u.consent_em/1000,'unixepoch','-3 hours') consent, (SELECT datetime(max(visto)/1000,'unixepoch','-3 hours') FROM sessions s WHERE s.user_id=u.id) visto FROM users u"
+          echo "== eventos ultimas 6h por conta =="
+          q "SELECT user_id, tipo, app, versao, count(*) n, max(t) ultimo FROM events WHERE received_at > (strftime('%s','now')-6*3600)*1000 GROUP BY user_id, tipo, app, versao ORDER BY user_id, ultimo DESC"
+          echo "== ultimo evento de cada conta =="
+          q "SELECT user_id, max(t) ultimo, max(versao) versao FROM events GROUP BY user_id"
