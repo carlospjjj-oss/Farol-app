@@ -75,6 +75,7 @@ object ProfitCalculator {
                 add("lucro ${(netNow / offer.price * 100).toInt()}% < ${p.minNetPct.toInt()}%")
             if (p.maxTotalKm > 0 && offer.totalKm > p.maxTotalKm) add("distância ${Fmt.km(offer.totalKm)}")
             if (p.maxMinutes > 0 && minutes > p.maxMinutes) add("tempo ${Fmt.min(minutes)}")
+            if (Regex("""[áa]rea de risco""", RegexOption.IGNORE_CASE).containsMatchIn(offer.rawText)) add("área de risco")
             if (p.alertWords.isNotEmpty()) {
                 val hay = fold(offer.rawText)
                 p.alertWords.firstOrNull { w -> w.length >= 3 && hay.contains(fold(w)) }?.let { add(it) }

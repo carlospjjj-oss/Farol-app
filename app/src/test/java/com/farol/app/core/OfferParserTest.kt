@@ -188,4 +188,35 @@ class OfferParserTest {
         val o = p("R$ 22,58 | Valor da rota + Extras | Promo R$ 10,00 | Distância | 4,47 km | Tempo | 35 min | Popeyes | Rejeitar | Aceitar | 88", "iFood")!!
         assertEquals(22.58, o.price, 0.001)
     }
+
+    // ---- CARRO: prints reais enviados em 13/11 ----
+
+    @Test fun car99_telaNova_naoAfetaTa_dinamicaNaoEPreco() {
+        val o = p("Não afeta a TA | Prioritário | Dinheiro | R$6,70 | R$1,96/km | Preço x1,2 | R$1,12 | 4,91 | +999 corridas | Perfil Essencial | 6min (1,1km) | IGEPPS - Instituto de Gestão | 9min (2,3km) | Shopping Pátio Belém", "99")!!
+        assertEquals(6.70, o.price, 0.001); assertEquals(3.4, o.totalKm, 0.001); assertEquals(15.0, o.totalMin!!, 0.001)
+        assertEquals(1.1, o.pickupKm!!, 0.001); assertEquals(4.91, o.passengerRating!!, 0.001)
+    }
+
+    @Test fun car99_corridaLonga_porKmEIncluidos() {
+        val o = p("NÃO AFETA A TA | Corrida longa | R$54,89 | R$2,20 por km | x2,0 | R$15.50 incluídos | 4,8 | 12 corridas | Cartão Verif. | 5Min (2,5km) | Shopping Penha | 32Min (6,3km) | Área de risco | Estação Prefeito Saladino", "99")!!
+        assertEquals(54.89, o.price, 0.001); assertEquals(8.8, o.totalKm, 0.001); assertEquals(37.0, o.totalMin!!, 0.001)
+        assertEquals(4.8, o.passengerRating!!, 0.001)
+    }
+
+    @Test fun carUber_viagemLonga_naoSomaMaisDe45() {
+        val o = p("UberX | R$ 90,13 | ★ 4,85 | 3 minutos (0.9 km) de distância | Rua Américo Salvador Novelli, Itaquera | Viagem de 1 h e 55 min (64.3 km) | R. Cássio M Boy, 47 | Viagem longa (mais de 45 min) | Aceitar", "Uber")!!
+        assertEquals(90.13, o.price, 0.001); assertEquals(65.2, o.totalKm, 0.001); assertEquals(118.0, o.totalMin!!, 0.001)
+        assertEquals(0.9, o.pickupKm!!, 0.001); assertEquals(4.85, o.passengerRating!!, 0.001)
+    }
+
+    @Test fun carUber_blackBag_incluidoNaoEPreco() {
+        val o = p("Black Bag | Exclusivo | R$ 188,36 | ★ 4,92 (924) | Verificado | +R$ 3,00 incluído | 1 min (0.1 km) de distância | Terminal 3, Aeroporto Internacional | Viagem de 1 h e 48 min (43.6 km) | Rua Pires De Oliveira | Viagem longa (mais de 90 min) | Aceitar", "Uber")!!
+        assertEquals(188.36, o.price, 0.001); assertEquals(43.7, o.totalKm, 0.001); assertEquals(109.0, o.totalMin!!, 0.001)
+        assertEquals(4.92, o.passengerRating!!, 0.001)
+    }
+
+    @Test fun carInDrive_telaDoPassageiro_naoEOferta() {
+        assertNull(p("Viagem | Moto | Entregas | Cidade a Cidade | Rua Ministro Otávio Kelly 519 (Icaraí) | Origem | Alameda São Boaventura 847 (Fonseca) | R$ 13 — Você pode alterar a tarifa recomendada | Aceitar automaticamente oferta de R$ 13 | Tarifa Recomendada Para Esta Rota R$ 13 ajustável | Encontre um motorista", "inDrive"))
+        assertNull(p("Ofereça sua tarifa | R$8 | A tarifa mínima é R$ 10 | Dinheiro | Aceitar automaticamente o motorista mais próximo por R$ 8 | Concluído", "inDrive"))
+    }
 }

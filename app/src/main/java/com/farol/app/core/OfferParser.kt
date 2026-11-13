@@ -36,7 +36,7 @@ data class ParsedOffer(
 object OfferParser {
 
     private val MONEY = Regex(
-        """(\+\s*)?R\$\s*(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(\s*/\s*(?:km|h|hr|hora|min))?""",
+        """(\+\s*)?R\$\s*(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(\s*(?:/|por)\s*(?:km|h|hr|hora|min)\b)?""",
         RegexOption.IGNORE_CASE
     )
 
@@ -53,26 +53,26 @@ object OfferParser {
 
     /** Palavras que indicam que existe uma oferta aberta (botão de aceitar etc.). */
     val OFFER_HINTS = Regex(
-        """\baceitar\b(?!\s+corridas)|\baccept\b|\brecusar\b|\bpegar\b|oferecer|toque para|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
+        """\baceitar\b(?!\s+(?:corridas|automaticamente))|n[aã]o afeta a ta|\baccept\b|\brecusar\b|\bpegar\b|oferecer|toque para|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
         RegexOption.IGNORE_CASE
     )
 
     /** Valores em R$ precedidos por isto não são o preço da oferta (ganhos do dia, saldo...). */
     private val MONEY_EXCLUDE_CONTEXT = Regex(
-        """(hoje|ganhos?|ganhou|ganhe|saldo|semana|carteira|meta|gorjeta|ped[aá]gio|inclui|incluso|at[eé]|economiz\w*|promo\w*|extras?|b[oô]nus|incentivo)\W{0,6}$""",
+        """(hoje|ganhos?|ganhou|ganhe|saldo|semana|carteira|meta|gorjeta|ped[aá]gio|inclui|incluso|at[eé]|economiz\w*|promo\w*|extras?|b[oô]nus|incentivo|x\s?\d+(?:[.,]\d+)?|pre[çc]o)\W{0,6}$""",
         RegexOption.IGNORE_CASE
     )
 
     /** Valores em R$ seguidos disto também não são o preço ("R$ 3,00 Bônus", "R$ 2 por pedido", "R$ 3,97/L"). */
     private val MONEY_EXCLUDE_AFTER = Regex(
-        """^\s*(b[oô]nus|extra|inclui|por pedido|em recompensas?|de desconto|/\s*l\b|o litro)""",
+        """^\s*(b[oô]nus|extra|inclu[ií]|por pedido|em recompensas?|de desconto|/\s*l\b|o litro)""",
         RegexOption.IGNORE_CASE
     )
 
     private const val TOTAL_LOOKBEHIND = 22
 
     private val RATING = Regex(
-        """(?<![\d.,])([1-5][.,]\d{1,2})\s*(?:★|⭐|estrelas?)|[★⭐]\s*([1-5][.,]\d{1,2})(?![\d.,])""",
+        """(?<![\d.,])([1-5][.,]\d{1,2})\s*(?:★|⭐|estrelas?)|[★⭐]\s*([1-5][.,]\d{1,2})(?![\d.,])|(?<![\d.,])([1-5][.,]\d{1,2})\s*\|?\s*\+?\d+\s*corridas""",
         RegexOption.IGNORE_CASE
     )
 
@@ -116,6 +116,8 @@ object OfferParser {
         // 3) Tempos
         val durs = DUR.findAll(clean).mapNotNull { m ->
             val g = m.groupValues
+            if (Regex("""(mais|menos) de\s*$""", RegexOption.IGNORE_CASE).containsMatchIn(clean.substring(maxOf(0, m.range.first - 12), m.range.first)))
+                return@mapNotNull null
             val min = when {
                 g[2].isNotEmpty() -> (g[1].toIntOrNull() ?: 0) * 60.0 + g[2].toDouble()
                 g[3].isNotEmpty() -> g[3].toDouble() * 60.0
@@ -135,7 +137,7 @@ object OfferParser {
         }?.value ?: if (!hasTotal && dists.size >= 2) dists.first().value else null
 
         val rating = RATING.find(clean)?.let { m ->
-            parseDecimal(m.groupValues[1].ifEmpty { m.groupValues[2] })
+            parseDecimal(m.groupValues[1].ifEmpty { m.groupValues[2] }.ifEmpty { m.groupValues[3] })
         }
         val totalMin = if (durs.isEmpty()) null
         else durs.firstOrNull { it.isTotal }?.value ?: durs.sumOf { it.value }

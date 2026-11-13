@@ -105,4 +105,9 @@ class ProfitCalculatorTest {
         assertEquals(Rating.RED, ProfitCalculator.evaluate(full(boa), profile.copy(maxMinutes = 15.0)).rating)
         assertEquals(Rating.GREEN, ProfitCalculator.evaluate(full(boa), profile.copy(maxTotalKm = 12.0, maxMinutes = 20.0)).rating)
     }
+
+    @Test fun areaDeRisco_viraAviso() {
+        val r = ProfitCalculator.evaluate(full("NÃO AFETA A TA | R$54,89 | 5Min (2,5km) | 32Min (6,3km) | Área de risco | Santo André"), profile)
+        assertEquals(Rating.RED, r.rating); assertTrue("área de risco" in r.warnings)
+    }
 }

@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 4.0**
+**Versão atual: 4.0.1**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -192,7 +192,7 @@ app/src/main/java/com/farol/app/
   data/      Settings, JournalStore, GpsStore, History, CaptureLog, RemoteLog, Backup
   service/   OfferReaderService, ScreenTextCollector, OcrFallback, GpsService, ShiftNotifier, FarolTileService
   ui/        ModeActivity, DashboardActivity, HistoryActivity, SettingsActivity, CostsActivity, OnboardingActivity, OverlayCard, FarolWidget, Kit
-app/src/test/  82 testes, quase todos com textos REAIS de ofertas e telas dos logs
+app/src/test/  88 testes, quase todos com textos REAIS de ofertas e telas dos logs
 ```
 
 - Build local: abra no Android Studio, ou `gradle testDebugUnitTest assembleDebug`.
@@ -204,6 +204,7 @@ app/src/test/  82 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 4.0.1 | Leitor de corridas com prints reais: 99 nova ("Não afeta a TA", dinâmica, "por km", "incluídos", nota sem ★, área de risco) e Uber (viagem longa "mais de X min", Black) |
 | 4.0 | Modo Moto / Carro com dados separados; ajustes enviados sozinhos nos logs |
 | 3.2.1 | Histórico sem ofertas duplicadas (e limpeza das antigas); teste inclui o estado do GPS |
 | 3.2 | GPS do turno (opcional): km do dia, velocidade em movimento e velocidade real de cada pedido, só como sugestão com botão "Usar" |
