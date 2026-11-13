@@ -15,6 +15,8 @@
 //   Variables → REQUIRE_LOGIN = 1                   (recusa envios sem login; ligue depois que todos atualizarem)
 //   Secrets   → ADMIN_KEY = uma senha sua           (opcional: acesso de emergência ao painel)
 //
+// Privacidade: o texto lido das telas é apagado do banco depois de 90 dias (ver "Retenção").
+//
 // A tabela é criada sozinha no primeiro envio.
 
 const MAX_BODY = 512 * 1024;      // 512 KB por lote
@@ -45,6 +47,7 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS s_user ON sessions(user_id)`,
   `CREATE TABLE IF NOT EXISTS attempts (chave TEXT NOT NULL, ts INTEGER NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS a_key_ts ON attempts(chave, ts)`,
+  `CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)`,
 ];
 // Colunas novas em tabelas que já existiam (dá erro se já existir: ignorado).
 const MIGRATIONS = [
@@ -118,9 +121,39 @@ export default {
 
     if (env.GH_TOKEN && env.GH_REPO) ctx.waitUntil(mirrorToGitHub(env, userId ? "u" + userId : device, eventos).catch(() => {}));
 
+    ctx.waitUntil(maintenance(env).catch(() => {}));
     return json({ ok: true, gravados: eventos.length });
   },
 };
+
+// ============================== Retenção (privacidade) ==============================
+//
+// Uma vez por dia, no primeiro envio:
+//   • depois de 90 dias, o TEXTO das telas e ofertas é apagado (fica só número: preço, km, cor...);
+//   • depois de 1 ano, os eventos de "tela" (que eram só texto) são apagados;
+//   • sessões sem uso há mais de 180 dias e lotes antigos do controle de envio saem.
+// Cada passada mexe em no máximo 5.000 linhas, para caber no plano grátis.
+const TEXT_DAYS = 90, SCREEN_DAYS = 365, BATCH = 5000;
+
+async function maintenance(env, force = false) {
+  const db = env.DB, now = Date.now();
+  if (!force) {
+    const last = await db.prepare("SELECT v FROM meta WHERE k = 'limpeza'").first();
+    if (last && now - Number(last.v) < 86400_000) return null;
+  }
+  await db.prepare("INSERT INTO meta (k, v) VALUES ('limpeza', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(String(now)).run();
+  const tCut = now - TEXT_DAYS * 86400_000, sCut = now - SCREEN_DAYS * 86400_000;
+  const r = await db.batch([
+    db.prepare(`UPDATE events SET data = json_remove(data, '$.texto', '$.texto_acessibilidade')
+                WHERE id IN (SELECT id FROM events WHERE received_at < ?
+                  AND (json_extract(data,'$.texto') IS NOT NULL OR json_extract(data,'$.texto_acessibilidade') IS NOT NULL) LIMIT ${BATCH})`).bind(tCut),
+    db.prepare(`DELETE FROM events WHERE id IN (SELECT id FROM events WHERE tipo = 'tela' AND received_at < ? LIMIT ${BATCH})`).bind(sCut),
+    db.prepare("DELETE FROM sessions WHERE visto < ?").bind(now - SESSION_DAYS * 86400_000),
+    db.prepare("DELETE FROM batches WHERE received_at < ?").bind(now - 7 * 86400_000),
+    db.prepare("DELETE FROM attempts WHERE ts < ?").bind(now - 86400_000),
+  ]);
+  return { textos_apagados: r[0]?.meta?.changes ?? null, telas_apagadas: r[1]?.meta?.changes ?? null };
+}
 
 // Cópia no repositório privado, para análise (a chave fica só aqui, nunca no app).
 async function mirrorToGitHub(env, device, eventos) {
@@ -283,6 +316,9 @@ async function authRoutes(req, env, url) {
          (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id) AS eventos
        FROM users u ORDER BY u.id`).all();
     return json({ usuarios: r.results || [] });
+  }
+  if (p === "/v1/admin/limpeza" && req.method === "POST") {
+    return json({ ok: true, resultado: await maintenance(env, true), regra: `texto apagado após ${TEXT_DAYS} dias; telas apagadas após ${SCREEN_DAYS} dias` });
   }
   if (p === "/v1/admin/reset" && req.method === "POST") {
     const nova = String(body.senha || "");

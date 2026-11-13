@@ -67,6 +67,15 @@ SELECT t, app, json_extract(data, '$.preco') AS preco, json_extract(data, '$.cor
   FROM events WHERE tipo = 'offer' ORDER BY id DESC LIMIT 50;
 ```
 
+## Privacidade (retenção)
+
+A limpeza roda sozinha uma vez por dia, no primeiro envio do app:
+
+- **Depois de 90 dias:** o **texto** lido das telas e ofertas é apagado. Ficam só os números (preço, km, tempo, cor, app, horário), que alimentam o painel.
+- **Depois de 1 ano:** os eventos de "tela", que eram só texto, são apagados.
+- **Sessões e controles de envio antigos** também saem.
+- **Para rodar na hora:** como administrador, faça POST em `/v1/admin/limpeza`.
+
 ## Proteções
 
 - O servidor só aceita o formato do Farol.
