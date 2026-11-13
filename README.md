@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 5.3**
+**Versão atual: 5.4**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -204,6 +204,7 @@ app/src/test/  94 testes, quase todos com textos REAIS de ofertas e telas dos lo
 
 | Versão | Principais mudanças |
 |---|---|
+| 5.4 | Segurança: modos GitHub/Webhook removidos (tokens antigos apagados do celular; logs só pelo servidor com login); acessibilidade só recebe eventos dos apps de corrida/entrega, com modo "descobrir app novo" de 2 min |
 | 5.3 | Atualizador confere SHA-256 do arquivo, pacote, versão e certificado da chave antes de instalar. 99 do carro: km pelos pares "N min (X km)", sem somar a seta de navegação do mapa |
 | 5.2 | Segurança: chave de assinatura nova (rotação v3, a antiga não substitui mais o app no Android 9+), APK de produção, nenhuma chave no repositório, SHA-256 na publicação |
 | 5.1 | Gasolina e etanol guardados em cada modo (preço e consumo de cada); escolha do que está no tanque; comparação de qual compensa; abastecimento atualiza o preço do combustível escolhido |

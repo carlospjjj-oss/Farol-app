@@ -21,6 +21,7 @@ class ModeActivity : Activity() {
             startActivity(Intent(this, LoginActivity::class.java)); finish(); return
         }
         val settings = Settings(this)
+        settings.purgeLegacySecrets(true)
         val k = Kit(this)
         window.statusBarColor = Palette.BG
         window.navigationBarColor = Palette.BG

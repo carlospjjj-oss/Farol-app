@@ -39,6 +39,9 @@ com.app99.driver=99
 sinet.startup.inDriver=inDrive
 br.com.ifood.driver.app=iFood
 com.sankuai.sailor.courier=Keeta"""
+
+        /** O Keeta usa mais de um nome de pacote (visto nos logs). */
+        val KEETA_PACKAGES = listOf("com.sankuai.sailor.courier", "com.sankuai.sailor.afooddelivery")
     }
 
     private fun d(key: String, def: Double) = vprefs.getString(key, null)?.toDoubleOrNull() ?: def
@@ -281,35 +284,38 @@ com.sankuai.sailor.courier=Keeta"""
         set(v) = prefs.edit().putBoolean("speak", v).apply()
 
     // ---- envio de logs ----
-    /** "off", "github" ou "webhook" */
+    /** "off" ou "server" (GitHub/Webhook foram removidos na 5.4) */
     var remoteMode: String
         get() = prefs.getString("remoteMode", "off") ?: "off"
         set(v) = prefs.edit().putString("remoteMode", v).apply()
-
-    var ghRepo: String
-        get() = prefs.getString("ghRepo", "carlospjjj-oss/Farol") ?: ""
-        set(v) = prefs.edit().putString("ghRepo", v).apply()
-
-    var ghToken: String
-        get() = prefs.getString("ghToken", "") ?: ""
-        set(v) = prefs.edit().putString("ghToken", v).apply()
-
-    var ghBranch: String
-        get() = prefs.getString("ghBranch", "main") ?: "main"
-        set(v) = prefs.edit().putString("ghBranch", v).apply()
 
     /** Servidor próprio de logs (Cloudflare Worker). Sem chave no app. */
     var serverUrl: String
         get() = prefs.getString("serverUrl", "") ?: ""
         set(v) = prefs.edit().putString("serverUrl", v).apply()
 
-    var webhookUrl: String
-        get() = prefs.getString("webhookUrl", "") ?: ""
-        set(v) = prefs.edit().putString("webhookUrl", v).apply()
+    /**
+     * Remove o que as versões antigas guardavam sem criptografia (token do GitHub, senha do webhook)
+     * e passa quem usava GitHub/Webhook para o servidor. Roda toda abertura; é barato.
+     */
+    /**
+     * Pacotes que a acessibilidade pode ler: os apps de corrida/entrega dos DOIS modos
+     * (Moto e Carro), mais os nomes conhecidos do Keeta. Qualquer outro app fica de fora.
+     */
+    fun allowedPackages(): Set<String> {
+        fun parse(text: String) = text.lines().mapNotNull { l -> l.substringBefore('=').trim().takeIf { it.contains('.') && !it.contains('*') } }
+        val moto = appCtx.getSharedPreferences("farol", Context.MODE_PRIVATE).getString("targets", DEFAULT_TARGETS) ?: DEFAULT_TARGETS
+        val car = appCtx.getSharedPreferences("farol_carro", Context.MODE_PRIVATE).getString("targets", DEFAULT_TARGETS_CAR) ?: DEFAULT_TARGETS_CAR
+        return (parse(moto) + parse(car) + KEETA_PACKAGES).toSet()
+    }
 
-    var webhookAuth: String
-        get() = prefs.getString("webhookAuth", "") ?: ""
-        set(v) = prefs.edit().putString("webhookAuth", v).apply()
+    fun purgeLegacySecrets(loggedIn: Boolean) {
+        val e = prefs.edit()
+        listOf("ghToken", "ghRepo", "ghBranch", "webhookUrl", "webhookAuth").forEach { if (prefs.contains(it)) e.remove(it) }
+        val m = prefs.getString("remoteMode", "off")
+        if (m == "github" || m == "webhook") e.putString("remoteMode", if (loggedIn) "server" else "off")
+        e.apply()
+    }
 
     var remoteIntervalSec: Int
         get() = prefs.getInt("remoteIntervalSec", 60)

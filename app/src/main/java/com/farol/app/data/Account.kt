@@ -87,7 +87,7 @@ object Account {
         // Com conta, os logs vão pelo servidor; o token do GitHub não precisa mais ficar no celular.
         s.remoteMode = "server"
         if (s.serverUrl.isBlank()) s.serverUrl = DEFAULT_SERVER
-        s.ghToken = ""
+        s.purgeLegacySecrets(true)
         if (s.userName.isBlank() && u.name.isNotBlank()) s.userName = u.name
     }
 

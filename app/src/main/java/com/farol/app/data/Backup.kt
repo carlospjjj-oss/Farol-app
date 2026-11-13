@@ -7,7 +7,7 @@ import java.io.File
 
 /**
  * Backup completo num único JSON: diário (turnos, ganhos, abastecimentos, pedidos),
- * histórico de ofertas e todas as configurações (inclusive o token do GitHub).
+ * histórico de ofertas e todas as configurações (sem senhas nem tokens: a conta fica no cofre do Android).
  */
 object Backup {
 

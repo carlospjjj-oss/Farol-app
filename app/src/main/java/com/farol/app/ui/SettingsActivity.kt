@@ -96,16 +96,9 @@ class SettingsActivity : Activity() {
     // logs
     private var remoteMode = "off"
     private lateinit var segRemote: LinearLayout
-    private lateinit var boxGithub: LinearLayout
-    private lateinit var boxWebhook: LinearLayout
     private lateinit var boxServer: LinearLayout
     private lateinit var etServer: EditText
     private lateinit var boxRemoteCommon: LinearLayout
-    private lateinit var etGhRepo: EditText
-    private lateinit var etGhToken: EditText
-    private lateinit var etGhBranch: EditText
-    private lateinit var etHookUrl: EditText
-    private lateinit var etHookAuth: EditText
     private lateinit var etInterval: EditText
     private lateinit var swMask: Switch
     private lateinit var tvRemote: TextView
@@ -113,7 +106,7 @@ class SettingsActivity : Activity() {
     private lateinit var tvHistSummary: TextView
     private lateinit var boxHist: LinearLayout
 
-    private val remoteModes = listOf("off" to "Desligado", "server" to "Servidor", "github" to "GitHub", "webhook" to "Webhook")
+    private val remoteModes = listOf("off" to "Desligado", "server" to "Servidor")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -393,6 +386,12 @@ class SettingsActivity : Activity() {
         etTargets = textField("pacote=Nome", multi = true, mono = true).apply { minLines = 4 }
         labeledText(cRead, "Apps monitorados (pacote=Nome, um por linha)", etTargets)
         tvRecent = k.text("", 12, Palette.MUTED).also { cRead.addView(it, k.lp(top = 8)) }
+        hint(cRead, "Por segurança, o Farol só lê os apps desta lista. Para descobrir o pacote de um app novo, toque abaixo e abra o app em até 2 minutos.")
+        buttons(cRead, "🔎 Descobrir app novo (2 min)" to {
+            val s = com.farol.app.service.OfferReaderService.instance
+            if (s == null) toast("Ligue o Farol na acessibilidade primeiro")
+            else { s.discover(120); toast("Abra o app novo agora. Depois volte aqui e veja \"Apps vistos recentemente\".") }
+        })
 
         // Logs
         val cLog = card("Envio de logs", "Manda o que o Farol lê para análise e calibração")
@@ -404,14 +403,6 @@ class SettingsActivity : Activity() {
         boxServer = k.vbox().also { cLog.addView(it) }
         etServer = textField("https://farol-logs.SEU-NOME.workers.dev"); labeledText(boxServer, "Endereço do servidor", etServer)
         hint(boxServer, "Sem token: o servidor grava no banco e guarda a cópia no GitHub. Toque em \"Enviar teste\" para conferir.")
-        boxGithub = k.vbox().also { cLog.addView(it) }
-        etGhRepo = textField("dono/repositório"); labeledText(boxGithub, "Repositório", etGhRepo)
-        etGhToken = textField("github_pat_...", secret = true); labeledText(boxGithub, "Token do GitHub", etGhToken)
-        etGhBranch = textField("main"); labeledText(boxGithub, "Branch", etGhBranch)
-        hint(boxGithub, "Token: github.com → Settings → Developer settings → Fine-grained tokens → só o repositório Farol → Contents: Read and write.")
-        boxWebhook = k.vbox().also { cLog.addView(it) }
-        etHookUrl = textField("https://..."); labeledText(boxWebhook, "URL do webhook", etHookUrl)
-        etHookAuth = textField("opcional", secret = true); labeledText(boxWebhook, "Authorization", etHookAuth)
         boxRemoteCommon = k.vbox().also { cLog.addView(it) }
         etInterval = numRow(boxRemoteCommon, "Enviar a cada", "seg")
         swMask = toggle(boxRemoteCommon, "Mascarar endereços", "Rua, número, telefone e CEP saem como [endereço]")
@@ -466,7 +457,7 @@ class SettingsActivity : Activity() {
                 startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
                     .setType("*/*"), REQ_IMPORT)
             }, primaryFirst = true)
-        hint(cBackup, "Faça antes de reinstalar ou trocar de celular. O arquivo inclui o token do GitHub: guarde num lugar só seu.")
+        hint(cBackup, "Faça antes de reinstalar ou trocar de celular. Nenhuma senha ou token vai no arquivo.")
 
         // Acesso
         val cAccess = card("Permissões", "Se o leitor parar de funcionar")
@@ -534,8 +525,6 @@ class SettingsActivity : Activity() {
             }, LinearLayout.LayoutParams(0, -2, 1f))
         }
         boxServer.visibility = if (remoteMode == "server") View.VISIBLE else View.GONE
-        boxGithub.visibility = if (remoteMode == "github") View.VISIBLE else View.GONE
-        boxWebhook.visibility = if (remoteMode == "webhook") View.VISIBLE else View.GONE
         boxRemoteCommon.visibility = if (remoteMode == "off") View.GONE else View.VISIBLE
     }
 
@@ -586,8 +575,6 @@ class SettingsActivity : Activity() {
         swScreens.isChecked = settings.logScreens
         swAutoEarn.isChecked = settings.autoEarnings
         remoteMode = settings.remoteMode
-        etGhRepo.setText(settings.ghRepo); etGhToken.setText(settings.ghToken); etGhBranch.setText(settings.ghBranch)
-        etHookUrl.setText(settings.webhookUrl); etHookAuth.setText(settings.webhookAuth)
         etServer.setText(settings.serverUrl)
         etInterval.setText(settings.remoteIntervalSec.toString())
         swMask.isChecked = settings.maskAddresses
@@ -648,6 +635,7 @@ class SettingsActivity : Activity() {
         settings.profile = p
         settings.autoHideSec = etHide.num(15.0).toInt()
         settings.targetsText = etTargets.text.toString()
+        com.farol.app.service.OfferReaderService.instance?.applyPackageFilter()
         settings.enabled = swEnabled.isChecked
         settings.vibrateOnGreen = swVibrate.isChecked
         settings.speak = swSpeak.isChecked
@@ -657,12 +645,7 @@ class SettingsActivity : Activity() {
         settings.logScreens = swScreens.isChecked
         settings.autoEarnings = swAutoEarn.isChecked
         settings.remoteMode = remoteMode
-        settings.ghRepo = etGhRepo.text.toString().trim()
-        settings.ghToken = etGhToken.text.toString().trim()
-        settings.ghBranch = etGhBranch.text.toString().trim().ifEmpty { "main" }
-        settings.webhookUrl = etHookUrl.text.toString().trim()
         settings.serverUrl = etServer.text.toString().trim()
-        settings.webhookAuth = etHookAuth.text.toString().trim()
         settings.remoteIntervalSec = etInterval.num(60.0).toInt()
         settings.maskAddresses = swMask.isChecked
         runCatching { RemoteLog.get(this).settingsChanged(if (silent) "auto" else "salvar") }

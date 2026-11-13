@@ -108,12 +108,40 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         }
         seedSpeed()
         reload()
+        settings.purgeLegacySecrets(com.farol.app.data.Account.isLoggedIn(this))
         settings.prefs.registerOnSharedPreferenceChangeListener(this)
         instance = this
+        applyPackageFilter()
         handler.post(tick)
     }
 
-    override fun onSharedPreferenceChanged(p: SharedPreferences?, key: String?) = reload()
+    override fun onSharedPreferenceChanged(p: SharedPreferences?, key: String?) {
+        reload()
+        if (key == "targets") applyPackageFilter()
+    }
+
+    // ---------- Quais apps a acessibilidade pode ler ----------
+    private var discoverUntil = 0L
+
+    /**
+     * Só os apps de corrida/entrega mandam eventos para o Farol: WhatsApp, banco, galeria etc.
+     * nem chegam aqui. No "modo descoberta" (2 min, pelo botão nos ajustes) todos passam,
+     * para achar o nome do pacote de um app novo.
+     */
+    fun applyPackageFilter() {
+        runCatching {
+            val discovering = SystemClock.elapsedRealtime() < discoverUntil
+            serviceInfo = serviceInfo.apply {
+                packageNames = if (discovering) null else settings.allowedPackages().toTypedArray()
+            }
+        }
+    }
+
+    fun discover(seconds: Int = 120) {
+        discoverUntil = SystemClock.elapsedRealtime() + seconds * 1000L
+        applyPackageFilter()
+        handler.postDelayed({ applyPackageFilter() }, seconds * 1000L + 500)
+    }
 
     /** A cada minuto: notificação do turno, widget e resumo da semana (domingo à noite). */
     private val tick = object : Runnable {

@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Sem packageNames de propósito: o filtro de apps fica nas configurações do Farol,
-  para você poder adicionar/trocar pacotes sem recompilar.
+  packageNames: só os apps de corrida/entrega mandam eventos (segurança: WhatsApp, banco etc. ficam de fora).
+  Ao ligar, o serviço troca esta lista pela dos ajustes (Moto + Carro), então dá para incluir app novo sem recompilar.
   canTakeScreenshot permite o OCR de reserva (Android 11+).
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeWindowsChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
+    android:packageNames="com.ubercab.driver,com.app99.driver,sinet.startup.inDriver,br.com.ifood.driver.app,com.sankuai.sailor.courier,com.sankuai.sailor.afooddelivery"
     android:canRetrieveWindowContent="true"
     android:canTakeScreenshot="true"
     android:notificationTimeout="150"

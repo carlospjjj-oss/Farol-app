@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
  *
  * Os eventos vão para uma fila em disco (outbox.jsonl), então nada se perde sem sinal.
  * A cada "intervalo" segundos a fila é enviada num lote:
- *   - GitHub: cria logs/AAAA-MM-DD/HHmmss-<aparelho>.jsonl no seu repositório (privado!)
+ *   - Servidor do Farol (com login): grava no banco e guarda a cópia no repositório privado
  *   - Webhook: POST {"eventos":[...]} para a URL que você quiser (n8n, Make, Apps Script...)
  *
  * Tipos de evento:
@@ -233,8 +233,6 @@ class RemoteLog private constructor(context: Context) {
         val result = runCatching {
             when (settings.remoteMode) {
                 "server" -> sendServer(batch)
-                "github" -> sendGitHub(batch)
-                "webhook" -> sendWebhook(batch)
                 else -> error("modo desconhecido")
             }
         }
@@ -251,28 +249,6 @@ class RemoteLog private constructor(context: Context) {
         )
         settings.remoteLastStatus = status
         return status
-    }
-
-    private fun sendGitHub(lines: List<String>) {
-        val repo = settings.ghRepo.trim().removePrefix("https://github.com/").trim('/')
-        require(repo.count { it == '/' } == 1) { "repositório inválido (use dono/nome)" }
-        require(settings.ghToken.isNotBlank()) { "falta o token do GitHub" }
-
-        val now = Date()
-        val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now)
-        val hms = SimpleDateFormat("HHmmss", Locale.US).format(now)
-        val path = "logs/$day/$hms-$deviceId.jsonl"
-        val content = Base64.encodeToString(lines.joinToString("\n", postfix = "\n").toByteArray(), Base64.NO_WRAP)
-        val body = JSONObject()
-            .put("message", "log: ${lines.size} eventos [skip ci]")
-            .put("content", content)
-            .put("branch", settings.ghBranch.ifBlank { "main" })
-
-        http("PUT", "https://api.github.com/repos/$repo/contents/$path", body.toString(), mapOf(
-            "Authorization" to "Bearer ${settings.ghToken.trim()}",
-            "Accept" to "application/vnd.github+json",
-            "X-GitHub-Api-Version" to "2022-11-28",
-        ))
     }
 
     /** Servidor do Farol: só o endereço, sem token. O servidor grava no banco e faz a cópia no GitHub. */
@@ -292,16 +268,6 @@ class RemoteLog private constructor(context: Context) {
             }
             throw e
         }
-    }
-
-    private fun sendWebhook(lines: List<String>) {
-        val url = settings.webhookUrl.trim()
-        require(url.startsWith("https://") || url.startsWith("http://")) { "URL do webhook inválida" }
-        val arr = JSONArray(lines.map { JSONObject(it) })
-        val headers = buildMap {
-            if (settings.webhookAuth.isNotBlank()) put("Authorization", settings.webhookAuth.trim())
-        }
-        http("POST", url, JSONObject().put("eventos", arr).toString(), headers)
     }
 
     private fun http(method: String, url: String, body: String, headers: Map<String, String>) {
