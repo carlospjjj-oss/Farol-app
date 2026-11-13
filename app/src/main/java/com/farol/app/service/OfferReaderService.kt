@@ -172,7 +172,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
 
         val offer = OfferParser.parse(snap.text, label, settings.requireHint)
         readRejections(label, snap.text)
-        if (offer == null) { logScreen(snap); autoEarnings(label, snap.text); trackPhase(label, snap.text) }
+        if (offer == null && snap.onTop) { logScreen(snap); autoEarnings(label, snap.text); trackPhase(label, snap.text) }
         if (offer != null) {
             accessibleApps += snap.pkg
             handleOffer(offer, snap.pkg, "acessibilidade", snap.text); return
@@ -243,8 +243,8 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
                 handleOffer(o, snap.pkg, "ocr", text)
                 return@run
             }
-            autoEarnings(label, text)
-            readRejections(label, text)
+            // O print pega a tela inteira: só usa para ganhos/avisos/telas se o app estiver na frente
+            if (snap.onTop) { autoEarnings(label, text); readRejections(label, text) }
             val hint = hasHint || OfferParser.OFFER_HINTS.containsMatchIn(text)
             if (hint && ocrRetries < 4) {
                 ocrRetries++
@@ -253,7 +253,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
                 if (hint) remote.miss(snap.pkg, "ocr", text, snap.text)
                 ocrRetries = 0
             }
-            if (settings.logScreens && text.length >= 40) {
+            if (settings.logScreens && snap.onTop && text.length >= 40) {
                 val now = SystemClock.elapsedRealtime()
                 minutesSinceOffer()?.let { m ->
                     if (now - lastScreenOcrAt > 15_000) { lastScreenOcrAt = now; remote.screen(snap.pkg, "ocr", text, m) }

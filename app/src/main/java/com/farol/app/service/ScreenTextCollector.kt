@@ -14,7 +14,8 @@ import android.view.accessibility.AccessibilityWindowInfo
  */
 object ScreenTextCollector {
 
-    data class Snapshot(val pkg: String, val text: String)
+    /** @param onTop true se o app está realmente na frente (não só uma janela aberta por baixo de outro app). */
+    data class Snapshot(val pkg: String, val text: String, val onTop: Boolean = true)
 
     private const val MAX_NODES = 1500
     private const val MAX_DEPTH = 60
@@ -31,15 +32,19 @@ object ScreenTextCollector {
         // de outro app). Isso ignora a "bolinha" flutuante da 99 enquanto você usa o WhatsApp.
         val topApp = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }.maxByOrNull { it.layer }
 
+        val frontPkgs = mutableSetOf<String>()
         val roots = buildList {
             for (w in windows.sortedByDescending { it.layer }) {
                 val r = Rect().also { w.getBoundsInScreen(it) }
                 val big = r.width().toLong() * r.height() > screenArea / 4
-                val visible = w.isActive || w.isFocused || w.id == topApp?.id ||
-                    (w.type != AccessibilityWindowInfo.TYPE_APPLICATION && big)
-                if (visible) w.root?.let { add(it) }
+                val front = w.isActive || w.isFocused || w.id == topApp?.id
+                val visible = front || (w.type != AccessibilityWindowInfo.TYPE_APPLICATION && big)
+                if (visible) w.root?.let { root ->
+                    add(root)
+                    if (front) root.packageName?.toString()?.let { frontPkgs += it }
+                }
             }
-            if (windows.isEmpty()) svc.rootInActiveWindow?.let { add(it) }
+            if (windows.isEmpty()) svc.rootInActiveWindow?.let { add(it); it.packageName?.toString()?.let { p -> frontPkgs += p } }
         }
 
         // Só o app de entrega que está mais na frente: evita misturar o texto de dois apps
@@ -53,7 +58,7 @@ object ScreenTextCollector {
             walk(root, 0, parts, counter)
         }
         val pkg = foundPkg ?: return null
-        return Snapshot(pkg, parts.joinToString(" | "))
+        return Snapshot(pkg, parts.joinToString(" | "), onTop = pkg in frontPkgs)
     }
 
     private fun walk(node: AccessibilityNodeInfo?, depth: Int, out: MutableList<String>, count: IntArray) {
