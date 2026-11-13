@@ -61,6 +61,8 @@ class VisualPreviewTest {
     }
 
     @Test fun prints() {
+        if (android.os.Build.VERSION.SDK_INT >= 33)
+            runCatching { inst.uiAutomation.grantRuntimePermission(ctx.packageName, android.Manifest.permission.POST_NOTIFICATIONS) }
         Account.clear(ctx)
         open(LoginActivity::class.java, "1-login")
         demoAccount()
