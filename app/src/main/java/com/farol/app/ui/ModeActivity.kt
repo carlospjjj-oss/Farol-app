@@ -17,6 +17,9 @@ class ModeActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!com.farol.app.data.Account.isLoggedIn(this)) {
+            startActivity(Intent(this, LoginActivity::class.java)); finish(); return
+        }
         val settings = Settings(this)
         val k = Kit(this)
         window.statusBarColor = Palette.BG

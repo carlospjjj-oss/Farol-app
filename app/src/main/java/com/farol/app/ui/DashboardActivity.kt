@@ -82,6 +82,9 @@ class DashboardActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (!com.farol.app.data.Account.isLoggedIn(this)) {   // sessão recusada pelo servidor
+            startActivity(Intent(this, LoginActivity::class.java)); finish(); return
+        }
         // Primeira abertura: guia. Quem já usa (leitor ligado) pula direto.
         if (!settings.onboarded) {
             if (serviceOn()) settings.onboarded = true

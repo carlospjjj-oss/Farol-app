@@ -279,7 +279,16 @@ class RemoteLog private constructor(context: Context) {
         if (!url.endsWith("/v1/logs")) url += "/v1/logs"
         val body = JSONObject().put("device", deviceId).put("versao", appVersion)
             .put("eventos", JSONArray(lines.map { JSONObject(it) }))
-        http("POST", url, body.toString(), emptyMap())
+        val token = Account.token(ctx)
+        try {
+            http("POST", url, body.toString(), if (token != null) mapOf("Authorization" to "Bearer $token") else emptyMap())
+        } catch (e: IllegalStateException) {
+            if (token != null && e.message?.startsWith("HTTP 401") == true) {
+                Account.clear(ctx)   // o app pede login de novo na próxima abertura
+                error("sessão expirada: abra o Farol e entre de novo")
+            }
+            throw e
+        }
     }
 
     private fun sendWebhook(lines: List<String>) {

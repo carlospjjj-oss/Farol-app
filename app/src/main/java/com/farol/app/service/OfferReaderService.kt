@@ -199,7 +199,17 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         }
     }
 
+    // Login obrigatório: sem conta o Farol não lê nada. Conferido a cada 30 s (decifrar o token custa).
+    private var loggedAt = 0L
+    private var logged = false
+    private fun loggedIn(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (now - loggedAt > 30_000) { logged = com.farol.app.data.Account.isLoggedIn(this); loggedAt = now }
+        return logged
+    }
+
     private fun scan() {
+        if (!loggedIn()) { maybeHide(); return }
         val snap = ScreenTextCollector.collect(this) { settings.labelFor(it) != null } ?: run { maybeHide(); return }
         val label = settings.labelFor(snap.pkg) ?: snap.pkg
         if (settings.captureMode) capture.append(snap.pkg, "acessibilidade", snap.text)

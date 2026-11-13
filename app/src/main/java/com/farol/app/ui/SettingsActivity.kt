@@ -225,6 +225,31 @@ class SettingsActivity : Activity() {
 
     // ============================== construção ==============================
 
+    private fun askChangePassword() {
+        fun pf(h: String) = k.field(h).apply { inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD }
+        val a = pf("Senha atual"); val b = pf("Nova senha (mín. 8)"); val c = pf("Repita a nova senha")
+        val box = k.vbox(22, 8).apply { addView(a); addView(b, k.lp(top = 10)); addView(c, k.lp(top = 10)) }
+        val d = android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("Trocar senha").setView(box).setPositiveButton("Trocar", null).setNegativeButton("Cancelar", null).create()
+        d.setOnShowListener {
+            d.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val nova = b.text.toString()
+                when {
+                    nova.length < 8 -> toast("A nova senha precisa ter 8 caracteres")
+                    nova != c.text.toString() -> toast("As senhas novas não são iguais")
+                    else -> Thread {
+                        val r = runCatching { com.farol.app.data.Account.changePassword(this, a.text.toString(), nova) }
+                        runOnUiThread {
+                            r.onSuccess { toast("Senha trocada. Outros aparelhos vão pedir login de novo."); d.dismiss() }
+                             .onFailure { toast(it.message ?: "Não deu certo") }
+                        }
+                    }.start()
+                }
+            }
+        }
+        d.show()
+    }
+
     private fun buildUi() {
         col = k.vbox().apply { setPadding(k.dp(18), k.dp(18), k.dp(18), k.dp(110)) }
         val scroll = ScrollView(this).apply {
@@ -384,6 +409,26 @@ class SettingsActivity : Activity() {
         val cNotif = card("Notificações")
         swShiftNotif = toggle(cNotif, "Resumo do turno na barra", "Tempo, ganhos, meta e ofertas; com botão de pausar o Farol")
         swWeekly = toggle(cNotif, "Resumo da semana", "Domingo à noite: ganhos, km, melhor dia e melhor horário")
+
+        // Conta
+        val user = com.farol.app.data.Account.user(this)
+        val cAcc = card("Conta", user?.let { "${it.name.ifBlank { "—" }} · ${it.email}" } ?: "Sem conta")
+        buttons(cAcc,
+            "🔑 Trocar senha" to { askChangePassword() },
+            "Sair da conta" to {
+                android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                    .setTitle("Sair da conta?")
+                    .setMessage("Seus dados continuam no celular. Para usar o Farol de novo, entre com e-mail e senha.")
+                    .setPositiveButton("Sair") { _, _ ->
+                        Thread {
+                            com.farol.app.data.Account.logout(this)
+                            runOnUiThread {
+                                startActivity(Intent(this, LoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+                            }
+                        }.start()
+                    }.setNegativeButton("Cancelar", null).show()
+            })
+        hint(cAcc, "Seus dados ficam separados por conta no servidor e no painel web.")
 
         // Atualizações
         val cUpd = card("Atualizações", "Versão instalada: " + com.farol.app.service.Updater.installedName(this))

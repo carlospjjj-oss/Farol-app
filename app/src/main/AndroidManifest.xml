@@ -50,6 +50,11 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.LoginActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.OnboardingActivity"
             android:exported="false"
             android:label="Guia de instalação" />
