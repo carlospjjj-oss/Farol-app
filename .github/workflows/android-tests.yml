@@ -24,7 +24,10 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: gradle --no-daemon testDebugUnitTest connectedDebugAndroidTest
+          script: |
+            gradle --no-daemon testDebugUnitTest connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
+            adb pull /sdcard/Android/data/com.farol.app/files/shots shots || true
+            for f in shots/*.png; do echo "SHOT_BEGIN $f"; base64 -w0 "$f"; echo; echo "SHOT_END"; done || true
       - name: Relatório
         if: always()
         run: |

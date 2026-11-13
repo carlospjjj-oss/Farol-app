@@ -87,7 +87,7 @@ internal fun DashboardActivity.header() {
 internal fun DashboardActivity.hero(day: DayRecord, s: DaySummary) {
     val dark = Palette.ON_ACCENT
     val card = k.vbox(22, 22).apply {
-        background = k.gradient(0xFFFFB020.toInt(), 0xFFFF7A1A.toInt(), radiusDp = 26)
+        background = k.gradient(0xFFD6F75A.toInt(), Palette.ACCENT2, radiusDp = 26)
         elevation = k.dp(6).toFloat()
     }
     card.addView(k.text("GANHOS DE HOJE", 12, Palette.alpha(dark, 0xB3), k.bold).apply { letterSpacing = 0.1f })

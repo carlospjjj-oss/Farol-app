@@ -17,16 +17,17 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 
-/** Paleta: noite na cidade + cores do semáforo. */
+/** Paleta 6.3: grafite + verde-limão (destaque). As cores do semáforo continuam as mesmas. */
 object Palette {
-    const val BG = 0xFF0B0E13.toInt()
-    const val SURFACE = 0xFF151A21.toInt()
-    const val SURFACE2 = 0xFF1D232C.toInt()
-    const val STROKE = 0xFF252D37.toInt()
-    const val TEXT = 0xFFF3F5F8.toInt()
-    const val MUTED = 0xFF8A94A3.toInt()
-    const val ACCENT = 0xFFFFB020.toInt()   // farol âmbar
-    const val ON_ACCENT = 0xFF1C1300.toInt()
+    const val BG = 0xFF0E0F11.toInt()
+    const val SURFACE = 0xFF17191C.toInt()
+    const val SURFACE2 = 0xFF202327.toInt()
+    const val STROKE = 0xFF2A2E33.toInt()
+    const val TEXT = 0xFFF4F6F3.toInt()
+    const val MUTED = 0xFF8D949A.toInt()
+    const val ACCENT = 0xFFC8F23C.toInt()   // verde-limão
+    const val ACCENT2 = 0xFF8FD42A.toInt()  // limão escuro (degradês)
+    const val ON_ACCENT = 0xFF0F1408.toInt()
     const val GREEN = 0xFF22C55E.toInt()
     const val YELLOW = 0xFFF5B014.toInt()
     const val RED = 0xFFEF4444.toInt()

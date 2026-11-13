@@ -12,7 +12,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="🚦 Farol"
-        android:textColor="#1C1300"
+        android:textColor="#0F1408"
         android:textSize="12sp"
         android:textStyle="bold" />
 
@@ -23,7 +23,7 @@
         android:layout_marginTop="2dp"
         android:fontFamily="sans-serif-black"
         android:text="R$ 0,00"
-        android:textColor="#1C1300"
+        android:textColor="#0F1408"
         android:textSize="28sp" />
 
     <TextView
@@ -31,7 +31,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="ganhos de hoje"
-        android:textColor="#B31C1300"
+        android:textColor="#B30F1408"
         android:textSize="12sp"
         android:textStyle="bold" />
 
@@ -41,6 +41,6 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
         android:text="▶ Toque para iniciar o turno"
-        android:textColor="#1C1300"
+        android:textColor="#0F1408"
         android:textSize="12sp" />
 </LinearLayout>
