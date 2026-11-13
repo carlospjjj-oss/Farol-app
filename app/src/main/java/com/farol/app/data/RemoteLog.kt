@@ -128,6 +128,14 @@ class RemoteLog private constructor(context: Context) {
             .put("min_entrega", r.deliverMin?.let { round(it) } ?: JSONObject.NULL))
     }
 
+    /** Saúde do leitor: ofertas lidas e telas não lidas por app, no dia (só números, sem texto). */
+    fun health(apps: JSONObject) {
+        if (!enabled || apps.length() == 0) return
+        val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        enqueue(JSONObject().put("t", iso(Date())).put("tipo", "saude").put("versao", appVersion)
+            .put("aparelho", deviceId).put("modo", settings.vehicleMode).put("data", day).put("apps", apps))
+    }
+
     /** Resumo do dia ao encerrar o turno (sem endereços). */
     fun day(summary: JSONObject) {
         if (!enabled) return

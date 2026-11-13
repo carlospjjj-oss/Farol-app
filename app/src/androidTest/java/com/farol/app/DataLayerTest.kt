@@ -125,4 +125,15 @@ class DataLayerTest {
         assertNotNull(js.getPendingJob(FarolJobs.SYNC))
         assertNotNull(js.getPendingJob(FarolJobs.UPDATE))
     }
+
+    @Test fun saudeDoLeitorContaSemRepetir() {
+        val h = com.farol.app.data.HealthStore(ctx)
+        h.ok("TesteApp"); h.ok("TesteApp")
+        h.miss("TesteApp", "Aceitar R$ 10"); h.miss("TesteApp", "Aceitar R$ 12")   // mesma tela: conta 1
+        val d = h.day().getJSONObject("TesteApp")
+        assertEquals(2, d.getInt("ok"))
+        assertEquals(1, d.getInt("falhas"))
+        assertTrue(h.takeChanged())
+        assertFalse(h.takeChanged())
+    }
 }

@@ -149,6 +149,11 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
             runCatching { ShiftNotifier.refresh(this@OfferReaderService) }
             runCatching { ShiftNotifier.maybeWeekly(this@OfferReaderService) }
             runCatching { remote.settingsChanged("diário") }
+            // Saúde do leitor: manda os números do dia a cada 30 min, se mudaram
+            runCatching {
+                val now = SystemClock.elapsedRealtime()
+                if (now - healthSentAt > 30 * 60_000L && health.takeChanged()) { remote.health(health.day()); healthSentAt = now }
+            }
             runCatching { Updater.maybeCheck(this@OfferReaderService, foreground = false) }
             handler.postDelayed(this, 60_000)
         }
@@ -230,6 +235,9 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     // Login obrigatório: sem conta o Farol não lê nada. Conferido a cada 30 s (decifrar o token custa).
     private var loggedAt = 0L
     private var logged = false
+    private val health by lazy { com.farol.app.data.HealthStore(this) }
+    private var healthSentAt = 0L
+
     private fun loggedIn(): Boolean {
         val now = SystemClock.elapsedRealtime()
         if (now - loggedAt > 30_000) { logged = com.farol.app.data.Account.isLoggedIn(this); loggedAt = now }
@@ -255,7 +263,10 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         if (settings.ocrFallback && ocr.supported && looksLikeOffer && snap.pkg !in accessibleApps) {
             runOcr(snap, label, hasHint)
         } else {
-            if (hasHint && snap.pkg !in accessibleApps) remote.miss(snap.pkg, "acessibilidade", snap.text)
+            if (hasHint && snap.pkg !in accessibleApps) {
+                remote.miss(snap.pkg, "acessibilidade", snap.text)
+                runCatching { health.miss(label, snap.text) }
+            }
             maybeHide()
         }
     }
@@ -324,7 +335,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
                 ocrRetries++
                 handler.removeCallbacks(ocrRetry); handler.postDelayed(ocrRetry, 800)
             } else {
-                if (hint) remote.miss(snap.pkg, "ocr", text, snap.text)
+                if (hint) { remote.miss(snap.pkg, "ocr", text, snap.text); runCatching { health.miss(label, text) } }
                 ocrRetries = 0
             }
             if (settings.logScreens && snap.onTop && text.length >= 40) {
@@ -358,7 +369,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         val result = ProfitCalculator.evaluate(offer, settings.effectiveProfile(offer.app))
         overlay.show(result, extrasFor(offer.app))
         runCatching { ShiftNotifier.refresh(this) }
-        runCatching { history.add(result, source) }
+        runCatching { if (history.add(result, source)) health.ok(offer.app) }
         runCatching { remote.offer(pkg, source, raw, result) }
         if (result.rating == Rating.GREEN && settings.vibrateOnGreen) vibrate()
         speak(result)

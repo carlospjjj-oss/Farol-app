@@ -574,6 +574,9 @@ async function panelApi(req, env, url) {
   let usuarios;
   if (isAdmin) usuarios = (await db.prepare("SELECT id, nome, email FROM users ORDER BY nome").all()).results || [];
 
+  const scope = { scopeUser, modo };
+  const [saude, semana] = await Promise.all([readerHealth(db, scope), weeklySummary(db, scope)]);
+
   return json({
     eu: me, admin: isAdmin, usuarios, escopo: scopeUser,
     periodo: { dias, desde: since, ate: brtDate(0), modo: modo || "todos" },
@@ -588,7 +591,135 @@ async function panelApi(req, env, url) {
     horas: porHora,
     ultimas: ultimas.map((o) => ({ ...o, app: name(o.app) })),
     pedidos: pedidos.map((p) => ({ ...p, app: name(p.app) })),
+    saude, semana,
   });
+}
+
+// ---------- filtros comuns (conta e modo) ----------
+function scopeWhere(scope, { modoCol = "modo", userCol = "user_id" } = {}) {
+  const conds = [], args = [];
+  if (scope.modo && modoCol) { conds.push(`${modoCol} = ?`); args.push(scope.modo); }
+  if (scope.scopeUser === "anon") conds.push(`${userCol} IS NULL`);
+  else if (scope.scopeUser != null) { conds.push(`${userCol} = ?`); args.push(scope.scopeUser); }
+  return { conds, args };
+}
+
+// ============================== Saúde do leitor ==============================
+// Mesmas regras de app/src/main/java/com/farol/app/core/ReaderHealth.kt
+function healthStatus(today, previous) {
+  const total = today.ok + today.falhas;
+  if (total < 3) return "SEM_DADOS";
+  const r = today.ok / total;
+  const rates = previous.filter((d) => d.ok + d.falhas >= 3).map((d) => d.ok / (d.ok + d.falhas));
+  const base = rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : null;
+  if (r < 0.5) return "PROBLEMA";
+  if (base != null && base - r > 0.25) return "PROBLEMA";
+  if (r < 0.75) return "ATENCAO";
+  if (base != null && base - r > 0.12) return "ATENCAO";
+  return "OK";
+}
+
+async function readerHealth(db, scope) {
+  const since = brtDate(7);
+  const { conds, args } = scopeWhere(scope);
+  const rows = (await db.prepare(`SELECT COALESCE(user_id, device) AS dono, data FROM events
+      WHERE tipo = 'saude' AND substr(t,1,10) >= ? ${conds.length ? "AND " + conds.join(" AND ") : ""} ORDER BY id`)
+    .bind(since, ...args).all()).results || [];
+  // o último envio de cada aparelho/conta por dia vale (os contadores só crescem durante o dia)
+  const last = new Map();
+  for (const r of rows) { try { const d = JSON.parse(r.data); if (d.data && d.apps) last.set(r.dono + "|" + d.data, d); } catch (_) {} }
+  const byApp = {};   // app -> date -> {ok, falhas}
+  for (const d of last.values()) for (const [app, v] of Object.entries(d.apps)) {
+    const a = (byApp[app] ||= {}); const x = (a[d.data] ||= { ok: 0, falhas: 0 });
+    x.ok += Number(v.ok) || 0; x.falhas += Number(v.falhas) || 0;
+  }
+  const today = brtDate(0);
+  const days = [...Array(8).keys()].map((i) => brtDate(7 - i));
+  return Object.entries(byApp).map(([app, dates]) => {
+    const hoje = dates[today] || { ok: 0, falhas: 0 };
+    const prev = days.slice(0, -1).map((d) => dates[d]).filter(Boolean);
+    const all = Object.values(dates).reduce((a, x) => ({ ok: a.ok + x.ok, falhas: a.falhas + x.falhas }), { ok: 0, falhas: 0 });
+    return {
+      app, hoje, status: healthStatus(hoje, prev),
+      taxa_hoje: hoje.ok + hoje.falhas ? hoje.ok / (hoje.ok + hoje.falhas) : null,
+      taxa_7d: all.ok + all.falhas ? all.ok / (all.ok + all.falhas) : null,
+      dias: days.map((d) => { const x = dates[d]; return { data: d, taxa: x && x.ok + x.falhas ? x.ok / (x.ok + x.falhas) : null, total: x ? x.ok + x.falhas : 0 }; }),
+    };
+  }).sort((a, b) => (b.hoje.ok + b.hoje.falhas) - (a.hoje.ok + a.hoje.falhas));
+}
+
+// ============================== Resumo da semana ==============================
+const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+
+async function dayTotals(db, scope, from, to) {
+  // diário sincronizado (fonte principal) — soma por data
+  const { conds, args } = scopeWhere(scope);
+  const rows = (await db.prepare(`SELECT date, data FROM user_days WHERE date >= ? AND date <= ? ${conds.length ? "AND " + conds.join(" AND ") : ""}`)
+    .bind(from, to, ...args).all()).results || [];
+  const nowMs = Date.now(), byDate = {}, byApp = {};
+  for (const r of rows) {
+    let d; try { d = JSON.parse(r.data); } catch (_) { continue; }
+    const ganho = Object.values(d.earnings || {}).reduce((a, v) => a + (Number(v) || 0), 0);
+    const km = d.kmStart != null && d.kmEnd != null && d.kmEnd >= d.kmStart ? d.kmEnd - d.kmStart : 0;
+    let horas = 0;
+    if (d.startAt) {
+      const end = d.endAt || (r.date === brtDate(0) ? nowMs : d.startAt);
+      const open = d.pauseAt ? Math.max(0, end - d.pauseAt) : 0;
+      horas = Math.max(0, end - d.startAt - (d.pausedMs || 0) - open) / 3600_000;
+    }
+    const custo = (Number(d._custo_km) || 0) * km;
+    const x = (byDate[r.date] ||= { ganho: 0, km: 0, horas: 0, liquido: 0 });
+    x.ganho += ganho; x.km += km; x.horas += horas; x.liquido += ganho - custo;
+    for (const [app, v] of Object.entries(d.earnings || {})) byApp[app] = (byApp[app] || 0) + (Number(v) || 0);
+  }
+  const tot = Object.values(byDate).reduce((a, x) => ({ ganho: a.ganho + x.ganho, km: a.km + x.km, horas: a.horas + x.horas, liquido: a.liquido + x.liquido }),
+    { ganho: 0, km: 0, horas: 0, liquido: 0 });
+  return { ...tot, dias: Object.keys(byDate).length, byDate, byApp,
+    r_km: tot.km > 0 ? tot.ganho / tot.km : null, r_h: tot.horas > 0 ? tot.ganho / tot.horas : null };
+}
+
+async function weeklySummary(db, scope) {
+  const cur = { from: brtDate(6), to: brtDate(0) }, prev = { from: brtDate(13), to: brtDate(7) };
+  const [a, b] = await Promise.all([dayTotals(db, scope, cur.from, cur.to), dayTotals(db, scope, prev.from, prev.to)]);
+  // ofertas da semana: melhor horário e melhor app em R$/km
+  const { conds, args } = scopeWhere(scope);
+  const w = conds.length ? "AND " + conds.join(" AND ") : "";
+  const horas = (await db.prepare(`SELECT CAST(substr(t,12,2) AS INTEGER) AS h, COUNT(*) AS n, SUM(json_extract(data,'$.cor')='GREEN') AS verdes
+      FROM events WHERE tipo='offer' AND substr(t,1,10) >= ? ${w} GROUP BY h`).bind(cur.from, ...args).all()).results || [];
+  const apps = (await db.prepare(`SELECT app, COUNT(*) AS n, SUM(json_extract(data,'$.preco')) / NULLIF(SUM(json_extract(data,'$.km')),0) AS r_km,
+      SUM(json_extract(data,'$.cor')='GREEN') AS verdes FROM events WHERE tipo='offer' AND substr(t,1,10) >= ? ${w} GROUP BY app`).bind(cur.from, ...args).all()).results || [];
+
+  const pct = (x, y) => (y ? (x - y) / y : null);
+  const comp = (k) => ({ atual: a[k], anterior: b[k], variacao: pct(a[k], b[k]) });
+  const bestDay = Object.entries(a.byDate).sort((x, y) => y[1].ganho - x[1].ganho)[0];
+  const bestHour = horas.filter((h) => h.n >= 5).sort((x, y) => y.verdes / y.n - x.verdes / x.n)[0];
+  const appNames = (k) => APP_NAMES[k] || k;
+  const bestApp = apps.filter((x) => x.n >= 5 && x.r_km).sort((x, y) => y.r_km - x.r_km)[0];
+  const topEarn = Object.entries(a.byApp).sort((x, y) => y[1] - x[1])[0];
+  const money = (v) => "R$ " + Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const frases = [];
+  if (!a.dias) frases.push("Nenhum turno registrado nos últimos 7 dias. Quando você rodar, o resumo aparece aqui.");
+  else {
+    let f = `Você trabalhou ${a.dias} dia(s) e ganhou ${money(a.ganho)}`;
+    if (b.dias && a.ganho && b.ganho) { const v = pct(a.ganho, b.ganho); f += v >= 0 ? `, ${Math.round(v * 100)}% a mais que a semana anterior` : `, ${Math.round(-v * 100)}% a menos que a semana anterior`; }
+    frases.push(f + ".");
+    if (a.liquido) frases.push(`Depois do custo do veículo sobraram ${money(a.liquido)}${a.horas ? ` (${money(a.liquido / a.horas)} por hora)` : ""}.`);
+    if (bestDay) { const [d, v] = bestDay; frases.push(`Melhor dia: ${DIAS_SEMANA[new Date(d + "T12:00:00Z").getUTCDay()]} (${d.slice(8)}/${d.slice(5, 7)}), com ${money(v.ganho)}.`); }
+    if (topEarn) frases.push(`App que mais rendeu: ${topEarn[0]} (${money(topEarn[1])}).`);
+  }
+  if (bestHour) frases.push(`Melhor horário: ${bestHour.h}h, com ${Math.round(bestHour.verdes / bestHour.n * 100)}% das ofertas no verde.`);
+  if (bestApp) frases.push(`Melhor R$/km nas ofertas: ${appNames(bestApp.app)} (${money(bestApp.r_km)}/km).`);
+  const dicas = [];
+  if (bestHour && bestHour.verdes / bestHour.n >= 0.5) dicas.push(`Concentre o turno perto das ${bestHour.h}h: é quando mais aparece oferta boa.`);
+  const worst = apps.filter((x) => x.n >= 8).sort((x, y) => x.verdes / x.n - y.verdes / y.n)[0];
+  if (worst && worst.verdes / worst.n < 0.15) dicas.push(`${appNames(worst.app)} quase não deu oferta verde (${Math.round(worst.verdes / worst.n * 100)}%). Vale rever se compensa deixar ligado.`);
+  if (a.r_km && b.r_km && a.r_km < b.r_km * 0.9) dicas.push(`Seu R$/km caiu de ${money(b.r_km)} para ${money(a.r_km)}. Fique de olho nas corridas longas e na busca.`);
+
+  return {
+    periodo: cur, anterior: prev, frases, dicas,
+    comparacao: { ganho: comp("ganho"), liquido: comp("liquido"), km: comp("km"), horas: comp("horas"), r_km: comp("r_km"), r_h: comp("r_h"), dias: comp("dias") },
+  };
 }
 
 const PANEL_HTML = `<!DOCTYPE html>
@@ -621,6 +752,13 @@ header{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:s
 .sel{color:var(--text);font:600 13px Inter,system-ui;padding:9px 12px;appearance:none;cursor:pointer}
 .sel option{background:#151A21}
 .acct{cursor:pointer;font:500 12px Inter,system-ui;color:var(--muted)}.acct:hover{color:var(--text)}
+.week{background:linear-gradient(135deg,rgba(96,165,250,.12),rgba(22,27,35,.75) 60%);border-color:rgba(96,165,250,.22)}
+.week ul{margin:6px 0 0;padding-left:20px}.week li{margin:5px 0}.week .tips{margin-top:12px;padding:12px 14px;border-radius:14px;background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.2)}
+.cmp{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.cmp span{font-size:12px;padding:6px 10px;border-radius:10px;background:rgba(0,0,0,.25);border:1px solid var(--line)}
+.up{color:var(--green)}.down{color:var(--red)}
+.hs{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}.hs.OK{background:rgba(34,197,94,.15);color:var(--green)}.hs.ATENCAO{background:rgba(245,176,20,.15);color:var(--yellow)}
+.hs.PROBLEMA{background:rgba(239,68,68,.15);color:var(--red)}.hs.SEM_DADOS{background:rgba(255,255,255,.06);color:var(--muted)}
+.alert{margin-top:14px;padding:14px 16px;border-radius:16px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);font-size:14px}
 .users{display:grid;gap:8px}.u{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.025);border:1px solid var(--line)}
 .u .b{display:flex;gap:6px;flex-wrap:wrap}.u button{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:7px 10px;font:600 12px Inter,system-ui;cursor:pointer}
 .u .off{opacity:.5}.tagA{font-size:11px;font-weight:700;color:#1C1300;background:var(--acc);padding:1px 7px;border-radius:999px;margin-left:6px}
@@ -730,11 +868,14 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
     <div class="card hero" id="hero"></div>
     <div class="card" id="cores"></div>
   </div>
+  <div id="healthAlert"></div>
+  <div class="card week" style="margin-top:14px" id="semana"></div>
   <div class="grid k4" style="margin-top:14px" id="kpis"></div>
   <div class="grid row2" style="margin-top:14px">
     <div class="card"><div class="ov">Ganhos por dia <span class="tag">turnos encerrados</span></div><div id="chartDias"></div></div>
     <div class="card"><div class="ov">Horários <span class="tag">% de ofertas verdes</span></div><div id="chartHoras"></div></div>
   </div>
+  <section><h2>Saúde do leitor <span>quanto o Farol consegue ler das ofertas de cada app</span></h2><div class="grid apps" id="saude"></div></section>
   <section><h2>Por app</h2><div class="grid apps" id="apps"></div></section>
   <section><h2>Últimas ofertas <span id="offCount"></span></h2><div class="card"><div class="offs" id="ultimas"></div></div></section>
   <section><h2>Pedidos <span>tempo medido pelo app</span></h2><div class="grid apps" id="pedidos"></div></section>
@@ -779,9 +920,9 @@ async function load(){
   $("#login").hidden=true;$("#app").hidden=false;last=d;render(d);
   if(d.admin){loadUsers();loadCrashes();}
 }
-function spark(vals,color){
+function spark(vals,color,lo,hi){
   vals=vals.filter(v=>v!=null&&!isNaN(v));if(vals.length<2)return"";
-  const mx=Math.max(...vals),mn=Math.min(...vals),W=84,H=30,sp=(mx-mn)||1;
+  const mx=hi!=null?hi:Math.max(...vals),mn=lo!=null?lo:Math.min(...vals),W=84,H=30,sp=(mx-mn)||1;
   const pts=vals.map((v,i)=>[i/(vals.length-1)*W,H-3-(v-mn)/sp*(H-6)]);
   const d="M"+pts.map(p=>p.map(n=>n.toFixed(1)).join(",")).join("L");
   return '<svg class="spark" viewBox="0 0 84 30"><path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="'+pts.at(-1)[0]+'" cy="'+pts.at(-1)[1]+'" r="2.6" fill="'+color+'"/></svg>';
@@ -842,6 +983,26 @@ function renderOffers(){
   $("#ultimas").innerHTML=d.ultimas.length?list.map(offerRow).join("")+(d.ultimas.length>8?'<button class="more" id="more">'+(showAll?"Mostrar menos":"Ver todas ("+d.ultimas.length+")")+'</button>':""):'<div class="empty">Sem ofertas no período.</div>';
   const m=$("#more");if(m)m.onclick=()=>{showAll=!showAll;renderOffers();};
 }
+function arrow(v,neutral){if(v==null)return"";const up=v>=0;return' <b class="'+(neutral?"":up?"up":"down")+'" style="'+(neutral?"color:var(--muted)":"")+'">'+(up?"▲":"▼")+Math.abs(Math.round(v*100))+'%</b>';}
+function renderWeek(w){
+  if(!w){$("#semana").innerHTML="";return;}
+  const c=w.comparacao,f=(k,fmt)=>c[k].atual==null?"—":fmt(c[k].atual);
+  $("#semana").innerHTML='<div class="ov">📅 Sua semana <span class="tag">'+dm(w.periodo.from)+' a '+dm(w.periodo.to)+' · comparado com os 7 dias anteriores</span></div>'+
+    '<ul>'+w.frases.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>'+
+    (c.dias.atual?'<div class="cmp"><span>Ganhos '+f("ganho",brl)+arrow(c.ganho.variacao)+'</span><span>Líquido '+f("liquido",brl)+arrow(c.liquido.variacao)+'</span><span>R$/km '+f("r_km",brl)+arrow(c.r_km.variacao)+'</span><span>R$/h '+f("r_h",brl)+arrow(c.r_h.variacao)+'</span><span>'+num(c.km.atual)+' km'+arrow(c.km.variacao,true)+'</span><span>'+hm(c.horas.atual)+arrow(c.horas.variacao,true)+'</span></div>':'')+
+    (w.dicas.length?'<div class="tips"><b>💡 Dicas</b><ul>'+w.dicas.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>':'');
+}
+const HS={OK:"lendo bem",ATENCAO:"atenção",PROBLEMA:"problema",SEM_DADOS:"poucos dados hoje"};
+function renderHealth(list){
+  const bad=list.filter(h=>h.status==="PROBLEMA");
+  $("#healthAlert").innerHTML=bad.length?'<div class="alert">⚠️ <b>O Farol está com dificuldade para ler '+bad.map(h=>esc(h.app)).join(", ")+'.</b> O app pode ter mudado a tela. Ligue “Compartilhar textos das telas” por um tempo para eu ajustar o leitor.</div>':"";
+  $("#saude").innerHTML=list.length?list.map(h=>{
+    const pct=h.taxa_hoje==null?"—":Math.round(h.taxa_hoje*100)+"%";
+    const sp=spark(h.dias.map(d=>d.taxa==null?null:d.taxa*100),h.status==="PROBLEMA"?"#EF4444":h.status==="ATENCAO"?"#F5B014":"#22C55E",0,100);
+    return '<div class="card app kpi">'+sp+'<div class="hd"><div class="badge" style="background:'+appc(h.app)+'">'+esc(h.app.slice(0,2))+'</div><div><div class="nm">'+esc(h.app)+'</div><div class="cnt"><span class="hs '+h.status+'">'+HS[h.status]+'</span></div></div></div>'+
+      '<div class="big">'+pct+' <small>lidas hoje</small></div><div class="sub">'+h.hoje.ok+' lidas · '+h.hoje.falhas+' não lidas'+(h.taxa_7d!=null?' · 7 dias: '+Math.round(h.taxa_7d*100)+'%':'')+'</div></div>';
+  }).join(""):'<div class="empty">Ainda sem dados. Eles aparecem quando você rodar com o Farol 6.2 ou mais novo.</div>';
+}
 function render(d){
   const s=d.resumo,p=d.periodo,days=d.dias;
   $("#who").textContent=d.eu?(d.eu.nome||d.eu.email).split(" ")[0]:"admin";
@@ -867,6 +1028,7 @@ function render(d){
       '<div class="big">'+brl(a.r_km)+' <small>/km</small></div><div class="meter"><i style="width:'+pct+'%"></i></div><div class="sub">'+pct+'% verdes</div>'+
       '<div class="ft"><span>Preço <b>'+brl(a.preco)+'</b></span><span>Km <b>'+num(a.km)+'</b></span><span><b>'+brl(a.r_h)+'</b>/h</span></div></div>';}).join(""):'<div class="empty">Sem ofertas no período.</div>';
   renderOffers();
+  renderWeek(d.semana);renderHealth(d.saude||[]);
   $("#pedidos").innerHTML=d.pedidos.length?d.pedidos.map(x=>'<div class="card app"><div class="hd"><div class="badge" style="background:'+appc(x.app)+'">'+esc(x.app.slice(0,2))+'</div><div><div class="nm">'+esc(x.app)+'</div><div class="cnt">'+x.n+' pedidos</div></div></div>'+
     '<div class="ft" style="margin-top:0"><span>Até coletar <b>'+num(x.coleta,0)+' min</b></span><span>Até entregar <b>'+num(x.entrega,0)+' min</b></span></div></div>').join(""):'<div class="empty">Nenhum pedido medido no período.</div>';
 }
