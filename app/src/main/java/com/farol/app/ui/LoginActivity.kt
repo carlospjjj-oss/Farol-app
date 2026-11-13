@@ -26,6 +26,9 @@ class LoginActivity : Activity() {
     private lateinit var etEmail: EditText
     private lateinit var etPass: EditText
     private lateinit var etPass2: EditText
+    private lateinit var cbAccept: android.widget.CheckBox
+    private lateinit var cbShare: android.widget.CheckBox
+    private lateinit var consentBox: View
     private lateinit var btn: View
     private lateinit var btnLabel: android.widget.TextView
     private lateinit var msg: android.widget.TextView
@@ -52,6 +55,18 @@ class LoginActivity : Activity() {
         }
         nameBox = labeled("Nome", etName)
         confirmBox = labeled("Confirmar senha", etPass2)
+        cbAccept = android.widget.CheckBox(this).apply { text = "Li e aceito o Aviso de Privacidade"; setTextColor(Palette.TEXT) }
+        cbShare = android.widget.CheckBox(this).apply {
+            text = "Opcional: compartilhar os textos das telas para melhorar o leitor"; setTextColor(Palette.MUTED); textSize = 13f
+        }
+        consentBox = k.vbox().apply {
+            addView(k.text("📄 Ler o Aviso de Privacidade", 13, Palette.ACCENT, k.bold).apply {
+                isClickable = true
+                setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(Account.policyUrl(this@LoginActivity)))) }
+            })
+            addView(cbAccept, k.lp(top = 6))
+            addView(cbShare)
+        }
         msg = k.text("", 13, Palette.RED).apply { gravity = Gravity.CENTER }
         btn = k.pill("Entrar") { submit() }
         btnLabel = (btn as? android.widget.TextView) ?: k.text()
@@ -62,6 +77,7 @@ class LoginActivity : Activity() {
             addView(labeled("E-mail", etEmail), k.lp(top = 14))
             addView(labeled("Senha", etPass), k.lp(top = 14))
             addView(confirmBox, k.lp(top = 14))
+            addView(consentBox, k.lp(top = 12))
             addView(msg, k.lp(top = 12))
             addView(btn, k.lp(top = 6))
         }
@@ -106,6 +122,7 @@ class LoginActivity : Activity() {
         }
         nameBox.visibility = if (register) View.VISIBLE else View.GONE
         confirmBox.visibility = if (register) View.VISIBLE else View.GONE
+        consentBox.visibility = if (register) View.VISIBLE else View.GONE
         btnLabel.text = if (register) "Criar conta" else "Entrar"
     }
 
@@ -124,13 +141,14 @@ class LoginActivity : Activity() {
             pass.length < (if (register) 8 else 1) -> return fail(if (register) "A senha precisa ter pelo menos 8 caracteres" else "Digite a senha")
             register && name.isEmpty() -> return fail("Digite seu nome")
             register && pass != etPass2.text.toString() -> return fail("As senhas não são iguais")
+            register && !cbAccept.isChecked -> return fail("Para criar a conta, aceite o Aviso de Privacidade")
         }
         busy = true
         msg.setTextColor(Palette.MUTED); msg.text = if (register) "Criando conta…" else "Entrando…"
         btn.alpha = 0.6f
         val dev = deviceId()
         Thread {
-            val r = runCatching { Account.authenticate(this, register, email, pass, name, dev) }
+            val r = runCatching { Account.authenticate(this, register, email, pass, name, dev, cbAccept.isChecked, cbShare.isChecked) }
             runOnUiThread {
                 busy = false; btn.alpha = 1f
                 r.onSuccess {

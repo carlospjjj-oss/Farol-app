@@ -5,7 +5,7 @@ verde/amarelo/vermelho com **R$/km, R$/h e lucro líquido** calculado com os **s
 Também funciona como diário do dia: turno, ganhos por app, abastecimento, tempo por pedido e melhores horários.
 Tudo fica no celular; os logs (opcionais) vão para um repositório **privado** seu.
 
-**Versão atual: 6.0**
+**Versão atual: 6.1**
 
 ```
 ┌──┬────────────────────────────────┐
@@ -204,6 +204,7 @@ app/src/test/  98 testes + 7 no emulador, quase todos com textos REAIS de oferta
 
 | Versão | Principais mudanças |
 |---|---|
+| 6.1 | LGPD: Aviso de Privacidade (servidor `/privacidade`), aceite no cadastro e para contas existentes, compartilhar textos das telas opcional (desligado por padrão; sem ele o texto não sai do celular), Ajustes → Privacidade com baixar meus dados e excluir conta; documentos em `docs/lgpd/` (registro das operações, RIPD, plano de incidentes, atendimento) |
 | 6.0 | Fase 1 (estrutura): relatório de travamentos no painel; catálogo único de apps; banco SQLite no lugar dos arquivos (sem limite de 5.000 ofertas, migração automática); turnos e abastecimentos sincronizados com a conta (celular novo recebe tudo; painel com ganhos ao vivo); tarefas de fundo pelo JobScheduler; telas separadas por assunto; testes com 102 ofertas reais anonimizadas + 7 testes no emulador Android |
 | 5.4 | Segurança: modos GitHub/Webhook removidos (tokens antigos apagados do celular; logs só pelo servidor com login); acessibilidade só recebe eventos dos apps de corrida/entrega, com modo "descobrir app novo" de 2 min |
 | 5.3 | Atualizador confere SHA-256 do arquivo, pacote, versão e certificado da chave antes de instalar. 99 do carro: km pelos pares "N min (X km)", sem somar a seta de navegação do mapa |

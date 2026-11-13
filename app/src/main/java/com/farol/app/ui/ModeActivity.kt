@@ -20,6 +20,9 @@ class ModeActivity : Activity() {
         if (!com.farol.app.data.Account.isLoggedIn(this)) {
             startActivity(Intent(this, LoginActivity::class.java)); finish(); return
         }
+        if (!com.farol.app.data.Account.consentOk(this)) {   // LGPD: aceite do aviso (versão atual)
+            startActivity(Intent(this, ConsentActivity::class.java)); finish(); return
+        }
         val settings = Settings(this)
         settings.purgeLegacySecrets(true)
         val k = Kit(this)

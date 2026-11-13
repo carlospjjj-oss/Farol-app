@@ -53,6 +53,45 @@ object SecureStore {
 /** Conta do usuário no servidor do Farol (e-mail e senha). */
 object Account {
     const val DEFAULT_SERVER = "https://farol-logs.carlos-pjjj.workers.dev"
+    /** Versão do aviso de privacidade aceita (tem que bater com POLICY_VERSION do servidor). */
+    const val POLICY_VERSION = "2026-11-13"
+
+    fun policyUrl(ctx: Context) = server(ctx) + "/privacidade"
+
+    /** Aceitou a versão atual do aviso de privacidade? */
+    fun consentOk(ctx: Context) = SecureStore.plain(ctx).getString("consent_versao", null) == POLICY_VERSION
+    fun shareScreens(ctx: Context) = SecureStore.plain(ctx).getBoolean("compartilhar", false)
+
+    private fun saveConsent(ctx: Context, versao: String?, share: Boolean) {
+        SecureStore.plain(ctx).edit().putString("consent_versao", versao).putBoolean("compartilhar", share).apply()
+    }
+
+    /** Registra o aceite (obrigatório) e a escolha opcional de compartilhar textos. Rede: chame fora da tela. */
+    fun giveConsent(ctx: Context, share: Boolean) {
+        val r = post(server(ctx) + "/v1/me/consent", JSONObject().put("aceite", true).put("versao", POLICY_VERSION).put("compartilhar", share), token(ctx))
+        saveConsent(ctx, r.optString("politica", POLICY_VERSION), r.optBoolean("compartilhar", share))
+    }
+
+    /** Baixar meus dados (LGPD art. 18): JSON completo da conta. */
+    fun exportData(ctx: Context): String {
+        val c = URL(server(ctx) + "/v1/me/export").openConnection() as HttpURLConnection
+        try {
+            c.connectTimeout = 15_000; c.readTimeout = 60_000
+            c.setRequestProperty("Authorization", "Bearer ${token(ctx)}")
+            c.setRequestProperty("User-Agent", "Farol-app")
+            val code = c.responseCode
+            val text = (if (code in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.readText().orEmpty()
+            if (code !in 200..299) error(runCatching { JSONObject(text).optString("erro") }.getOrNull()?.ifBlank { null } ?: "erro $code")
+            return text
+        } finally { c.disconnect() }
+    }
+
+    /** Excluir minha conta (LGPD art. 18): apaga tudo no servidor. Exige a senha. */
+    fun deleteAccount(ctx: Context, password: String) {
+        post(server(ctx) + "/v1/me/delete", JSONObject().put("senha", password), token(ctx))
+        clear(ctx)
+        SecureStore.plain(ctx).edit().clear().apply()
+    }
 
     data class User(val id: Long, val email: String, val name: String, val role: String)
 
@@ -69,13 +108,15 @@ object Account {
         Settings(ctx).serverUrl.trim().trimEnd('/').removeSuffix("/v1/logs").ifBlank { DEFAULT_SERVER }
 
     /** Entrar ou criar conta. Roda fora da thread de tela. Lança erro com a mensagem do servidor. */
-    fun authenticate(ctx: Context, register: Boolean, email: String, password: String, name: String, deviceId: String): User {
+    fun authenticate(ctx: Context, register: Boolean, email: String, password: String, name: String, deviceId: String,
+                     acceptedPolicy: Boolean = false, share: Boolean = false): User {
         val body = JSONObject().put("email", email.trim()).put("senha", password).put("device", deviceId).put("origem", "app")
-        if (register) body.put("nome", name.trim())
+        if (register) body.put("nome", name.trim()).put("aceite", acceptedPolicy).put("compartilhar", share)
         val res = post(server(ctx) + if (register) "/v1/auth/register" else "/v1/auth/login", body, null)
         val u = res.getJSONObject("usuario")
         val user = User(u.getLong("id"), u.getString("email"), u.optString("nome"), u.optString("papel", "user"))
         save(ctx, res.getString("token"), user)
+        saveConsent(ctx, u.optString("consent_versao").ifBlank { null }, u.optBoolean("compartilhar", false))
         return user
     }
 

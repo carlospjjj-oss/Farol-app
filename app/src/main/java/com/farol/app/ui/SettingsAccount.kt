@@ -90,6 +90,30 @@ internal fun SettingsActivity.buildAccountSections() {
         }.start()
     })
 
+    // Privacidade (LGPD)
+    val cPriv = card("Privacidade (LGPD)", "Seus dados, suas escolhas")
+    val swShare = toggle(cPriv, "Compartilhar textos das telas (opcional)",
+        "Ajuda a melhorar o leitor quando um app muda a tela. Endereços e telefones vão mascarados. Ao desligar, os textos já enviados são apagados.")
+    swShare.isChecked = com.farol.app.data.Account.shareScreens(this)
+    swShare.setOnCheckedChangeListener { _, on ->
+        Thread {
+            val r = runCatching { com.farol.app.data.Account.giveConsent(this, on) }
+            runOnUiThread {
+                if (r.isSuccess) toast(if (on) "Obrigado! Textos serão compartilhados." else "Desligado. Textos já enviados foram apagados.")
+                else { toast("Sem internet: tente de novo"); swShare.isChecked = !on }
+            }
+        }.start()
+    }
+    buttons(cPriv,
+        "📄 Aviso de Privacidade" to { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(com.farol.app.data.Account.policyUrl(this)))) },
+        "⬇️ Baixar meus dados" to {
+            val name = "farol-meus-dados-" + java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()) + ".json"
+            startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("application/json").putExtra(Intent.EXTRA_TITLE, name), SettingsActivity.REQ_MYDATA)
+        })
+    buttons(cPriv, "🗑 Excluir minha conta" to { askDeleteAccount() })
+    hint(cPriv, "Baixar: arquivo com tudo que está na sua conta (LGPD, art. 18). Excluir: apaga a conta e todos os dados do servidor na hora.")
+
     // Atualizações
     val cUpd = card("Atualizações", "Versão instalada: " + com.farol.app.service.Updater.installedName(this))
     buttons(cUpd, "🔄 Procurar atualização" to { com.farol.app.service.Updater.checkNow(this) }, primaryFirst = true)
@@ -142,3 +166,37 @@ internal fun SettingsActivity.buildAccountSections() {
         "Ver" to { showCapture() },
         "Limpar" to { capture.clear(); toast("Captura apagada") })
 }
+
+/** Excluir conta (LGPD art. 18, VI): confirma com a senha; opcionalmente apaga também os dados deste celular. */
+internal fun SettingsActivity.askDeleteAccount() {
+    val pass = k.field("Sua senha").apply { inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD }
+    val local = android.widget.CheckBox(this).apply { text = "Apagar também os dados deste celular"; setTextColor(Palette.TEXT); isChecked = true }
+    val box = k.vbox(22, 8).apply {
+        addView(k.text("Apaga sua conta, seu diário, ofertas e sessões do servidor. Não dá para desfazer. Se quiser guardar uma cópia, use antes \"Baixar meus dados\".", 13, Palette.MUTED))
+        addView(pass, k.lp(top = 12)); addView(local, k.lp(top = 8))
+    }
+    val d = android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        .setTitle("Excluir minha conta").setView(box).setPositiveButton("Excluir", null).setNegativeButton("Cancelar", null).create()
+    d.setOnShowListener {
+        d.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val p = pass.text.toString()
+            if (p.isEmpty()) { toast("Digite sua senha"); return@setOnClickListener }
+            Thread {
+                val r = runCatching { com.farol.app.data.Account.deleteAccount(this, p) }
+                runOnUiThread {
+                    r.onSuccess {
+                        if (local.isChecked) {
+                            runCatching { com.farol.app.service.GpsService.stop(this) }
+                            listOf("farol.db", "farol_carro.db").forEach { deleteDatabase(it) }
+                            filesDir.listFiles()?.forEach { f -> runCatching { f.deleteRecursively() } }
+                        }
+                        d.dismiss(); toast("Conta excluída")
+                        startActivity(Intent(this, LoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+                    }.onFailure { toast(it.message ?: "Não deu para excluir") }
+                }
+            }.start()
+        }
+    }
+    d.show()
+}
+

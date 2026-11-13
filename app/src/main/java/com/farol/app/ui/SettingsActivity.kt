@@ -478,7 +478,7 @@ class SettingsActivity : Activity() {
         }
     }
 
-    companion object { internal const val REQ_EXPORT = 31; internal const val REQ_IMPORT = 32 }
+    companion object { internal const val REQ_EXPORT = 31; internal const val REQ_IMPORT = 32; internal const val REQ_MYDATA = 33 }
 
     @Deprecated("startActivityForResult é suficiente aqui (sem AndroidX)")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -490,6 +490,16 @@ class SettingsActivity : Activity() {
                 REQ_EXPORT -> {
                     contentResolver.openOutputStream(uri)?.use { it.write(com.farol.app.data.Backup.export(this).toByteArray()) }
                     toast("Backup salvo ✓")
+                }
+                REQ_MYDATA -> {
+                    toast("Baixando seus dados…")
+                    Thread {
+                        val r = runCatching {
+                            val json = com.farol.app.data.Account.exportData(this)
+                            contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                        }
+                        runOnUiThread { toast(if (r.isSuccess) "Seus dados foram salvos ✓" else "Não deu: ${r.exceptionOrNull()?.message}") }
+                    }.start()
                 }
                 REQ_IMPORT -> {
                     val json = contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: return

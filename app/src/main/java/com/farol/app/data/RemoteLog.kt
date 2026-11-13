@@ -92,7 +92,7 @@ class RemoteLog private constructor(context: Context) {
     }
 
     fun miss(pkg: String, source: String, raw: String, extra: String? = null) {
-        if (!enabled) return
+        if (!enabled || !share) return   // "miss" é só texto: sem consentimento, não sai do celular
         // Contadores (ex.: "15 s") mudam o texto toda hora: compara sem dígitos e segura 20 s.
         val key = pkg + raw.replace(Regex("""\d"""), "").take(500)
         val now = SystemClock.elapsedRealtime()
@@ -111,7 +111,7 @@ class RemoteLog private constructor(context: Context) {
      * Só envia quando a tela muda de verdade (sem contar números) e no máximo 1 a cada 20 s por app.
      */
     fun screen(pkg: String, source: String, raw: String, minutesSinceOffer: Int) {
-        if (!enabled) return
+        if (!enabled || !share) return   // telas são só texto: sem consentimento, não saem do celular
         val key = raw.replace(Regex("""\d"""), "").replace(Regex("""\s+"""), " ").take(600)
         val now = SystemClock.elapsedRealtime()
         if (key == lastScreenKey[pkg]) return
@@ -209,11 +209,14 @@ class RemoteLog private constructor(context: Context) {
         .put("modo", settings.vehicleMode)
         .put("app", pkg)
         .put("fonte", source)
-        .put("texto", clean(raw))
+        .apply { if (share) put("texto", clean(raw)) }
         .put("versao", appVersion)
         .put("aparelho", deviceId)
 
     private fun clean(s: String) = if (settings.maskAddresses) LogSanitizer.mask(s) else s
+
+    /** LGPD: o texto das telas só sai do celular com o consentimento opcional. */
+    private val share: Boolean get() = Account.shareScreens(ctx)
 
     private fun enqueue(o: JSONObject) = synchronized(lock) {
         outbox.appendText(o.toString() + "\n")

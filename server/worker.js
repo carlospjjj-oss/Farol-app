@@ -19,6 +19,9 @@
 //
 // A tabela é criada sozinha no primeiro envio.
 
+// Versão da política de privacidade. Mudou o texto de forma importante? Troque a data: o app pede o aceite de novo.
+const POLICY_VERSION = "2026-11-13";
+
 const MAX_BODY = 512 * 1024;      // 512 KB por lote
 const MAX_EVENTS = 500;           // eventos por lote
 const MAX_BATCHES_PER_HOUR = 120; // por celular
@@ -63,6 +66,10 @@ const MIGRATIONS = [
   `ALTER TABLE events ADD COLUMN user_id INTEGER`,
   `ALTER TABLE batches ADD COLUMN user_id INTEGER`,
   `CREATE INDEX IF NOT EXISTS ev_user_time ON events(user_id, t)`,
+  // LGPD: consentimento por conta
+  `ALTER TABLE users ADD COLUMN consent_versao TEXT`,
+  `ALTER TABLE users ADD COLUMN consent_em INTEGER`,
+  `ALTER TABLE users ADD COLUMN compartilhar INTEGER NOT NULL DEFAULT 0`,
 ];
 
 let schemaReady = false;
@@ -83,12 +90,15 @@ export default {
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/v1/ping")) {
       return json({ ok: true, servico: "farol-logs", banco: !!env.DB, copia_github: !!env.GH_TOKEN });
     }
+    if (req.method === "GET" && (url.pathname === "/privacidade" || url.pathname === "/privacy")) {
+      return new Response(privacyHtml(env), { headers: { "content-type": "text/html; charset=utf-8" } });
+    }
     if (req.method === "GET" && url.pathname === "/painel") {
       return new Response(PANEL_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
     }
     if (!env.DB) return json({ erro: "banco D1 não ligado (Bindings → DB)" }, 500);
     await ensureSchema(env.DB);
-    if (url.pathname.startsWith("/v1/auth/") || url.pathname.startsWith("/v1/admin/")) return authRoutes(req, env, url);
+    if (url.pathname.startsWith("/v1/auth/") || url.pathname.startsWith("/v1/admin/") || url.pathname.startsWith("/v1/me/")) return authRoutes(req, env, url);
     if (url.pathname === "/v1/sync" && req.method === "POST") return syncRoute(req, env);
     if (req.method === "GET" && url.pathname === "/api/painel") return panelApi(req, env, url);
     if (req.method !== "POST" || url.pathname !== "/v1/logs") return json({ erro: "rota inválida" }, 404);
@@ -98,6 +108,8 @@ export default {
     if (sess === "invalid") return json({ erro: "sessão expirada, entre de novo" }, 401);
     if (!sess && env.REQUIRE_LOGIN === "1") return json({ erro: "faça login no app" }, 401);
     const userId = sess ? sess.user_id : null;
+    // LGPD: sem o consentimento opcional, o texto das telas não é guardado (só os números).
+    const share = !sess || sess.compartilhar === 1;
 
     const len = Number(req.headers.get("content-length") || 0);
     if (len > MAX_BODY) return json({ erro: "lote grande demais" }, 413);
@@ -124,12 +136,17 @@ export default {
     const s = (v, n) => (v == null ? null : String(v).slice(0, n));
     const ins = db.prepare(
       "INSERT INTO events (device, user_id, received_at, t, tipo, modo, app, versao, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    if (!share) {
+      for (const e of eventos) { delete e.texto; delete e.texto_acessibilidade; delete e.pacotes_vistos; }
+      for (let i = eventos.length - 1; i >= 0; i--) if (eventos[i].tipo === "tela" || eventos[i].tipo === "miss") eventos.splice(i, 1);
+      if (!eventos.length) return json({ ok: true, gravados: 0 });
+    }
     const stmts = eventos.map((e) =>
       ins.bind(device, userId, now, s(e.t, 40), s(e.tipo, 20), s(e.modo, 10), s(e.app, 40), versao, JSON.stringify(e)));
     stmts.push(db.prepare("INSERT INTO batches (device, user_id, received_at, n) VALUES (?, ?, ?, ?)").bind(device, userId, now, eventos.length));
     await db.batch(stmts);
 
-    if (env.GH_TOKEN && env.GH_REPO) ctx.waitUntil(mirrorToGitHub(env, userId ? "u" + userId : device, eventos).catch(() => {}));
+    if (share && env.GH_TOKEN && env.GH_REPO) ctx.waitUntil(mirrorToGitHub(env, userId ? "u" + userId : device, eventos).catch(() => {}));
 
     ctx.waitUntil(maintenance(env).catch(() => {}));
     return json({ ok: true, gravados: eventos.length });
@@ -159,6 +176,7 @@ async function maintenance(env, force = false) {
                   AND (json_extract(data,'$.texto') IS NOT NULL OR json_extract(data,'$.texto_acessibilidade') IS NOT NULL) LIMIT ${BATCH})`).bind(tCut),
     db.prepare(`DELETE FROM events WHERE id IN (SELECT id FROM events WHERE tipo = 'tela' AND received_at < ? LIMIT ${BATCH})`).bind(sCut),
     db.prepare("DELETE FROM sessions WHERE visto < ?").bind(now - SESSION_DAYS * 86400_000),
+    db.prepare(`DELETE FROM events WHERE id IN (SELECT id FROM events WHERE tipo = 'crash' AND received_at < ? LIMIT ${BATCH})`).bind(now - 180 * 86400_000),
     db.prepare("DELETE FROM batches WHERE received_at < ?").bind(now - 7 * 86400_000),
     db.prepare("DELETE FROM attempts WHERE ts < ?").bind(now - 86400_000),
   ]);
@@ -231,7 +249,7 @@ async function sessionFrom(req, env) {
   if (!m) return null;
   const th = await sha256hex(m[1]);
   const row = await env.DB.prepare(
-    `SELECT s.user_id, s.visto, u.email, u.nome, u.papel, u.ativo FROM sessions s JOIN users u ON u.id = s.user_id
+    `SELECT s.user_id, s.visto, u.email, u.nome, u.papel, u.ativo, u.compartilhar, u.consent_versao FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ?`).bind(th).first();
   const now = Date.now();
   if (!row || !row.ativo || now - row.visto > SESSION_DAYS * 86400_000) return "invalid";
@@ -259,7 +277,8 @@ async function novaSessao(env, user, device, origem) {
   }
   stmts.push(db.prepare("DELETE FROM attempts WHERE ts < ?").bind(now - 86400_000));
   await db.batch(stmts);
-  return { token, usuario: { id: user.id, email: user.email, nome: user.nome, papel: user.papel } };
+  return { token, politica: POLICY_VERSION, usuario: { id: user.id, email: user.email, nome: user.nome, papel: user.papel,
+    consent_versao: user.consent_versao || null, compartilhar: user.compartilhar === 1 } };
 }
 
 async function authRoutes(req, env, url) {
@@ -276,14 +295,16 @@ async function authRoutes(req, env, url) {
     if (senha.length < 8) return json({ erro: "a senha precisa ter pelo menos 8 caracteres" }, 400);
     if (senha.length > 200) return json({ erro: "senha longa demais" }, 400);
     if (!nome) return json({ erro: "digite seu nome" }, 400);
+    if (body.aceite !== true) return json({ erro: "é preciso aceitar a política de privacidade" }, 400);
     if (await tooMany(db, "reg:" + ip, 5, 3600_000)) return json({ erro: "muitas contas criadas daqui, tente mais tarde" }, 429);
     await marca(db, "reg:" + ip);
     if (await db.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first()) return json({ erro: "já existe conta com esse e-mail" }, 409);
     const primeiro = !(await db.prepare("SELECT 1 FROM users LIMIT 1").first());
     const papel = primeiro || (env.ADMIN_EMAIL && email === env.ADMIN_EMAIL.toLowerCase()) ? "admin" : "user";
-    const r = await db.prepare("INSERT INTO users (email, nome, senha, papel, criado) VALUES (?, ?, ?, ?, ?) RETURNING id")
-      .bind(email, nome, await hashSenha(senha), papel, Date.now()).first();
-    return json(await novaSessao(env, { id: r.id, email, nome, papel }, body.device, body.origem));
+    const now = Date.now(), compartilhar = body.compartilhar === true ? 1 : 0;
+    const r = await db.prepare("INSERT INTO users (email, nome, senha, papel, criado, consent_versao, consent_em, compartilhar) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id")
+      .bind(email, nome, await hashSenha(senha), papel, now, POLICY_VERSION, now, compartilhar).first();
+    return json(await novaSessao(env, { id: r.id, email, nome, papel, consent_versao: POLICY_VERSION, compartilhar }, body.device, body.origem));
   }
 
   if (p === "/v1/auth/login" && req.method === "POST") {
@@ -301,7 +322,51 @@ async function authRoutes(req, env, url) {
   const sess = await sessionFrom(req, env);
   if (!sess || sess === "invalid") return json({ erro: "faça login" }, 401);
 
-  if (p === "/v1/auth/me") return json({ usuario: { id: sess.user_id, email: sess.email, nome: sess.nome, papel: sess.papel } });
+  if (p === "/v1/auth/me") return json({ politica: POLICY_VERSION, usuario: { id: sess.user_id, email: sess.email, nome: sess.nome, papel: sess.papel,
+    consent_versao: sess.consent_versao || null, compartilhar: sess.compartilhar === 1 } });
+
+  // ---- LGPD: consentimento e direitos do titular ----
+  if (p === "/v1/me/consent" && req.method === "POST") {
+    if (body.aceite !== true) return json({ erro: "é preciso aceitar a política para usar a conta" }, 400);
+    await db.prepare("UPDATE users SET consent_versao = ?, consent_em = ?, compartilhar = ? WHERE id = ?")
+      .bind(String(body.versao || POLICY_VERSION), Date.now(), body.compartilhar === true ? 1 : 0, sess.user_id).run();
+    if (body.compartilhar !== true) {   // retirou o consentimento opcional: apaga os textos já guardados
+      await db.prepare(`UPDATE events SET data = json_remove(data, '$.texto', '$.texto_acessibilidade', '$.pacotes_vistos') WHERE user_id = ?`).bind(sess.user_id).run();
+      await db.prepare(`DELETE FROM events WHERE user_id = ? AND tipo IN ('tela','miss')`).bind(sess.user_id).run();
+    }
+    return json({ ok: true, politica: POLICY_VERSION, compartilhar: body.compartilhar === true });
+  }
+  if (p === "/v1/me/export") {
+    const uid = sess.user_id;
+    const all = async (sql) => (await db.prepare(sql).bind(uid).all()).results || [];
+    const [user] = await all("SELECT id, email, nome, papel, ativo, criado, consent_versao, consent_em, compartilhar FROM users WHERE id = ?");
+    const parse = (rows, k = "data") => rows.map((r) => { try { return { ...r, [k]: JSON.parse(r[k]) }; } catch { return r; } });
+    return new Response(JSON.stringify({
+      gerado_em: new Date().toISOString(), politica: POLICY_VERSION,
+      conta: user,
+      sessoes: await all("SELECT criado, visto, device, origem FROM sessions WHERE user_id = ?"),
+      diario: parse(await all("SELECT modo, date, data, updated_at FROM user_days WHERE user_id = ? ORDER BY date")),
+      abastecimentos: parse(await all("SELECT modo, at, data, deleted, updated_at FROM user_fuel WHERE user_id = ? ORDER BY at")),
+      eventos: parse(await all("SELECT t, tipo, modo, app, versao, data FROM events WHERE user_id = ? ORDER BY id")),
+    }, null, 1), { headers: { "content-type": "application/json; charset=utf-8",
+      "content-disposition": `attachment; filename="farol-meus-dados-${brtDate(0)}.json"` } });
+  }
+  if (p === "/v1/me/delete" && req.method === "POST") {
+    const u = await db.prepare("SELECT senha FROM users WHERE id = ?").bind(sess.user_id).first();
+    if (!u || !(await confereSenha(String(body.senha || ""), u.senha))) return json({ erro: "senha incorreta" }, 401);
+    const uid = sess.user_id;
+    await db.batch([
+      db.prepare("DELETE FROM events WHERE user_id = ?").bind(uid),
+      db.prepare("DELETE FROM batches WHERE user_id = ?").bind(uid),
+      db.prepare("DELETE FROM user_days WHERE user_id = ?").bind(uid),
+      db.prepare("DELETE FROM user_fuel WHERE user_id = ?").bind(uid),
+      db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(uid),
+      db.prepare("DELETE FROM users WHERE id = ?").bind(uid),
+      // só o número da conta e a data, para o administrador apagar as cópias de análise (arquivos "u<id>")
+      db.prepare("INSERT INTO meta (k, v) VALUES (?, ?)").bind("exclusao:" + uid, String(Date.now())),
+    ]);
+    return json({ ok: true, apagado: true });
+  }
   if (p === "/v1/auth/logout" && req.method === "POST") {
     await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(sess.token_hash).run();
     return json({ ok: true });
@@ -321,11 +386,13 @@ async function authRoutes(req, env, url) {
   if (sess.papel !== "admin") return json({ erro: "só para administrador" }, 403);
   if (p === "/v1/admin/users") {
     const r = await db.prepare(
-      `SELECT u.id, u.email, u.nome, u.papel, u.ativo, u.criado,
+      `SELECT u.id, u.email, u.nome, u.papel, u.ativo, u.criado, u.consent_versao, u.consent_em, u.compartilhar,
          (SELECT MAX(t) FROM events e WHERE e.user_id = u.id) AS ultimo,
          (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id) AS eventos
        FROM users u ORDER BY u.id`).all();
-    return json({ usuarios: r.results || [] });
+    const exc = (await db.prepare("SELECT k, v FROM meta WHERE k LIKE 'exclusao:%' ORDER BY v DESC").all()).results || [];
+    return json({ usuarios: r.results || [], politica: POLICY_VERSION,
+      exclusoes: exc.map((x) => ({ conta: "u" + x.k.split(":")[1], em: Number(x.v) })) });
   }
   if (p === "/v1/admin/crashes") {
     const r = await db.prepare(
@@ -642,7 +709,7 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
 <div id="login" class="card" hidden>
   <div class="logo" style="margin:0 auto;width:56px;height:56px"><svg width="30" height="30"><use href="#lt"/></svg></div>
   <h1>Farol <b>Painel</b></h1>
-  <div class="sub">Entre com a mesma conta do app.</div>
+  <div class="sub">Entre com a mesma conta do app. <a href="/privacidade" style="color:var(--acc)">Política de privacidade</a></div>
   <input id="em" type="email" placeholder="E-mail" autocomplete="username">
   <input id="pw" type="password" placeholder="Senha" autocomplete="current-password" style="margin-top:10px">
   <button class="btn" id="go">Entrar</button><div class="err" id="err"></div>
@@ -673,7 +740,7 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
   <section><h2>Pedidos <span>tempo medido pelo app</span></h2><div class="grid apps" id="pedidos"></div></section>
   <section id="secCrash" hidden><h2>Erros do app <span>travamentos enviados pelos celulares</span></h2><div class="card"><div class="users" id="crashes"></div></div></section>
   <section id="secUsers" hidden><h2>Contas <span>só o administrador vê</span></h2><div class="card"><div class="users" id="users"></div></div></section>
-  <footer>Farol · dados do seu servidor Cloudflare</footer>
+  <footer>Farol · dados do seu servidor Cloudflare · <a href="/privacidade" style="color:var(--muted)">Política de privacidade</a></footer>
 </div>
 <script>
 const $=s=>document.querySelector(s);
@@ -814,8 +881,10 @@ async function loadUsers(){
   const r=await fetch("/v1/admin/users",{headers:H()}).catch(()=>null);if(!r||!r.ok)return;
   const d=await r.json();$("#secUsers").hidden=false;
   $("#users").innerHTML=d.usuarios.map(u=>'<div class="u"><div class="'+(u.ativo?"":"off")+'"><b>'+esc(u.nome||"—")+'</b>'+(u.papel==="admin"?'<span class="tagA">admin</span>':'')+
-    '<div class="sub">'+esc(u.email)+' · '+u.eventos+' eventos'+(u.ultimo?' · último '+dm(u.ultimo)+' '+u.ultimo.slice(11,16):'')+(u.ativo?'':' · desativada')+'</div></div>'+
-    '<div class="b"><button data-a="reset" data-id="'+u.id+'">Nova senha</button>'+(u.papel==="admin"?'':'<button data-a="toggle" data-id="'+u.id+'">'+(u.ativo?"Desativar":"Ativar")+'</button>')+'</div></div>').join("");
+    '<div class="sub">'+esc(u.email)+' · '+u.eventos+' eventos'+(u.ultimo?' · último '+dm(u.ultimo)+' '+u.ultimo.slice(11,16):'')+(u.ativo?'':' · desativada')+
+    ' · '+(u.consent_versao===d.politica?'✅ política aceita':'⚠️ falta aceitar a política')+(u.compartilhar?' · compartilha textos':' · sem textos')+'</div></div>'+
+    '<div class="b"><button data-a="reset" data-id="'+u.id+'">Nova senha</button>'+(u.papel==="admin"?'':'<button data-a="toggle" data-id="'+u.id+'">'+(u.ativo?"Desativar":"Ativar")+'</button>')+'</div></div>').join("")+
+    (d.exclusoes&&d.exclusoes.length?'<div class="sub" style="margin-top:8px">🗑 Contas excluídas pelo titular (apagar as cópias de análise com esses nomes): '+d.exclusoes.map(x=>esc(x.conta)+' em '+new Date(x.em).toLocaleDateString("pt-BR")).join(", ")+'</div>':'');
 }
 $("#users").addEventListener("click",async e=>{const b=e.target.closest("button");if(!b)return;const id=+b.dataset.id;
   if(b.dataset.a==="reset"){const s=prompt("Nova senha para esta conta (mínimo 8 caracteres):");if(!s)return;
@@ -824,3 +893,170 @@ $("#users").addEventListener("click",async e=>{const b=e.target.closest("button"
 load();setInterval(()=>{if(tok&&!document.hidden)load()},60000);
 </script></body></html>
 `;
+
+// ============================== Política de privacidade (LGPD) ==============================
+// Texto público em /privacidade. Variáveis (Cloudflare → Settings → Variables):
+//   CONTROLADOR_NOME     nome de quem é responsável pelo Farol (pessoa ou empresa)
+//   CONTATO_PRIVACIDADE  e-mail do canal de privacidade (encarregado / canal do titular)
+function privacyHtml(env) {
+  const ctrl = esc(env.CONTROLADOR_NOME || "Administrador do Farol");
+  const mail = env.CONTATO_PRIVACIDADE ? esc(env.CONTATO_PRIVACIDADE) : "";
+  const contato = mail ? `<a href="mailto:${mail}">${mail}</a>` : "o canal “Privacidade” dentro do app";
+  const V = POLICY_VERSION.split("-").reverse().join("/");
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Farol · Aviso de Privacidade</title><style>
+:root{--acc:#FFB020;--muted:#8A94A3;--line:rgba(255,255,255,.08)}
+body{margin:0;background:#07090D;color:#E8ECF1;font:16px/1.7 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:820px;margin:0 auto;padding:36px 20px 80px}h1{font-size:30px;line-height:1.2;margin:0 0 6px}h1 b{color:var(--acc)}
+h2{font-size:19px;margin:38px 0 10px;padding-top:6px;border-top:1px solid var(--line)}h2 span{color:var(--acc);margin-right:8px}
+h3{font-size:16px;margin:20px 0 6px}.sub{color:var(--muted);font-size:14px}a{color:var(--acc)}
+ul{padding-left:22px}li{margin:6px 0}.box{background:#151A21;border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-top:20px}
+.box b{color:#fff}table{border-collapse:collapse;width:100%;font-size:14px;margin-top:8px}
+td,th{border-bottom:1px solid var(--line);padding:9px 8px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600}
+.toc{columns:2;font-size:14px}.toc a{color:#C9D1DC;text-decoration:none}.tag{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;background:rgba(255,176,32,.15);color:var(--acc)}
+@media(max-width:600px){.toc{columns:1}table{font-size:13px}}
+</style></head><body><main>
+<h1>🚦 Farol · <b>Aviso de Privacidade</b></h1>
+<div class="sub">Versão ${V} · Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — “LGPD”) e regulamentos da ANPD</div>
+
+<div class="box"><b>Resumo em linguagem simples</b>
+<ul>
+<li>O Farol lê as ofertas dos apps de corrida e entrega <b>no seu celular</b> para mostrar, na hora, se a corrida compensa.</li>
+<li>Para guardar seu diário na sua conta e montar seu painel, vão para o servidor <b>números</b> (preço, km, tempo, ganhos), nunca sua localização.</li>
+<li>O <b>texto das telas</b> só sai do celular se você autorizar. Você pode desligar quando quiser, e os textos já guardados são apagados.</li>
+<li>Não vendemos dados, não fazemos publicidade e não lemos outros apps.</li>
+<li>Você pode <b>baixar</b> ou <b>apagar</b> todos os seus dados pelo app, a qualquer momento, sem precisar pedir.</li>
+</ul></div>
+
+<div class="box toc">
+<a href="#s1">1. Quem é o controlador</a><br><a href="#s2">2. Definições</a><br><a href="#s3">3. Dados, finalidades e bases legais</a><br>
+<a href="#s4">4. O que fica só no seu celular</a><br><a href="#s5">5. Acessibilidade e leitura da tela</a><br><a href="#s6">6. Decisões automatizadas</a><br>
+<a href="#s7">7. Compartilhamento e operadores</a><br><a href="#s8">8. Transferência internacional</a><br><a href="#s9">9. Retenção e eliminação</a><br>
+<a href="#s10">10. Seus direitos e como exercê-los</a><br><a href="#s11">11. Segurança da informação</a><br><a href="#s12">12. Incidentes de segurança</a><br>
+<a href="#s13">13. Crianças e adolescentes</a><br><a href="#s14">14. Armazenamento local no navegador</a><br><a href="#s15">15. Princípios que seguimos</a><br>
+<a href="#s16">16. Alterações e histórico</a>
+</div>
+
+<h2 id="s1"><span>1.</span>Quem é o controlador e como falar com ele</h2>
+<p><b>Controlador:</b> ${ctrl}, responsável pelas decisões sobre o tratamento de dados pessoais no Farol (app Android, servidor e painel web).</p>
+<p><b>Canal de privacidade (encarregado ou canal do titular):</b> ${contato}. Por este canal você exerce seus direitos, tira dúvidas e faz reclamações. A ANPD também pode usá-lo para se comunicar conosco.
+Quando o controlador se enquadra como agente de tratamento de pequeno porte, a indicação formal de encarregado é dispensada, mas o canal acima é mantido (Resolução CD/ANPD nº 2/2022, art. 11).</p>
+
+<h2 id="s2"><span>2.</span>Definições</h2>
+<ul>
+<li><b>Dado pessoal:</b> informação relacionada a pessoa natural identificada ou identificável (LGPD, art. 5º, I).</li>
+<li><b>Titular:</b> você, a pessoa a quem os dados se referem.</li>
+<li><b>Tratamento:</b> qualquer operação com dados: coleta, uso, armazenamento, compartilhamento, eliminação etc.</li>
+<li><b>Operador:</b> quem trata dados em nome do controlador (por exemplo, o provedor do servidor).</li>
+<li><b>Oferta:</b> a tela de uma corrida ou entrega oferecida por um app parceiro de mobilidade (Uber, 99, inDrive, iFood, Keeta ou outro que você incluir).</li>
+</ul>
+
+<h2 id="s3"><span>3.</span>Quais dados tratamos, para quê e com qual base legal</h2>
+<table>
+<tr><th>Categoria</th><th>Dados</th><th>Finalidade</th><th>Base legal</th></tr>
+<tr><td>Cadastro</td><td>Nome, e-mail; senha guardada apenas como código irreversível (PBKDF2)</td><td>Criar a conta, autenticar e proteger o acesso</td><td>Execução de contrato (art. 7º, V)</td></tr>
+<tr><td>Sessões</td><td>Código anônimo do aparelho, data de criação e último uso da sessão</td><td>Manter você conectado e permitir encerrar sessões</td><td>Execução de contrato (art. 7º, V)</td></tr>
+<tr><td>Diário</td><td>Turnos (km do painel, horários, pausas), ganhos por app, abastecimentos (km, litros, valor)</td><td>Guardar seu diário na conta, restaurar em outro celular, mostrar no painel</td><td>Execução de contrato (art. 7º, V)</td></tr>
+<tr><td>Números das ofertas</td><td>App, preço, km, tempo, R$/km, R$/h, cor do cartão, data e hora</td><td>Estatísticas do seu painel (melhores horários e apps)</td><td>Execução de contrato (art. 7º, V)</td></tr>
+<tr><td>Configurações</td><td>Custos, faixas do semáforo, apps monitorados, versão do app</td><td>Conferir e dar suporte ao funcionamento</td><td>Execução de contrato (art. 7º, V)</td></tr>
+<tr><td>Segurança</td><td>E-mail tentado e endereço IP em tentativas de login malsucedidas</td><td>Bloquear tentativas de adivinhar senha</td><td>Legítimo interesse e segurança do titular (art. 7º, IX)</td></tr>
+<tr><td>Diagnóstico</td><td>Relatório de travamento: versão, modelo e versão do Android, tela e erro técnico (sem conteúdo pessoal)</td><td>Corrigir falhas</td><td>Legítimo interesse (art. 7º, IX), com expectativa legítima e impacto mínimo</td></tr>
+<tr><td><span class="tag">Opcional</span> Textos das telas</td><td>Texto das ofertas e das telas seguintes dos apps monitorados, com endereços, telefones e CEPs mascarados no próprio celular</td><td>Melhorar o leitor quando um app muda a tela; criar testes anonimizados</td><td>Consentimento (art. 7º, I e art. 8º), revogável a qualquer momento</td></tr>
+</table>
+<p>O Farol <b>não</b> trata dados pessoais sensíveis (art. 5º, II), <b>não</b> envia sua localização ao servidor, <b>não</b> vende nem aluga dados e <b>não</b> usa dados para publicidade ou para formar perfil comercial.
+Quando o legítimo interesse é usado, ele se limita ao estritamente necessário e você pode se opor pelo canal de privacidade (art. 18, § 2º).</p>
+
+<h2 id="s4"><span>4.</span>O que fica só no seu celular</h2>
+<ul>
+<li><b>Localização (GPS):</b> usada apenas no aparelho, durante o turno, para sugerir os km rodados. Não é enviada ao servidor.</li>
+<li><b>Imagens da tela para OCR:</b> processadas em memória pelo reconhecimento de texto no aparelho (Google ML Kit) e descartadas. Nenhuma imagem é guardada ou enviada.</li>
+<li><b>Histórico completo, “modo captura” e fila de envio:</b> em banco protegido pelo Android, acessível só ao app.</li>
+<li><b>Sessão da conta:</b> cifrada com chave guardada no cofre de chaves do aparelho (Android Keystore), fora do backup.</li>
+</ul>
+
+<h2 id="s5"><span>5.</span>Serviço de acessibilidade e leitura da tela</h2>
+<p>O Farol usa o serviço de acessibilidade do Android exclusivamente para <b>ler a oferta</b> dos apps de mobilidade e mostrar o cartão com a avaliação. Ele:</p>
+<ul>
+<li>recebe eventos <b>somente</b> dos apps da sua lista de apps monitorados. Mensagens, bancos, galeria e qualquer outro app não chegam ao Farol;</li>
+<li>não digita, não toca e não aceita corridas por você, e não coleta senhas;</li>
+<li>pode ser desligado a qualquer momento nas configurações de acessibilidade do Android.</li>
+</ul>
+<p>O modo “descobrir app novo” libera, por 2 minutos e só quando você toca nele, a identificação do nome técnico de outros apps, para você incluir um app novo na lista.</p>
+
+<h2 id="s6"><span>6.</span>Decisões automatizadas</h2>
+<p>A cor do cartão (verde, amarelo, vermelho) é uma <b>recomendação</b> calculada automaticamente a partir de critérios que <b>você mesmo define</b> (custos, faixas de R$/km e R$/h, condições mínimas). A decisão de aceitar ou recusar é sempre sua, e a avaliação não produz efeito jurídico nem é compartilhada com os apps de mobilidade.
+Você pode ver e alterar os critérios em Ajustes e pedir informações sobre eles pelo canal de privacidade (art. 20).</p>
+
+<h2 id="s7"><span>7.</span>Compartilhamento e operadores</h2>
+<p>Não compartilhamos seus dados com os apps de mobilidade nem com terceiros para fins próprios deles. Usamos os seguintes operadores, que tratam dados apenas para prestar o serviço:</p>
+<table>
+<tr><th>Operador</th><th>Para quê</th><th>Dados envolvidos</th></tr>
+<tr><td>Cloudflare, Inc. (Workers e banco D1)</td><td>Hospedagem do servidor, do banco e do painel</td><td>Todos os dados da conta descritos na seção 3; registros técnicos de acesso (IP, horário, rota)</td></tr>
+<tr><td>GitHub, Inc.</td><td>Distribuição das atualizações do app; cópia técnica para análise, <b>só</b> se você deu o consentimento opcional</td><td>Na atualização: IP e versão do aparelho que baixa o arquivo. Na cópia técnica: eventos das ofertas e telas</td></tr>
+<tr><td>Google LLC (ML Kit, no aparelho)</td><td>Reconhecimento de texto offline (OCR de reserva)</td><td>Não recebe imagens nem textos. A biblioteca envia ao Google métricas técnicas de uso e desempenho e informações do aparelho (modelo, versão do Android)</td></tr>
+</table>
+<p>Os dados também podem ser fornecidos a autoridades quando houver obrigação legal ou ordem judicial (art. 7º, II e VI), sempre no limite do que for exigido.</p>
+
+<h2 id="s8"><span>8.</span>Transferência internacional</h2>
+<p>Os operadores acima podem armazenar ou processar dados fora do Brasil, inclusive nos Estados Unidos. Essas transferências se apoiam nos mecanismos do art. 33 da LGPD, em especial nas garantias e cláusulas contratuais adotadas pelos provedores, e seguem as medidas de segurança da seção 11.</p>
+
+<h2 id="s9"><span>9.</span>Por quanto tempo guardamos (retenção) e eliminação</h2>
+<table>
+<tr><th>Dado</th><th>Prazo</th></tr>
+<tr><td>Cadastro, diário e números das ofertas</td><td>Enquanto a conta existir. Apagados na hora quando você exclui a conta</td></tr>
+<tr><td>Texto das telas e das ofertas <span class="tag">opcional</span></td><td>Apagado automaticamente após <b>90 dias</b>, ou na hora em que você retira o consentimento</td></tr>
+<tr><td>Eventos de tela (sem texto)</td><td>Até 1 ano</td></tr>
+<tr><td>Sessões sem uso</td><td>Até 180 dias</td></tr>
+<tr><td>Relatórios de travamento</td><td>Até 180 dias</td></tr>
+<tr><td>Tentativas de login (e-mail tentado e IP)</td><td>Até 24 horas</td></tr>
+<tr><td>Registros técnicos do provedor de hospedagem</td><td>Conforme a política do provedor, por poucos dias</td></tr>
+<tr><td>Cópia técnica para análise <span class="tag">opcional</span></td><td>Enquanto o consentimento valer. Eliminada na exclusão da conta ou na retirada do consentimento</td></tr>
+</table>
+<p>Ao fim do tratamento, os dados são eliminados, salvo as hipóteses de conservação do art. 16 da LGPD (por exemplo, cumprimento de obrigação legal). A limpeza automática roda diariamente no servidor.</p>
+
+<h2 id="s10"><span>10.</span>Seus direitos e como exercê-los</h2>
+<p>Você tem os direitos do art. 18 da LGPD. Os principais já estão disponíveis no próprio app, sem precisar de pedido:</p>
+<table>
+<tr><th>Direito</th><th>Como exercer</th></tr>
+<tr><td>Confirmação e acesso (art. 18, I e II)</td><td>App → Ajustes → Privacidade → <b>Baixar meus dados</b> (arquivo completo, na hora)</td></tr>
+<tr><td>Portabilidade (art. 18, V)</td><td>O mesmo arquivo, em formato aberto (JSON), para levar a outro serviço</td></tr>
+<tr><td>Correção (art. 18, III)</td><td>Edite turnos, ganhos e abastecimentos no app; nome e senha em Ajustes → Conta</td></tr>
+<tr><td>Eliminação (art. 18, VI) e exclusão da conta</td><td>App → Ajustes → Privacidade → <b>Excluir minha conta</b> (apaga no servidor na hora)</td></tr>
+<tr><td>Revogação do consentimento (art. 18, IX e art. 8º, § 5º)</td><td>Desligue “Compartilhar textos das telas”. Os textos já guardados são apagados</td></tr>
+<tr><td>Informação sobre compartilhamento (art. 18, VII) e sobre não consentir (VIII)</td><td>Seções 7 e 3 deste aviso. Sem o consentimento opcional o app funciona normalmente</td></tr>
+<tr><td>Oposição, anonimização, bloqueio, revisão de decisão automatizada e demais pedidos</td><td>Canal de privacidade: ${contato}</td></tr>
+</table>
+<p><b>Prazos:</b> respondemos de forma simplificada imediatamente e, quando for preciso uma declaração completa, em até <b>15 dias</b> (art. 19). Para proteger você, podemos confirmar sua identidade pela própria conta logada ou pelo e-mail cadastrado.
+Se não ficar satisfeito, você pode peticionar à <b>Autoridade Nacional de Proteção de Dados (ANPD)</b> em gov.br/anpd (art. 18, § 1º).</p>
+
+<h2 id="s11"><span>11.</span>Segurança da informação</h2>
+<ul>
+<li>Toda a comunicação usa HTTPS. A senha é guardada só como código irreversível (PBKDF2 com sal único).</li>
+<li>A conta é bloqueada temporariamente depois de várias senhas erradas, e cada conta só acessa os próprios dados.</li>
+<li>O app é assinado com chave protegida e confere a assinatura e a impressão digital (SHA-256) de cada atualização antes de instalar.</li>
+<li>Os textos são mascarados no aparelho antes do envio (endereços, telefones e CEPs).</li>
+<li>Seguimos minimização, retenção limitada e acesso administrativo restrito ao controlador.</li>
+</ul>
+<p>Nenhum sistema é 100% invulnerável, mas adotamos medidas técnicas e administrativas aptas a proteger os dados (art. 46).</p>
+
+<h2 id="s12"><span>12.</span>Incidentes de segurança</h2>
+<p>Se ocorrer um incidente que possa acarretar risco ou dano relevante a você, comunicaremos a ANPD e os titulares afetados nos prazos da Resolução CD/ANPD nº 15/2024 (art. 48 da LGPD).
+A comunicação dirá o que aconteceu, quais dados foram afetados, os riscos e as medidas adotadas, e indicará como se proteger.</p>
+
+<h2 id="s13"><span>13.</span>Crianças e adolescentes</h2>
+<p>O Farol se destina a motoristas e entregadores <b>maiores de 18 anos</b>. Não coletamos intencionalmente dados de menores. Se identificarmos uma conta de menor, ela será excluída.</p>
+
+<h2 id="s14"><span>14.</span>Armazenamento local no navegador (painel web)</h2>
+<p>O painel não usa cookies de rastreamento, publicidade ou analytics. Ele guarda apenas o código da sua sessão no armazenamento local do navegador, para manter você conectado. Ao tocar em “Sair”, esse código é apagado.</p>
+
+<h2 id="s15"><span>15.</span>Princípios que seguimos (art. 6º)</h2>
+<p><b>Finalidade</b> e <b>adequação</b> (cada dado tem um propósito declarado), <b>necessidade</b> (o mínimo para funcionar; o resto é opcional), <b>livre acesso</b> e <b>transparência</b> (você baixa tudo quando quiser),
+<b>qualidade</b> (você corrige no app), <b>segurança</b> e <b>prevenção</b>, <b>não discriminação</b>, e <b>responsabilização e prestação de contas</b> (mantemos registro das operações de tratamento, conforme o art. 37).</p>
+
+<h2 id="s16"><span>16.</span>Alterações e histórico de versões</h2>
+<p>Podemos atualizar este aviso. Mudanças relevantes, como nova finalidade, novo dado ou novo operador, serão informadas no app, e seu aceite será pedido de novo antes de continuar.</p>
+<table><tr><th>Versão</th><th>Mudança</th></tr><tr><td>${V}</td><td>Primeira versão: contas, sincronização, consentimento separado para textos, direitos no app, retenção automática</td></tr></table>
+<p class="sub">Lei aplicável: legislação brasileira, em especial a LGPD e o Marco Civil da Internet (Lei nº 12.965/2014).</p>
+</main></body></html>`;
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
