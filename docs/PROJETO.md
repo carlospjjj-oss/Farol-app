@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 14/11/2026 · versão **6.9** (versionCode 54)
+Atualizado em 14/11/2026 · versão **6.10** (versionCode 55)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -82,6 +82,9 @@ contado duas vezes.
 | Manutenção e caixinha | itens com intervalo em km (sugestões para conferir no manual) e km da última troca; aviso amarelo faltando 10% ou 300 km, vermelho quando passa. Caixinha = km rodados × "outros custos"/km − gastos de manutenção | `Maintenance`, `MaintenanceStore`, `DashboardCare` |
 | Consumo real | de tanque cheio a tanque cheio, separado por combustível (abastecimentos antigos: etanol se até R\$ 4,80/L); trecho com tanque misturado não conta | `JournalMath.fuelStats` |
 | Indicadores | ticket médio, entregas/hora (dias com entregas lidas), R\$/hora; por app; por faixa (almoço 11–15, tarde 15–18, jantar 18–23) só com 10+ entregas | `Indicators` |
+| Caixinhas | manutenção (km × outros custos − trocas), combustível (km × combustível/km − abastecimentos) e emergência (valores guardados à mão), cada uma com meta opcional | `Boxes`, `BoxesStore` |
+| Regiões de coleta | por região: ofertas, R\$/km médio, % verdes e melhor janela de 3 h; mínimo 5 ofertas; 30 dias; só no celular | `RegionStats` |
+| Corrida à mão | chave `app#m…` com hora; soma na família das entregas do app (nunca com o painel); pode ser apagada | `askManualRide` |
 | Bot do Telegram (administração) | só problemas do app: `/avisos`, `/contas` (versão, último sinal, leitura), `/erros` (travamentos); aviso na hora de problema novo, de resolvido e de travamento novo; resumo às 8h. Nunca ganhos, telas ou clientes. Vínculo por código de 6 dígitos gerado no painel | `telegramWebhook`, `telegramTick`, `TELEGRAM_TOKEN` |
 
 ## Leitura dos apps
@@ -174,7 +177,8 @@ Nada chega ao celular sem passar por testes no computador e no emulador.
 
 A 6.5 fechou a parte de dinheiro, a 6.6 a confiabilidade (Fase 3) e o destino com chance de volta, a 6.7 levou os
 avisos das outras contas para um bot do Telegram da administração, a 6.8 trouxe o manual de gestão
-(manutenção, caixinha, consumo real e indicadores), e a 6.9 dividiu o painel em abas. O que falta depende
+(manutenção, caixinha, consumo real e indicadores), a 6.9 dividiu o painel em abas e a 6.10
+trouxe caixinhas, gráficos, regiões e corrida à mão. O que falta depende
 de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a previsão.
 
 | Quando | O quê |
