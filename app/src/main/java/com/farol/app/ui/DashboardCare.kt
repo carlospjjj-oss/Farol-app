@@ -239,11 +239,14 @@ internal fun DashboardActivity.boxesCard() {
             addView(k.hbox().apply {
                 gravity = Gravity.CENTER_VERTICAL
                 addView(k.text(b.emoji, 18), k.lp(w = -2))
-                val n = k.text(b.name, 15, Palette.TEXT, k.bold)
-                addView(n, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = k.dp(10) })
-                addView(k.text(Fmt.money(b.balance) + (b.goal?.let { " / ${Fmt.money(it)}" } ?: ""), 14,
-                    if (b.balance < 0) Palette.RED else Palette.TEXT, k.bold))
+                addView(k.text(b.name, 15, Palette.TEXT, k.bold).apply { maxLines = 1 }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = k.dp(10) })
+                addView(k.text("›", 20, Palette.MUTED))
             })
+            addView(k.hbox().apply {
+                gravity = Gravity.BOTTOM
+                addView(k.text(Fmt.money(b.balance), 20, if (b.balance < 0) Palette.RED else Palette.TEXT, k.bold))
+                b.goal?.let { addView(k.text("  de ${Fmt.money(it)}", 13, Palette.MUTED)) }
+            }, k.lp(top = 6))
             b.progress?.let { pr ->
                 addView(k.bar(pr, Palette.ACCENT), k.lp(h = k.dp(6), top = 10))
                 addView(k.text("${(pr * 100).toInt()}% da meta", 11, Palette.MUTED), k.lp(top = 4))
@@ -312,7 +315,7 @@ internal fun DashboardActivity.chartsCard() {
     card.addView(k.hbox().apply {
         gravity = Gravity.BOTTOM
         addView(k.text(Fmt.money(total), 26, Palette.TEXT, k.bold))
-        if (prev > 0 && total > 0) {
+        if (prev >= 100 && total > 0) {   // com período anterior quase vazio a porcentagem não diz nada
             val pct = Math.round((total - prev) / prev * 100)
             addView(k.text((if (pct >= 0) "  ▲ " else "  ▼ ") + "${Math.abs(pct)}%", 14, if (pct >= 0) Palette.GREEN else Palette.RED, k.bold))
         }
