@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 14/11/2026 · versão **6.5.4** (versionCode 49)
+Atualizado em 14/11/2026 · versão **6.5.5** (versionCode 50)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -51,7 +51,7 @@ atualiza sozinho.
 - **App:** Kotlin, Android 8 a 15 (minSdk 26, targetSdk 35), telas montadas em código. Tarefas de fundo: logs e
   sincronização a cada 15 min, procura de atualização a cada 6 h.
 - **Servidor:** `server/worker.js`; rotas `/v1/auth/*`, `/v1/logs`, `/v1/sync`, `/v1/me/*` (consentimento, exportar,
-  excluir), `/v1/admin/*`, `/api/painel`, `/painel`, `/privacidade`.
+  excluir, alertas), `/v1/admin/*`, `/api/painel`, `/painel`, `/privacidade`.
 - **Banco D1:** contas, sessões, eventos, dias do diário, abastecimentos, erros do app.
 
 ## Regras de negócio
@@ -73,6 +73,8 @@ contado duas vezes.
 | Metas | meta do dia em líquido. Semana = meta × dias de trabalho; mês proporcional. Folga não conta contra; o que falta é dividido pelos dias que restam | `GoalMath` |
 | Folga | marcada só em dia sem turno nem ganho. Iniciar turno desmarca | `DayRecord.dayOff` |
 | Pausa | notificação fixa enquanto pausado, lembrete se um app de corrida abrir, iniciar turno religa | `PauseControl` |
+| Ajustes fora do normal | consumo, preço, custo por km e faixas fora das faixas típicas: salvar pede confirmação e o painel mostra "Precisa de atenção" | `SettingsSanity` (app) e `settingsProblems` (servidor) |
+| Alertas das contas | desatualizado, pausado, ajustes fora do normal, turno aberto > 20 h, leitura caindo, sem sinal 3+ dias. No painel web, no app e por notificação (uma vez por dia); o admin recebe os de todas as contas | `accountAlerts`, `/v1/me/alertas`, `AlertsClient` |
 
 ## Leitura dos apps
 
@@ -122,7 +124,7 @@ consentimento do usuário, e dados de clientes nunca saem.
 Nada chega ao celular sem passar por testes no computador e no emulador.
 
 1. Desenvolver no ramo `fase1`.
-2. Testes no computador: 132 testes de regras e leitores, incluindo 102 ofertas reais (`OfertasReaisTest`).
+2. Testes no computador: 135 testes de regras e leitores, incluindo 102 ofertas reais (`OfertasReaisTest`).
 3. Push em `fase1` roda o build e o emulador Android (API 34): testes de banco, telas e prints. Os prints vão para o
    ramo `prints`.
 4. Conferir os prints.
@@ -160,7 +162,8 @@ destino e chance de volta.
 
 | Quando | O quê |
 | --- | --- |
-| Agora | validar a 6.5.4 rodando: explicação no card, soma das entregas, leitura do histórico, espera dos restaurantes |
+| Agora | validar a 6.5.5 rodando: alertas, explicação no card, soma das entregas, leitura do histórico |
+| Fase 3 (confiabilidade) | feito: alertas automáticos e checagem dos ajustes (6.5.5). Falta: dividir o leitor em partes com testes, telas reais virando teste automático, canal de teste antes de todos |
 | 6.6 | região do destino e chance de corrida de volta, calculado no celular com o histórico de ofertas |
 | Com as telas do Marcelo | etapas e ganho da corrida da 99 Motorista (carro) |
 | ~3 semanas de dados (início de dez/2026) | previsão de ganho por horário, faixas que se ajustam sozinhas, "Pergunte ao Farol" no painel |
