@@ -116,10 +116,12 @@ class OnboardingActivity : Activity() {
             DeviceGuide.Brand.values().forEach { opt ->
                 val on = opt == b
                 addView(k.chip(if (opt == DeviceGuide.Brand.OTHER) "Outro" else opt.label.substringBefore(" /"), if (on) Palette.ACCENT else Palette.MUTED).apply {
+                    isSingleLine = true
+                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
                     isClickable = true
                     contentDescription = "Mostrar o guia para ${opt.label}"
                     setOnClickListener { settings.prefs.edit().putString("deviceBrand", opt.name).apply(); render() }
-                }, k.lp(w = -2).apply { marginStart = k.dp(4); marginEnd = k.dp(4) })
+                }, k.lp(w = -2).apply { marginStart = k.dp(3); marginEnd = k.dp(3) })
             }
         }, k.lp(top = 8))
 
