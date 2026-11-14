@@ -1,8 +1,6 @@
 package com.farol.app.ui
 
 import android.content.Intent
-import android.view.Gravity
-import android.widget.LinearLayout
 import com.farol.app.core.SettingsSanity
 import com.farol.app.data.AlertsClient
 
@@ -19,14 +17,16 @@ internal fun DashboardActivity.alertsCard() {
     val card = k.card()
     card.addView(k.overline("Precisa de atenção"))
     fun line(level: String, text: String, action: String?) {
-        card.addView(k.hbox().apply {
-            gravity = Gravity.TOP
-            addView(k.dot(if (level == "problema") Palette.RED else Palette.YELLOW, 10), k.lp(w = -2, top = 6))
-            addView(k.vbox().apply {
-                addView(k.text(text, 14, Palette.TEXT, k.medium).apply { setLineSpacing(0f, 1.15f) })
-                if (!action.isNullOrBlank()) addView(k.text("O que fazer: $action", 12, Palette.MUTED), k.lp(top = 3))
-            }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = k.dp(10) })
+        val c = if (level == "problema") Palette.RED else Palette.YELLOW
+        card.addView(k.text("● $text", 14, Palette.TEXT, k.medium).apply {
+            setLineSpacing(0f, 1.15f)
+            val sp = android.text.SpannableString(this.text)
+            sp.setSpan(android.text.style.ForegroundColorSpan(c), 0, 1, 0)
+            this.text = sp
         }, k.lp(top = 12))
+        if (!action.isNullOrBlank()) card.addView(k.text("O que fazer: $action", 12, Palette.MUTED).apply {
+            setPadding(k.dp(16), 0, 0, 0)
+        }, k.lp(top = 3))
     }
     if (local.isNotEmpty()) {
         line("problema", "Ajustes fora do normal: " + local.joinToString("; ") { "${it.text} (normal: ${it.typical})" } +
