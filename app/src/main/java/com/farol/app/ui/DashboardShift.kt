@@ -43,6 +43,7 @@ internal fun DashboardActivity.shiftCard(day: DayRecord, s: DaySummary) {
             card.addView(k.text("Pronto para rodar?", 18, Palette.TEXT, k.bold), k.lp(top = 8))
             card.addView(k.text("Anote o km do painel para medir o dia.", 13, Palette.MUTED), k.lp(top = 4))
             card.addView(k.pill("▶  Iniciar turno") { askStart() }, k.lp(top = 14))
+            previousDayRow(card)
         }
         day.kmEnd == null -> {
             val since = day.startAt?.let { hhmm.format(Date(it)) } ?: "—"
@@ -258,9 +259,27 @@ internal fun DashboardActivity.askDeleteShift() {
         .setNegativeButton("Cancelar", null).show()
 }
 
-/** Edita km, horários e pausas do turno de hoje. */
-internal fun DashboardActivity.askEditShift() {
-    val d = store.day()
+/**
+ * Dias anteriores (até 7): mostra o resumo e deixa corrigir turno e ganhos sem esperar.
+ * Ex.: turno encerrado no dia seguinte, ou ganho que faltou.
+ */
+internal fun DashboardActivity.previousDayRow(card: LinearLayout) {
+    val past = store.days().filter { it.date < store.day().date && it.date >= store.lastDays(8).minOrNull().orEmpty() && (it.hasShift || it.totalEarnings > 0) }
+        .maxByOrNull { it.date } ?: return
+    val s = JournalMath.summarize(past, settings.profile.costPerKm)
+    val label = "${past.date.substring(8)}/${past.date.substring(5, 7)}"
+    val hrs = s.hours?.let { " · ${Fmt.min(it * 60)}" } ?: ""
+    card.addView(k.text("Último dia ($label): ${Fmt.money(s.earnings)}$hrs", 13, Palette.MUTED), k.lp(top = 16))
+    card.addView(k.hbox().apply {
+        val a = k.ghost("✏️  Turno de $label") { askEditShift(past.date) }
+        val b = k.ghost("💰  Ganhos de $label") { editEarnings(past.date) }
+        addView(a, weighted(a)); addView(b, weighted(b, 10))
+    }, k.lp(top = 8))
+}
+
+/** Edita km, horários e pausas do turno (de hoje, ou de [date]). */
+internal fun DashboardActivity.askEditShift(date: String = store.day().date) {
+    val d = store.day(date)
     val a = k.field("Km inicial", fmtKm(d.kmStart))
     val b = k.field("Km final", fmtKm(d.kmEnd))
     val ta = k.field("08:00", d.startAt?.let { hhmm.format(Date(it)) } ?: "")
@@ -293,7 +312,12 @@ internal fun DashboardActivity.askEditShift() {
             return c.timeInMillis
         }
         val st = time(ta, d.startAt)
-        val en = if (ended) time(tb, d.endAt ?: d.startAt) else d.endAt
+        var en = if (ended) time(tb, d.endAt ?: d.startAt) else d.endAt
+        // Turno que passou da meia-noite: "00:25" é do dia seguinte ao início
+        if (st != null && st != -1L && en != null && en != -1L) {
+            while (en!! <= st && st - en < 2 * 86_400_000L) en += 86_400_000L
+            while (en!! - st > 86_400_000L) en -= 86_400_000L
+        }
         if (st == -1L || en == -1L) return@dialog fail("Horário inválido. Use hh:mm, ex.: 08:30")
         if (st != null && st > System.currentTimeMillis()) return@dialog fail("O início está no futuro")
         if (st != null && en != null && en <= st) return@dialog fail("O fim é antes do início")

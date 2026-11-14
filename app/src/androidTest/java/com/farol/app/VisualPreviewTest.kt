@@ -101,6 +101,32 @@ class VisualPreviewTest {
                 shot("4b-painel-gastos-metas")
             }
         }
+        // 6.4.1: dia de hoje sem turno + ontem com turno encerrado na manhã seguinte -> linha "Último dia"
+        runCatching {
+            val st = JournalStore(ctx)
+            val today = st.today()
+            val keep = st.day(today)
+            val y = st.dateOf(System.currentTimeMillis() - 86_400_000L)
+            val c = java.util.Calendar.getInstance().apply { timeInMillis = System.currentTimeMillis() - 86_400_000L; set(java.util.Calendar.HOUR_OF_DAY, 21); set(java.util.Calendar.MINUTE, 29) }
+            st.putDay(DayRecord(y, kmStart = 58203.5, kmEnd = 58254.9, startAt = c.timeInMillis, endAt = c.timeInMillis + (9 * 60 + 37) * 60_000L,
+                earnings = mapOf("Keeta" to 25.19)))
+            st.putDay(DayRecord(today))
+            ActivityScenario.launch(DashboardActivity::class.java).use { sc ->
+                Thread.sleep(1200)
+                sc.onActivity { a ->
+                    fun find(v: android.view.View): android.widget.ScrollView? = when (v) {
+                        is android.widget.ScrollView -> v
+                        is android.view.ViewGroup -> (0 until v.childCount).firstNotNullOfOrNull { find(v.getChildAt(it)) }
+                        else -> null
+                    }
+                    find(a.window.decorView)?.let { s -> val col = s.getChildAt(0) as android.view.ViewGroup
+                        val t = (0 until col.childCount).map { col.getChildAt(it) }.firstOrNull { v -> ((v as? android.view.ViewGroup)?.getChildAt(0) as? android.widget.TextView)?.text?.toString()?.contains("TURNO") == true }
+                        s.scrollTo(0, t?.top?.minus(40) ?: 0) }
+                }
+                shot("4c-painel-ultimo-dia")
+            }
+            st.putDay(keep)
+        }
         open(SettingsActivity::class.java, "5-ajustes")
         // tema claro
         Settings(ctx).theme = "claro"

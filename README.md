@@ -7,7 +7,7 @@
 Lê a oferta do **iFood, 99, Keeta, Uber e inDrive** e mostra na hora se a corrida compensa,<br>
 com **R$/km, R$/h e lucro líquido** calculados com os **seus** custos.
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-6.4-C8F23C?style=for-the-badge&labelColor=17191C)
+![versão](https://img.shields.io/badge/vers%C3%A3o-6.4.1-C8F23C?style=for-the-badge&labelColor=17191C)
 ![android](https://img.shields.io/badge/Android-8%2B-C8F23C?style=for-the-badge&logo=android&logoColor=white&labelColor=17191C)
 ![kotlin](https://img.shields.io/badge/Kotlin-100%25-C8F23C?style=for-the-badge&logo=kotlin&logoColor=white&labelColor=17191C)
 ![testes](https://img.shields.io/badge/testes-104%20%2B%20102%20reais%20%2B%2012%20emulador-C8F23C?style=for-the-badge&labelColor=17191C)
@@ -235,6 +235,7 @@ docs/lgpd/            registro das operações, RIPD, incidentes, atendimento
 
 | Versão | Principais mudanças |
 |---|---|
+| 6.4.1 | Corrigir o último dia pelo painel (turno e ganhos); fim do turno depois da meia-noite aceito na edição |
 | 6.4 | Card explica por que a oferta é boa ou ruim (frase + motivos); tempo de espera do restaurante (Keeta) no card e no R$/h; ganho automático por entrega concluída (Keeta e 99, sem repetir pedido); gastos do dia e metas de semana/mês com folgas; nome do cliente mascarado e chat nunca enviado |
 | 6.3.2 | Turno que passa da meia-noite continua no dia em que começou: o painel não zera e dá para encerrar; ganhos, km e horas contam para esse dia |
 | 6.3.1 | Pausa sempre visível: notificação fixa com Retomar, lembrete se um app de corrida abrir pausado, turno novo retoma sozinho, painel mostra "Farol pausado" |

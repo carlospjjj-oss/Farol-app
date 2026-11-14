@@ -65,8 +65,8 @@ internal fun DashboardActivity.lastKnownKm(): Double? = (store.days().mapNotNull
 
 internal fun DashboardActivity.fail(msg: String): Boolean { toast(msg); return false }
 
-internal fun DashboardActivity.editEarnings() {
-    val d = store.day()
+internal fun DashboardActivity.editEarnings(date: String = store.day().date) {
+    val d = store.day(date)
     val cur = d.appEarnings
     val fields = apps.associateWith { app -> k.field("0,00", cur[app]?.let { fmtMoney(it) } ?: "") }
     val box = k.vbox()
@@ -79,7 +79,7 @@ internal fun DashboardActivity.editEarnings() {
             addView(fields.getValue(app), LinearLayout.LayoutParams(k.dp(140), -2))
         }, k.lp(top = 10))
     }
-    dialog("Ganhos de hoje", ScrollView(this).apply { addView(box) }, "Salvar") {
+    dialog(if (date == store.today()) "Ganhos de hoje" else "Ganhos de ${date.substring(8)}/${date.substring(5, 7)}", ScrollView(this).apply { addView(box) }, "Salvar") {
         val map = fields.mapNotNull { (app, f) -> f.num()?.takeIf { it > 0 }?.let { app to it } }.toMap()
         // App cujo valor você mudou à mão: o seu valor vale (as entregas somadas desse app saem da conta)
         val changed = apps.filter { a -> Math.abs((map[a] ?: 0.0) - (cur[a] ?: 0.0)) > 0.004 }.toSet()
