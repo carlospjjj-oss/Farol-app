@@ -3,6 +3,9 @@ on:
   push:
     branches: [fase1]
   workflow_dispatch:
+permissions:
+  contents: write
+
 jobs:
   emulador:
     runs-on: ubuntu-latest
@@ -27,14 +30,14 @@ jobs:
           script: |
             gradle --no-daemon testDebugUnitTest connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
             adb pull /sdcard/Android/data/com.farol.app/files/shots shots || true
-      - name: Prints das telas
+      - name: Prints das telas (ramo "prints", para conferir o visual)
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: prints
-          path: shots/*.png
-          if-no-files-found: ignore
-          retention-days: 7
+        run: |
+          [ -d shots ] || exit 0
+          mkdir -p /tmp/p && cp shots/*.png /tmp/p/ && cd /tmp/p
+          git init -q && git checkout -q -b prints
+          git -c user.name=ci -c user.email=ci@farol add -A && git -c user.name=ci -c user.email=ci@farol commit -qm "prints ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" prints
       - name: Relatório
         if: always()
         run: |
