@@ -7,7 +7,7 @@
 Lê a oferta do **iFood, 99, Keeta, Uber e inDrive** e mostra na hora se a corrida compensa,<br>
 com **R$/km, R$/h e lucro líquido** calculados com os **seus** custos.
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-6.7-C8F23C?style=for-the-badge&labelColor=17191C)
+![versão](https://img.shields.io/badge/vers%C3%A3o-6.8-C8F23C?style=for-the-badge&labelColor=17191C)
 ![android](https://img.shields.io/badge/Android-8%2B-C8F23C?style=for-the-badge&logo=android&logoColor=white&labelColor=17191C)
 ![kotlin](https://img.shields.io/badge/Kotlin-100%25-C8F23C?style=for-the-badge&logo=kotlin&logoColor=white&labelColor=17191C)
 ![testes](https://img.shields.io/badge/testes-104%20%2B%20102%20reais%20%2B%2012%20emulador-C8F23C?style=for-the-badge&labelColor=17191C)
@@ -242,6 +242,7 @@ docs/lgpd/            registro das operações, RIPD, incidentes, atendimento
 
 | Versão | Principais mudanças |
 |---|---|
+| 6.8 | Manutenção por km (óleo, correia, pneus, freios…) com aviso de troca pelo km dos turnos; caixinha da reserva de manutenção (o gasto de manutenção sai dela, não do líquido); consumo real separado por gasolina e etanol; indicadores (ticket médio, entregas/hora, por app e por horário); meta em bruto ou líquido; abas de gasolina/etanol nos ajustes; campo de observação do gasto aceita texto |
 | 6.7 | Avisos no app numa linha curta, só da própria conta (detalhe ao tocar); bot do Telegram para a administração: problemas das contas e travamentos, com aviso na hora e resumo às 8h, sem ganhos de ninguém; aviso de privacidade atualizado (Telegram como operador) |
 | 6.6 | Destino e chance de volta no card (bairro/cidade do destino e quantas ofertas saem de lá nesse horário, pelo seu histórico, só no celular); canal de teste (a versão nova chega primeiro a quem está no teste e, 24 h depois, a todos); leitor de ganhos separado e testado; banco de telas reais como teste |
 | 6.5.5 | Fase 3 (confiabilidade): alertas automáticos das contas (desatualizado, pausado, ajustes fora do normal, turno aberto, leitura caindo, sem sinal) no painel web, no app e por notificação; o admin recebe os de todas as contas; salvar ajustes absurdos pede confirmação |

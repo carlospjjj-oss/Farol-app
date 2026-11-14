@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 14/11/2026 · versão **6.7** (versionCode 52)
+Atualizado em 14/11/2026 · versão **6.8** (versionCode 53)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -70,13 +70,16 @@ contado duas vezes.
 | Ganho do app no dia | o MAIOR entre: painel ou valor lançado, soma das entregas (`app#pedido`) e histórico (`app$saldo`, `app$lanc`). Nunca soma as fontes | `DayRecord.appEarnings` (app) e `appEarnings` (servidor) |
 | Valor digitado à mão | vale mais que a soma automática daquele app | `editEarnings` |
 | Dia do turno | turno que passa da meia-noite continua no dia em que começou, até encerrar ou por no máximo 20 h | `JournalStore.workDate` |
-| Líquido | ganhos − custo do km − gastos lançados. Combustível não é gasto: já está no custo por km | `JournalMath`, `GoalMath.dayNet` |
-| Metas | meta do dia em líquido. Semana = meta × dias de trabalho; mês proporcional. Folga não conta contra; o que falta é dividido pelos dias que restam | `GoalMath` |
+| Líquido | ganhos − custo do km − gastos lançados. Combustível e manutenção não saem de novo: já estão no custo por km | `JournalMath`, `GoalMath.dayNet` |
+| Metas | meta do dia em líquido (ou em bruto, se ligado em Ajustes › Metas). Semana = meta × dias de trabalho; mês proporcional. Folga não conta contra; o que falta é dividido pelos dias que restam | `GoalMath` |
 | Folga | marcada só em dia sem turno nem ganho. Iniciar turno desmarca | `DayRecord.dayOff` |
 | Pausa | notificação fixa enquanto pausado, lembrete se um app de corrida abrir, iniciar turno religa | `PauseControl` |
 | Ajustes fora do normal | consumo, preço, custo por km e faixas fora das faixas típicas: salvar pede confirmação e o painel mostra "Precisa de atenção" | `SettingsSanity` (app) e `settingsProblems` (servidor) |
 | Destino e chance de volta | região de coleta e destino lida do endereço (Keeta, iFood, 99 corrida). Chance de volta = ofertas com coleta naquela região no mesmo horário (±1 h) nos últimos 30 dias: 6+ boa, 2–5 alguma, 0–1 pouca. Precisa de 30 ofertas com região; destino só com a cidade de casa não mostra nada. Só no celular | `RegionReader`, `ReturnChance` |
 | Alertas das contas | desatualizado, pausado, ajustes fora do normal, turno aberto > 20 h, leitura caindo, sem sinal 3+ dias. No app: uma linha curta só com os avisos da própria conta (detalhe ao tocar). No painel web: todos, para o admin | `accountAlerts`, `/v1/me/alertas`, `AlertsClient`, `DashboardAlerts` |
+| Manutenção e caixinha | itens com intervalo em km (sugestões para conferir no manual) e km da última troca; aviso amarelo faltando 10% ou 300 km, vermelho quando passa. Caixinha = km rodados × "outros custos"/km − gastos de manutenção | `Maintenance`, `MaintenanceStore`, `DashboardCare` |
+| Consumo real | de tanque cheio a tanque cheio, separado por combustível (abastecimentos antigos: etanol se até R\$ 4,80/L); trecho com tanque misturado não conta | `JournalMath.fuelStats` |
+| Indicadores | ticket médio, entregas/hora (dias com entregas lidas), R\$/hora; por app; por faixa (almoço 11–15, tarde 15–18, jantar 18–23) só com 10+ entregas | `Indicators` |
 | Bot do Telegram (administração) | só problemas do app: `/avisos`, `/contas` (versão, último sinal, leitura), `/erros` (travamentos); aviso na hora de problema novo, de resolvido e de travamento novo; resumo às 8h. Nunca ganhos, telas ou clientes. Vínculo por código de 6 dígitos gerado no painel | `telegramWebhook`, `telegramTick`, `TELEGRAM_TOKEN` |
 
 ## Leitura dos apps
@@ -158,6 +161,8 @@ Nada chega ao celular sem passar por testes no computador e no emulador.
 | Turno pertence ao dia em que começou | o painel não pode zerar à meia-noite com turno aberto |
 | Meta em líquido | ganhar muito rodando muito pode não sobrar nada |
 | Combustível fora dos gastos | já entra no custo por km; seria contado duas vezes |
+| Manutenção sai da caixinha, não do líquido | os "outros custos"/km já reservam esse dinheiro todo dia; descontar a troca de novo contaria duas vezes |
+| Consumo real separado por combustível | misturar gasolina e etanol dá um número que não é de nenhum dos dois |
 | Nome de restaurante só no celular | dado de terceiro, não precisa ir para o servidor |
 | Filtro de clientes também no servidor | protege quem ainda está numa versão antiga do app |
 | Uma versão por pacote de mudanças | pedido do Carlos para não soltar várias versões seguidas; correções urgentes saem como x.y.z |
@@ -165,8 +170,9 @@ Nada chega ao celular sem passar por testes no computador e no emulador.
 
 ## Estado atual e roteiro
 
-A 6.5 fechou a parte de dinheiro, a 6.6 a confiabilidade (Fase 3) e o destino com chance de volta, e a 6.7 levou os
-avisos das outras contas para um bot do Telegram da administração. O que falta depende
+A 6.5 fechou a parte de dinheiro, a 6.6 a confiabilidade (Fase 3) e o destino com chance de volta, a 6.7 levou os
+avisos das outras contas para um bot do Telegram da administração, e a 6.8 trouxe o manual de gestão
+(manutenção, caixinha, consumo real e indicadores). O que falta depende
 de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a previsão.
 
 | Quando | O quê |
