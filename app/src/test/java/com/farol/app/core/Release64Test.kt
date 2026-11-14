@@ -177,6 +177,9 @@ class Release64Test {
         assertFalse(LogSanitizer.forServer(finalizar)!!.contains("Franciely"))
         assertFalse(LogSanitizer.forServer(ninetyNineFinish)!!.contains("Laura"))
         assertTrue(LogSanitizer.forServer(ninetyNineFinish)!!.contains("#149031 [cliente]"))
+        val codigo = "Chegue na loja até 22:54 | 1 item | Número do pedido | Chat da entrega | Código de coleta 4469 Franciely Gomes | Confirmar coleta"
+        assertFalse(LogSanitizer.maskPeople(codigo).contains("Franciely"))
+        assertEquals("[endereço], São Paulo, SP", LogSanitizer.mask("Rua Alfa, 10 - Estrada das Lágrimas, 2282, São Paulo, SP"))
         // Tela de coleta (restaurante) não tem cliente: o nome do restaurante continua (é estabelecimento)
         val coleta = "Mapa do Google | Marcador do mapa | Odin Sushi Jabaquara | [endereço], Jardim Oriental | Rotas | Restaurante | Pedido pronto em cerca de 0–5 min."
         assertTrue(LogSanitizer.forServer(coleta)!!.contains("Odin Sushi Jabaquara"))

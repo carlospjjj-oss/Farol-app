@@ -28,7 +28,9 @@ object LogSanitizer {
                 trimmed.contains(" - ") -> trimmed.substringAfter(" - ")
                 else -> ""
             }.replace(LEADING_NUMBER, "").trim().trimStart(',', '-').trim()
-            seg = if (rest.isEmpty()) "[endereço]" else "[endereço], $rest"
+            // "Rua A, 10 - Estrada B, 2282, Cidade": a segunda rua também é endereço
+            val restMasked = if (STREET.containsMatchIn(rest)) maskSegment(rest).removePrefix("[endereço]").trimStart(',', ' ') else rest
+            seg = if (restMasked.isEmpty()) "[endereço]" else "[endereço], $restMasked"
         }
         return seg
     }
@@ -47,7 +49,7 @@ object LogSanitizer {
         RegexOption.IGNORE_CASE)
     // 1 a 4 palavras com inicial maiúscula, só letras (ex.: "Emanoel", "Franciely Gomes", "Laura Maria")
     private val PERSON = Regex("""^\p{Lu}[\p{L}'´`]+(?:\s+(?:d[aeo]s?\s+)?\p{Lu}[\p{L}'´`]*\.?){0,3}$""")
-    private val ORDER_NAME = Regex("""(#\d{3,})\s+\p{Lu}[\p{L}]+(?:\s+\p{Lu}[\p{L}]+)*""")
+    private val ORDER_NAME = Regex("""(#\d{3,}|C[oó]digo de coleta\s+\d+)\s+\p{Lu}[\p{L}]+(?:\s+\p{Lu}[\p{L}]+)*""")
     private val NOT_NAME = Regex(
         """^(Mapa|Marcador|Rotas|Cliente|Restaurante|Entrega|Coleta|Suporte|Ajuda|Passo|Chamada|Mensagem|Concluir|Detalhes|Central|Bloco|Cheguei|Entregue|Para|Falar|Por|Go|Order|N[uú]mero|Ir|Voz|Texto|Mais|Lida|Limite|Rotat[oó]ria|Mantenha|Vire|Siga|Pedido|Aceitar|Recusar|Google|Waze|Insira|Pe[cç]a|Chegada|Previs[aã]o|Em|Sua|Seu|Voc[eê]|Inclui|Taxa|Outros|Resumo|Painel|Ganhos|Iniciar|Confirmar|Cancelar)\b""",
         RegexOption.IGNORE_CASE)
@@ -56,7 +58,9 @@ object LogSanitizer {
      * Nas telas de entrega, troca o nome do cliente por "[cliente]": o texto logo antes do endereço,
      * logo depois de "Entrega |" e o nome que vem junto do número do pedido ("#149031 Laura").
      */
-    fun maskPeople(text: String): String {
+    fun maskPeople(text0: String): String {
+        // nome junto do número do pedido / código de coleta: sempre
+        val text = text0.replace(ORDER_NAME) { it.groupValues[1] + " [cliente]" }
         if (!DELIVERY.containsMatchIn(text)) return text
         val parts = text.split(" | ").toMutableList()
         for (i in parts.indices) {
