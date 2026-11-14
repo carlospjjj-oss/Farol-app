@@ -15,7 +15,7 @@ com **R$/km, R$/h e lucro líquido** calculados com os **seus** custos.
 
 <img src="docs/img/telas-escuro.png" alt="Farol no tema escuro" width="100%">
 
-**[⬇️ Baixar o app](https://github.com/carlospjjj-oss/farol-app/releases/latest)** · [Como instalar](#-instalar) · [Painel web](#-painel-web) · [Privacidade](#-privacidade-e-lgpd) · [Histórico](#-histórico)
+**[⬇️ Baixar o app](https://github.com/carlospjjj-oss/farol-app/releases/latest)** · [Como instalar](#-instalar) · [Painel web](#-painel-web) · [Privacidade](#-privacidade-e-lgpd) · [Histórico](#-histórico) · [Documento mestre](docs/PROJETO.md)
 
 </div>
 
