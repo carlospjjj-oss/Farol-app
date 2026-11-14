@@ -40,6 +40,17 @@ class HistoryReaderTest {
         assertEquals(e.map { it.key }, HistoryReader.ninetyNineSaldo(saldoOcr).map { it.key })
     }
 
+    @Test fun saldo99_ocrEmColunas_eComOTrocado() {
+        val cols = "Saldo | Configurações | Transferência R\$O,00 | Bônus | 23:57 | Entrega Food | 23:57 | Bônus | 23:49 | Entrega Food | 23:48 | " +
+            "R$5,00 > | R$1O,65 > | R$5,00 > | R$6,89 >"
+        val e = HistoryReader.ninetyNineSaldo(cols)
+        assertEquals(4, e.size)
+        assertEquals(27.54, e.sumOf { it.value }, 0.001)
+        // acessibilidade com valores escondidos não inventa nada
+        assertEquals(0, HistoryReader.ninetyNineSaldo("Saldo | Configurações | R$ | -,-- | [num] | Transferência | [num] | Transferência").size)
+        assertTrue(HistoryReader.isHistory("99", "Saldo | Configurações | R$ | -,-- | [num] | Transferência"))
+    }
+
     @Test fun saldo99_entraNoTurnoDeOntem_eNaoDobraComAOferta() {
         val c = java.util.Calendar.getInstance().apply { set(2026, 10, 14, 7, 23, 0) }
         val now = c.timeInMillis

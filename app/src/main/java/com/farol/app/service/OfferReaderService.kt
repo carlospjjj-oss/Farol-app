@@ -269,6 +269,13 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
             handleOffer(offer, snap.pkg, "acessibilidade", snap.text); return
         }
 
+        // 99 › Saldo: a acessibilidade entrega os valores escondidos ("R$ -,--"): lê pela imagem
+        if (offer == null && snap.onTop && label == "99" && settings.ocrFallback && ocr.supported &&
+            com.farol.app.core.HistoryReader.isHistory(label, snap.text)) {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastSaldoOcrAt > 8_000) { lastSaldoOcrAt = now; runOcr(snap, label, false) }
+            return
+        }
         val hasHint = OfferParser.OFFER_HINTS.containsMatchIn(snap.text)
         val looksLikeOffer = hasHint || snap.text.length < 40
         if (settings.ocrFallback && ocr.supported && looksLikeOffer && snap.pkg !in accessibleApps) {
@@ -329,6 +336,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
      * soma no dia do turno, uma vez por pedido.
      */
     @Volatile private var lastHistoryLogAt = 0L
+    @Volatile private var lastSaldoOcrAt = 0L
 
     /**
      * Telas de histórico (Keeta › Estatísticas › Diárias, 99 › Saldo): completam dias que já passaram,

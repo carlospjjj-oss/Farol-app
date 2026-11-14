@@ -27,7 +27,7 @@ object HistoryReader {
 
     fun isHistory(app: String, text: String): Boolean = when (app) {
         "Keeta" -> text.contains("Ganhos totais", true) && text.contains("Estat", true)
-        "99" -> Regex("""(^|\|\s*)Saldo\s*\|""").containsMatchIn(text) && text.contains("Transfer", true)
+        "99" -> Regex("""(^|\|\s*)Saldo\s*\|""").containsMatchIn(text) && (text.contains("Transfer", true) || text.contains("Configura", true))
         "iFood" -> Regex("""Lan[cç]amentos|Extrato|Hist[oó]rico de ganhos|Meus ganhos|Repasses""", RegexOption.IGNORE_CASE).containsMatchIn(text) &&
             !text.contains("Aceitar", true)
         else -> false
@@ -54,7 +54,39 @@ object HistoryReader {
 
     /** 99 › Saldo: lançamentos positivos com hora (os de outros dias aparecem com data e são ignorados). */
     fun ninetyNineSaldo(text: String): List<Entry> {
-        val parts = text.split("|").map { it.trim() }.filter { it.isNotEmpty() }
+        // OCR troca 0 por O ("R$O,00") e às vezes cola o rótulo na hora
+        val parts = text.split("|").map { it.trim().replace(Regex("(?<=R\\$)\\s*O|(?<=\\d)O|O(?=,\\d)"), "0") }.filter { it.isNotEmpty() }
+        val paired = pairedEntries(parts)
+        if (paired.isNotEmpty()) return paired
+        return columnEntries(parts)
+    }
+
+    /**
+     * OCR que lê em colunas: primeiro rótulos e horas, depois os valores. Se a quantidade de horas
+     * e de valores bate, junta na ordem.
+     */
+    private fun columnEntries(parts: List<String>): List<Entry> {
+        val start = parts.indexOfFirst { it.equals("Saldo", true) }.coerceAtLeast(0)
+        val rest = parts.drop(start + 1)
+        val times = rest.withIndex().filter { TIME.matches(it.value) }
+        val moneys = rest.filter { MONEY.matches(it) }
+        if (times.isEmpty() || times.size != moneys.size) return emptyList()
+        val out = mutableListOf<Entry>(); val seen = mutableMapOf<String, Int>()
+        times.forEachIndexed { k, (idx, tSeg) ->
+            val t = TIME.find(tSeg)!!; val mSeg = moneys[k]
+            val label = rest.getOrNull(idx - 1)?.takeIf { MONEY.find(it) == null && TIME.find(it) == null } ?: "Lançamento"
+            val v = OfferParser.parseMoney(MONEY.find(mSeg)!!.groupValues[1])
+            val h = t.groupValues[1].toInt(); val mi = t.groupValues[2].toInt()
+            if (v != null && v > 0 && v < 1000 && !mSeg.contains("-") && !t.groupValues[3].contains("dinheiro", true) && h < 24 && mi < 60) {
+                val base = "${"%02d%02d".format(h, mi)}:${Math.round(v * 100)}:${fold(label)}"
+                val n = (seen[base] ?: 0) + 1; seen[base] = n
+                out += Entry("99", label, v, h * 60 + mi, "99\$saldo:$base:$n")
+            }
+        }
+        return out
+    }
+
+    private fun pairedEntries(parts: List<String>): List<Entry> {
         val start = parts.indexOfFirst { it.equals("Saldo", true) }.coerceAtLeast(0)
         val out = mutableListOf<Entry>()
         val seen = mutableMapOf<String, Int>()
