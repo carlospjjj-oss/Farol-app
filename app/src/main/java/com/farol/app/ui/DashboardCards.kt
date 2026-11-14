@@ -69,17 +69,31 @@ internal fun DashboardActivity.header() {
         addView(gear, LinearLayout.LayoutParams(k.dp(48), k.dp(48)))
     })
 
+    // Três estados, sem enganar: acessibilidade desligada, Farol pausado, ou lendo de verdade.
     val on = serviceOn()
-    val color = if (on) Palette.GREEN else Palette.RED
+    val paused = on && com.farol.app.service.PauseControl.isPaused(self)
+    com.farol.app.service.PauseControl.show(self)
+    val color = when { !on -> Palette.RED; paused -> Palette.YELLOW; else -> Palette.GREEN }
+    val label = when {
+        !on -> "Leitor desligado — toque para ativar"
+        paused -> "Farol pausado — toque para retomar"
+        else -> "Lendo ofertas"
+    }
     val status = k.hbox().apply {
         setPadding(k.dp(12), k.dp(8), k.dp(14), k.dp(8))
-        background = k.rounded(Palette.alpha(color, 0x22), 999)
+        background = k.rounded(Palette.alpha(color, if (paused) 0x33 else 0x22), 999)
         addView(k.dot(color, 8))
-        addView(k.text(if (on) "Lendo ofertas" else "Leitor desligado — toque para ativar", 13, color, k.medium),
-            k.lp(w = -2).apply { marginStart = k.dp(8) })
+        addView(k.text(label, 13, color, k.medium), k.lp(w = -2).apply { marginStart = k.dp(8) })
         if (!on) {
             isClickable = true
             setOnClickListener { startActivity(Intent(AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        } else if (paused) {
+            isClickable = true
+            setOnClickListener {
+                com.farol.app.service.PauseControl.set(self, paused = false, origem = "painel")
+                toast("Farol ligado. Lendo ofertas.")
+                recreate()
+            }
         }
     }
     headerBox.addView(status, LinearLayout.LayoutParams(-2, -2).apply { topMargin = k.dp(10) })
@@ -133,7 +147,7 @@ internal fun DashboardActivity.kpis(s: DaySummary) {
         addView(a, weighted(a)); addView(b, weighted(b, 12))
     }
     add(row(
-        tile("🛵", Palette.ACCENT, "Km rodados", s.km?.let { Fmt.km(it) } ?: "—"),
+        tile(if (settings.isCar) "🚗" else "🛵", Palette.ACCENT, "Km rodados", s.km?.let { Fmt.km(it) } ?: "—"),
         tile("💰", Palette.GREEN, "R$/km real", s.perKm?.let { Fmt.money(it) } ?: "—"),
     ))
     add(row(

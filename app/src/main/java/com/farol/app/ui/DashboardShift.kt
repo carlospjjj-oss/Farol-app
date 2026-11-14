@@ -136,6 +136,8 @@ internal fun DashboardActivity.askStart() {
         val km = f.num() ?: return@dialog fail("Digite o km do painel")
         val d = store.day()
         store.putDay(d.copy(kmStart = km, startAt = d.startAt ?: System.currentTimeMillis()))
+        // Começou a trabalhar: o Farol não pode continuar pausado sem você perceber.
+        com.farol.app.service.PauseControl.set(this, paused = false, origem = "turno")
         if (settings.gpsEnabled) com.farol.app.service.GpsService.start(this)
         toast("Turno iniciado. Boas corridas!"); true
     }

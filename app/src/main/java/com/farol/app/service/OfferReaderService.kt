@@ -219,7 +219,12 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         val pkg = event?.packageName?.toString()
         if (pkg == packageName) return
         if (pkg != null) noteRecent(pkg)
-        if (!settings.enabled) { if (overlay.isShowing) overlay.hide(); return }
+        if (!settings.enabled) {
+            if (overlay.isShowing) overlay.hide()
+            // Pausado com um app de corrida na tela: lembra (no máximo a cada 10 min).
+            if (pkg != null && settings.labelFor(pkg) != null) PauseControl.remindIfDue(this)
+            return
+        }
         if (pkg != null && settings.labelFor(pkg) == null) {
             // Saiu do app de corrida: esconde o cartão depois de uma pequena folga.
             if (overlay.isShowing && event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) maybeHide()

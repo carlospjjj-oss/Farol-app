@@ -137,8 +137,7 @@ object ShiftNotifier {
 /** Botão "Pausar/Retomar" da notificação. */
 class PauseReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
-        val s = Settings(ctx)
-        s.enabled = !s.enabled
-        ShiftNotifier.refresh(ctx)
+        if (intent.getBooleanExtra("retomar", false)) PauseControl.set(ctx, paused = false, origem = "notificacao")
+        else PauseControl.toggle(ctx, "notificacao")
     }
 }

@@ -14,8 +14,7 @@ class FarolTileService : TileService() {
     override fun onStartListening() = render()
 
     override fun onClick() {
-        val s = Settings(this)
-        s.enabled = !s.enabled
+        PauseControl.toggle(this, "atalho")
         render()
     }
 

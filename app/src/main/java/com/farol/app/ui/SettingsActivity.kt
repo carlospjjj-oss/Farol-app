@@ -422,7 +422,7 @@ class SettingsActivity : Activity() {
         settings.autoHideSec = etHide.num(15.0).toInt()
         settings.targetsText = etTargets.text.toString()
         com.farol.app.service.OfferReaderService.instance?.applyPackageFilter()
-        settings.enabled = swEnabled.isChecked
+        com.farol.app.service.PauseControl.set(this, paused = !swEnabled.isChecked, origem = "ajustes")
         settings.vibrateOnGreen = swVibrate.isChecked
         settings.speak = swSpeak.isChecked
         settings.ocrFallback = swOcr.isChecked
