@@ -83,7 +83,7 @@ internal fun DashboardActivity.editEarnings(date: String = store.day().date) {
         val map = fields.mapNotNull { (app, f) -> f.num()?.takeIf { it > 0 }?.let { app to it } }.toMap()
         // App cujo valor você mudou à mão: o seu valor vale (as entregas somadas desse app saem da conta)
         val changed = apps.filter { a -> Math.abs((map[a] ?: 0.0) - (cur[a] ?: 0.0)) > 0.004 }.toSet()
-        store.putDay(d.copy(earnings = map, orders = d.orders.filterKeys { it.substringBefore('#') !in changed }))
+        store.putDay(d.copy(earnings = map, orders = d.orders.filterKeys { DayRecord.appOf(it) !in changed }))
         toast("Ganhos salvos: ${Fmt.money(map.values.sum())}"); true
     }
 }

@@ -27,12 +27,21 @@ data class DayRecord(
      */
     val appEarnings: Map<String, Double> get() {
         if (orders.isEmpty()) return earnings
-        val byApp = orders.entries.groupBy({ it.key.substringBefore('#') }, { it.value }).mapValues { it.value.sum() }
+        // Cada fonte é uma "família": "99#149031" (entrega lida pela oferta/tela de concluído) e
+        // "99${'$'}saldo:..." (lançamentos do Saldo). Por app vale a MAIOR família (ou o painel), nunca a soma.
+        val byFamily = orders.entries.groupBy({ familyOf(it.key) }, { it.value }).mapValues { it.value.sum() }
+        val byApp = byFamily.entries.groupBy({ it.key.first }, { it.value }).mapValues { it.value.max() }
         return (earnings.keys + byApp.keys).associateWith { maxOf(earnings[it] ?: 0.0, byApp[it] ?: 0.0) }
     }
     val totalEarnings: Double get() = appEarnings.values.sum()
     val totalExpenses: Double get() = expenses.sumOf { it.value }
-    fun ordersOf(app: String) = orders.filterKeys { it.substringBefore('#') == app }
+    fun ordersOf(app: String) = orders.filterKeys { appOf(it) == app && '$' !in it }
+
+    companion object {
+        fun appOf(key: String) = key.substringBefore('$').substringBefore('#')
+        fun familyOf(key: String): Pair<String, String> =
+            if ('$' in key) appOf(key) to key.substringAfter('$').substringBefore(':') else appOf(key) to "#"
+    }
     val isPaused: Boolean get() = pauseAt != null && endAt == null
     val hasShift: Boolean get() = kmStart != null || startAt != null
 

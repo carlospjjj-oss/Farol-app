@@ -31,8 +31,14 @@ const DEVICE_RE = /^[A-Za-z0-9_-]{6,64}$/;
 // concluídas ("orders": {"Keeta#7553": 13.47}). Igual ao app (DayRecord.appEarnings): nunca soma os dois.
 function appEarnings(d) {
   const e = d.earnings || {}, out = {};
+  // famílias: "99#149031" (entrega) e "99$saldo:..." (Saldo do app): por app vale a maior, nunca a soma
+  const fam = {};
+  for (const [k, v] of Object.entries(d.orders || {})) {
+    const a = k.split("$")[0].split("#")[0], f = k.includes("$") ? k.split("$")[1].split(":")[0] : "#";
+    const key = a + "\u0000" + f; fam[key] = (fam[key] || 0) + (Number(v) || 0);
+  }
   const byApp = {};
-  for (const [k, v] of Object.entries(d.orders || {})) { const a = k.split("#")[0]; byApp[a] = (byApp[a] || 0) + (Number(v) || 0); }
+  for (const [key, v] of Object.entries(fam)) { const a = key.split("\u0000")[0]; byApp[a] = Math.max(byApp[a] || 0, v); }
   for (const a of new Set([...Object.keys(e), ...Object.keys(byApp)])) out[a] = Math.max(Number(e[a]) || 0, byApp[a] || 0);
   return out;
 }
