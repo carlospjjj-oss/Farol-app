@@ -12,9 +12,11 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
-          echo "== dias u1 =="
-          q "SELECT date, datetime(updated_at/1000,'unixepoch','-3 hours') upd, data d FROM user_days WHERE user_id=1 AND date >= '2026-11-09' ORDER BY date"
-          echo "== u1 telas de historico (desde 07:40) =="
-          q "SELECT t, app, versao, json_extract(data,'$.fonte') f, substr(json_extract(data,'$.texto'),1,900) tx FROM events WHERE user_id=1 AND tipo='tela' AND t >= '2026-11-14T08:05' ORDER BY id"
-          echo "== u1 eventos desde 07:40 =="
-          q "SELECT tipo, app, versao, count(*) n FROM events WHERE user_id=1 AND t >= '2026-11-14T08:05' GROUP BY tipo, app, versao"
+          echo "== u2 dias =="
+          q "SELECT modo, date, datetime(updated_at/1000,'unixepoch','-3 hours') upd, data d FROM user_days WHERE user_id=2 AND date >= '2026-11-12' ORDER BY date"
+          echo "== u2 ultimos ajustes =="
+          q "SELECT t, versao, json_extract(data,'$.ajustes') a FROM events WHERE user_id=2 AND tipo='ajustes' ORDER BY id DESC LIMIT 1"
+          echo "== u2 eventos desde 13/11 19h =="
+          q "SELECT tipo, app, versao, count(*) n, max(t) ultimo FROM events WHERE user_id=2 AND t >= '2026-11-13T19:00' GROUP BY tipo, app, versao ORDER BY ultimo"
+          echo "== u2 conta =="
+          q "SELECT compartilhar, consent_versao FROM users WHERE id=2"
