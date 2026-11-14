@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 14/11/2026 · versão **6.8** (versionCode 53)
+Atualizado em 14/11/2026 · versão **6.9** (versionCode 54)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -53,6 +53,8 @@ atualiza sozinho.
 - **Servidor:** `server/worker.js`; rotas `/v1/auth/*`, `/v1/logs`, `/v1/sync`, `/v1/me/*` (consentimento, exportar,
   excluir, alertas), `/v1/admin/*` (inclui ligar o bot do Telegram), `/v1/telegram` (webhook do bot), `/api/painel`,
   `/painel`, `/privacidade`. De hora em hora (cron do Worker) roda a passada do bot do Telegram.
+- **Painel do app em abas (6.9):** Início, Corridas, Financeiro, Análises e Mais, com barra fixa embaixo; a última aba
+  aberta é lembrada (`DashboardTabs`).
 - **Banco D1:** contas, sessões, eventos, dias do diário, abastecimentos, erros do app.
 
 ## Regras de negócio
@@ -171,8 +173,8 @@ Nada chega ao celular sem passar por testes no computador e no emulador.
 ## Estado atual e roteiro
 
 A 6.5 fechou a parte de dinheiro, a 6.6 a confiabilidade (Fase 3) e o destino com chance de volta, a 6.7 levou os
-avisos das outras contas para um bot do Telegram da administração, e a 6.8 trouxe o manual de gestão
-(manutenção, caixinha, consumo real e indicadores). O que falta depende
+avisos das outras contas para um bot do Telegram da administração, a 6.8 trouxe o manual de gestão
+(manutenção, caixinha, consumo real e indicadores), e a 6.9 dividiu o painel em abas. O que falta depende
 de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a previsão.
 
 | Quando | O quê |

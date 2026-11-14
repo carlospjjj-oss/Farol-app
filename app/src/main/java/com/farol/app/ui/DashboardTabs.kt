@@ -181,7 +181,7 @@ internal fun DashboardActivity.ridesCard() {
                 val mid = k.vbox().apply {
                     addView(k.text(app, 14, Palette.TEXT, k.medium))
                     addView(k.text((at?.let { (if (ridesPeriod == 0) "" else ddmm.format(Date(it)) + " ") + hhmm.format(Date(it)) } ?: d.date.substring(8) + "/" + d.date.substring(5, 7)) +
-                        "  ·  pedido " + key.substringAfter('#').takeLast(4), 12, Palette.MUTED), k.lp(top = 2))
+                        "  ·  #" + key.substringAfter('#').takeLast(4), 12, Palette.MUTED), k.lp(top = 2))
                 }
                 addView(mid, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = k.dp(12) })
                 addView(k.text(Fmt.money(v), 15, Palette.TEXT, k.bold))
