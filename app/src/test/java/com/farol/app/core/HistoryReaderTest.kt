@@ -57,3 +57,28 @@ class HistoryReaderTest {
         assertNull(HistoryReader.dayFor(HistoryReader.instantOf(15 * 60, now), listOf(d13), now))
     }
 }
+
+class HistoryReaderIfoodTest {
+    private val lanc = "Financeiro | Lançamentos | Repasses | 09 - 15 Nov | Tipo de lançamento | Ganhos da semana | R$ 38,33 | " +
+        "Quinta, 12 de novembro | Rota completa | 15:32 | R$ 8,07 | Rota completa | 15:12 | R$ 10,09 | Rota completa | 14:56 | R$ 9,09 | " +
+        "Quarta, 11 de novembro | Rota completa | 15:05 | R$ 11,08 | Isso é tudo"
+
+    @Test fun lancamentosComDataDoCabecalho() {
+        assertTrue(HistoryReader.isHistory("iFood", lanc))
+        val e = HistoryReader.ifoodEntries(lanc, "2026-11-14")
+        assertEquals(4, e.size)
+        assertEquals(27.25, e.filter { it.date == "2026-11-12" }.sumOf { it.value }, 0.001)   // = o que você lançou no dia 12
+        assertEquals(11.08, e.filter { it.date == "2026-11-11" }.sumOf { it.value }, 0.001)
+        assertEquals(38.33, e.sumOf { it.value }, 0.001)                                      // = "Ganhos da semana"
+        assertEquals(e.map { it.key }, HistoryReader.ifoodEntries(lanc, "2026-11-14").map { it.key })
+        // valor antes da hora também funciona
+        val inv = HistoryReader.ifoodEntries("Quinta, 12 de novembro | Rota completa | R$ 8,07 | 15:32", "2026-11-14")
+        assertEquals(1, inv.size); assertEquals(15 * 60 + 32, inv[0].minuteOfDay)
+    }
+
+    @Test fun naoDobraComOValorLancadoAMao() {
+        val d = DayRecord("2026-11-12", earnings = mapOf("iFood" to 27.25),
+            orders = HistoryReader.ifoodEntries(lanc, "2026-11-14").filter { it.date == "2026-11-12" }.associate { it.key to it.value })
+        assertEquals(27.25, d.totalEarnings, 0.001)
+    }
+}

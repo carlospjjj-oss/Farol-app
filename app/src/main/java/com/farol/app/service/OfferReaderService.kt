@@ -346,13 +346,21 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
                 runCatching { ShiftNotifier.refresh(this) }
             }
         }
-        val entries = if (label == "99") com.farol.app.core.HistoryReader.ninetyNineSaldo(text) else emptyList()
+        val entries = when (label) {
+            "99" -> com.farol.app.core.HistoryReader.ninetyNineSaldo(text)
+            "iFood" -> com.farol.app.core.HistoryReader.ifoodEntries(text, journal.today())
+            else -> emptyList()
+        }
         if (entries.isEmpty()) return
-        val recent = journal.lastDays(3).map { journal.day(it) }
+        val recent = journal.lastDays(9).map { journal.day(it) }
         val add = mutableMapOf<String, MutableMap<String, Double>>()
         for (e in entries) {
-            val at = com.farol.app.core.HistoryReader.instantOf(e.minuteOfDay, now)
-            val day = com.farol.app.core.HistoryReader.dayFor(at, recent, now) ?: continue
+            val dated = e.date
+            val at = if (dated != null) com.farol.app.core.HistoryReader.instantOf(dated, e.minuteOfDay)
+                     else com.farol.app.core.HistoryReader.instantOf(e.minuteOfDay, now)
+            // No turno que cobre a hora; com data na tela (iFood) e sem turno, vai para a data mostrada
+            val day = com.farol.app.core.HistoryReader.dayFor(at, recent, now)
+                ?: dated?.let { journal.day(it) } ?: continue
             if (e.key in day.orders) continue
             add.getOrPut(day.date) { mutableMapOf() }[e.key] = e.value
         }

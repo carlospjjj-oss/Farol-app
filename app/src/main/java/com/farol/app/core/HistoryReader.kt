@@ -8,7 +8,8 @@ import java.util.Calendar
  *  - Keeta › Estatísticas › Diárias: "13 de nov. | Ganhos totais | R$ 25,19" -> total do dia 13.
  *  - 99 › Saldo: lista "Bônus | R$5,00 | 23:57 | Entrega Food | R$10,65 | 23:57 | …" -> cada lançamento
  *    vira uma entrada do dia/turno em que aconteceu (lançamento negativo/dinheiro é ignorado).
- *  - iFood: ainda sem padrão (as telas de histórico são registradas para montar o leitor).
+ *  - iFood › Financeiro › Lançamentos: "Quinta, 12 de novembro | Rota completa | 15:32 | R$ 8,07 | …"
+ *    -> cada lançamento com a data do cabeçalho.
  *
  * Os lançamentos do Saldo da 99 entram numa "família" separada das entregas lidas pela oferta
  * (chave "99$..."): o ganho do app é o maior entre as famílias, nunca a soma (não conta duas vezes).
@@ -17,7 +18,7 @@ object HistoryReader {
 
     data class DayTotal(val app: String, val date: String, val value: Double)
     /** Lançamento do Saldo: [minuteOfDay] = hora:minuto mostrado; [key] identifica sem repetir. */
-    data class Entry(val app: String, val label: String, val value: Double, val minuteOfDay: Int, val key: String)
+    data class Entry(val app: String, val label: String, val value: Double, val minuteOfDay: Int, val key: String, val date: String? = null)
 
     private val MONTHS = listOf("jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez")
     private val DAY_DATE = Regex("""^(\d{1,2})\s+de\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-zç]*\.?(?:\s+de\s+(\d{4}))?$""", RegexOption.IGNORE_CASE)
@@ -27,7 +28,8 @@ object HistoryReader {
     fun isHistory(app: String, text: String): Boolean = when (app) {
         "Keeta" -> text.contains("Ganhos totais", true) && text.contains("Estat", true)
         "99" -> Regex("""(^|\|\s*)Saldo\s*\|""").containsMatchIn(text) && text.contains("Transfer", true)
-        "iFood" -> Regex("""Extrato|Hist[oó]rico de ganhos|Meus ganhos|Ganhos do dia|Repasse""", RegexOption.IGNORE_CASE).containsMatchIn(text)
+        "iFood" -> Regex("""Lan[cç]amentos|Extrato|Hist[oó]rico de ganhos|Meus ganhos|Repasses""", RegexOption.IGNORE_CASE).containsMatchIn(text) &&
+            !text.contains("Aceitar", true)
         else -> false
     }
 
@@ -77,6 +79,57 @@ object HistoryReader {
         }
         return out
     }
+
+    private val FULL_MONTHS = listOf("janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro")
+    private val IFOOD_DAY = Regex("""^(?:segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|domingo|hoje|ontem)?[-\w]*,?\s*(\d{1,2})\s+de\s+([a-zç]+)(?:\s+de\s+(\d{4}))?$""", RegexOption.IGNORE_CASE)
+
+    /** iFood › Financeiro › Lançamentos: lançamentos positivos com a data do cabeçalho do dia. */
+    fun ifoodEntries(text: String, today: String): List<Entry> {
+        val parts = text.split("|").map { it.trim() }.filter { it.isNotEmpty() }
+        val out = mutableListOf<Entry>()
+        val seen = mutableMapOf<String, Int>()
+        var date: String? = null
+        var i = 0
+        while (i < parts.size) {
+            IFOOD_DAY.find(parts[i])?.let { m ->
+                val key = m.groupValues[2].lowercase()
+                val mon = FULL_MONTHS.indexOfFirst { it == key || it.startsWith(key.take(3)) } + 1
+                val d = m.groupValues[1].toInt()
+                if (mon in 1..12 && d in 1..31) {
+                    var y = m.groupValues[3].toIntOrNull() ?: today.substring(0, 4).toInt()
+                    var ds = "%04d-%02d-%02d".format(y, mon, d)
+                    if (m.groupValues[3].isEmpty() && ds > today) { y -= 1; ds = "%04d-%02d-%02d".format(y, mon, d) }
+                    date = ds
+                }
+                i++; return@let
+            } ?: run {
+                // "Rótulo | 15:32 | R$ 8,07" (ou o valor antes da hora)
+                val label = parts[i]
+                val a = parts.getOrNull(i + 1) ?: ""; val b = parts.getOrNull(i + 2) ?: ""
+                val (tSeg, mSeg) = if (TIME.matches(a)) a to b else b to a
+                val t = TIME.find(tSeg); val mo = MONEY.find(mSeg)
+                val dt = date
+                if (dt != null && t != null && mo != null && MONEY.find(label) == null && TIME.find(label) == null) {
+                    val v = OfferParser.parseMoney(mo.groupValues[1])
+                    val neg = mSeg.contains("-")
+                    val h = t.groupValues[1].toInt(); val mi = t.groupValues[2].toInt()
+                    if (v != null && v > 0 && v < 1000 && !neg && h < 24 && mi < 60) {
+                        val base = "$dt:${"%02d%02d".format(h, mi)}:${Math.round(v * 100)}:${fold(label)}"
+                        val n = (seen[base] ?: 0) + 1; seen[base] = n
+                        out += Entry("iFood", label, v, h * 60 + mi, "iFood\$lanc:$base:$n", dt)
+                    }
+                    i += 3
+                } else i++
+            }
+        }
+        return out
+    }
+
+    /** Data + hora:minuto -> instante. */
+    fun instantOf(date: String, minuteOfDay: Int): Long = Calendar.getInstance().apply {
+        set(date.substring(0, 4).toInt(), date.substring(5, 7).toInt() - 1, date.substring(8, 10).toInt(), minuteOfDay / 60, minuteOfDay % 60)
+        set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
 
     /**
      * Hora do lançamento -> instante. O Saldo só mostra hora:minuto: se a hora é depois de agora,
