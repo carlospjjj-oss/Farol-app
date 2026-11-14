@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 14/11/2026 · versão **6.5.5** (versionCode 50)
+Atualizado em 14/11/2026 · versão **6.6** (versionCode 51)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -74,6 +74,7 @@ contado duas vezes.
 | Folga | marcada só em dia sem turno nem ganho. Iniciar turno desmarca | `DayRecord.dayOff` |
 | Pausa | notificação fixa enquanto pausado, lembrete se um app de corrida abrir, iniciar turno religa | `PauseControl` |
 | Ajustes fora do normal | consumo, preço, custo por km e faixas fora das faixas típicas: salvar pede confirmação e o painel mostra "Precisa de atenção" | `SettingsSanity` (app) e `settingsProblems` (servidor) |
+| Destino e chance de volta | região de coleta e destino lida do endereço (Keeta, iFood, 99 corrida). Chance de volta = ofertas com coleta naquela região no mesmo horário (±1 h) nos últimos 30 dias: 6+ boa, 2–5 alguma, 0–1 pouca. Precisa de 30 ofertas com região; destino só com a cidade de casa não mostra nada. Só no celular | `RegionReader`, `ReturnChance` |
 | Alertas das contas | desatualizado, pausado, ajustes fora do normal, turno aberto > 20 h, leitura caindo, sem sinal 3+ dias. No painel web, no app e por notificação (uma vez por dia); o admin recebe os de todas as contas | `accountAlerts`, `/v1/me/alertas`, `AlertsClient` |
 
 ## Leitura dos apps
@@ -124,17 +125,20 @@ consentimento do usuário, e dados de clientes nunca saem.
 Nada chega ao celular sem passar por testes no computador e no emulador.
 
 1. Desenvolver no ramo `fase1`.
-2. Testes no computador: 135 testes de regras e leitores, incluindo 102 ofertas reais (`OfertasReaisTest`).
+2. Testes no computador: 147 testes de regras e leitores, incluindo 102 ofertas reais (`OfertasReaisTest`), o banco de telas reais (`golden/telas_reais.tsv`, `TelasReaisTest`) e o dia inteiro de ganhos (`EarningsRecorderTest`).
 3. Push em `fase1` roda o build e o emulador Android (API 34): testes de banco, telas e prints. Os prints vão para o
    ramo `prints`.
 4. Conferir os prints.
-5. Juntar em `main` (fast-forward). O "Build APK" assina, publica a release com `versionCode`, `versionName` e
-   `sha256`, e os celulares atualizam sozinhos em até 6 h.
+5. Juntar em `main` (fast-forward). O "Build APK" assina e publica a release como **prévia** (`versionCode`,
+   `versionName`, `sha256`). Quem está no **canal de teste** (padrão do admin) recebe na hora; o workflow
+   "Promover versão" a torna estável para todos depois de 24 h (ou na hora, rodando com `promover_agora=sim`).
 6. Se `server/worker.js` mudou, o servidor é publicado na Cloudflare no mesmo push.
 7. Atualizar o README (selo da versão e histórico) e as três cópias deste documento.
 
 - **Consultas ao servidor:** o ramo `status` tem um workflow só de leitura que consulta o banco D1 (sem e-mails nem
   textos de clientes) para conferir versão, ajustes e dias de cada conta.
+- **Telas reais novas:** `python3 tools/telas_golden.py <logs>` lista telas de ganho, histórico e espera que ainda
+  não estão no banco; conferir, preencher o esperado e colar em `telas_reais.tsv`.
 - **Testes do servidor:** scripts Node com SQLite simulando o D1 (login, sincronização, LGPD, retenção, semana,
   filtro de terceiros, regra de ganhos).
 
@@ -157,14 +161,13 @@ Nada chega ao celular sem passar por testes no computador e no emulador.
 
 ## Estado atual e roteiro
 
-A 6.5 fecha a parte de dinheiro (ganho automático, gastos, metas). A próxima frente é ajudar a decidir a corrida:
-destino e chance de volta.
+A 6.5 fechou a parte de dinheiro e a 6.6 a confiabilidade (Fase 3) e o destino com chance de volta. O que falta depende
+de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a previsão.
 
 | Quando | O quê |
 | --- | --- |
-| Agora | validar a 6.5.5 rodando: alertas, explicação no card, soma das entregas, leitura do histórico |
-| Fase 3 (confiabilidade) | feito: alertas automáticos e checagem dos ajustes (6.5.5). Falta: dividir o leitor em partes com testes, telas reais virando teste automático, canal de teste antes de todos |
-| 6.6 | região do destino e chance de corrida de volta, calculado no celular com o histórico de ofertas |
+| Agora | validar a 6.6 rodando: chance de volta, alertas, explicação no card, soma das entregas, leitura do histórico |
+| Fase 3 (confiabilidade) | concluída: alertas e checagem dos ajustes (6.5.5); leitor de ganhos separado e testado, banco de telas reais, canal de teste (6.6) |
 | Com as telas do Marcelo | etapas e ganho da corrida da 99 Motorista (carro) |
 | ~3 semanas de dados (início de dez/2026) | previsão de ganho por horário, faixas que se ajustam sozinhas, "Pergunte ao Farol" no painel |
 | Menores | gastos e metas no painel web, tema claro no painel, soma do iFood na tela de concluído |
@@ -174,6 +177,8 @@ destino e chance de volta.
 - 99 com dois pedidos ao mesmo tempo: valores podem ser atribuídos trocados (o total fica certo).
 - Leitura do Saldo da 99 pela imagem ainda não foi confirmada com o texto real do celular.
 - Caminhos dos menus por marca podem variar entre modelos.
+- Chance de volta só usa a região de COLETA das ofertas recebidas; o iFood esconde o bairro da loja em parte das
+  ofertas e a 99 Entrega (imagem) não tem região. Destino só com a cidade (Keeta) dá resposta só por cidade.
 
 ## Usuários e pendências
 
@@ -182,7 +187,7 @@ destino e chance de volta.
 | Carlos | moto: Keeta, 99, iFood (e Uber, inDrive) | 6.5.x, compartilhamento desligado, dias 11 a 13 completos |
 | Marcelo | carro: só 99 | ainda na 6.3.1; custos zerados (R$ 0,05/km), faixas baixas, km do turno de 13/11 errado; compartilhamento ligado |
 
-- [ ] Marcelo: atualizar para a 6.5.4, corrigir custos e faixas, corrigir o km do turno de 13/11
+- [ ] Marcelo: atualizar para a 6.6, corrigir custos e faixas, corrigir o km do turno de 13/11
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
 - [x] Conectar o Notion e criar a cópia deste documento
 - [ ] Conferir a leitura do Saldo da 99 pela imagem no próximo fechamento de dia
