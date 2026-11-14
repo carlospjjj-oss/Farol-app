@@ -20,7 +20,7 @@
 // A tabela é criada sozinha no primeiro envio.
 
 // Versão da política de privacidade. Mudou o texto de forma importante? Troque a data: o app pede o aceite de novo.
-const POLICY_VERSION = "2026-11-13";
+const POLICY_VERSION = "2026-11-14";
 
 const MAX_BODY = 512 * 1024;      // 512 KB por lote
 const MAX_EVENTS = 500;           // eventos por lote
@@ -152,6 +152,7 @@ export default {
     if (!env.DB) return json({ erro: "banco D1 não ligado (Bindings → DB)" }, 500);
     await ensureSchema(env.DB);
     if (url.pathname.startsWith("/v1/auth/") || url.pathname.startsWith("/v1/admin/") || url.pathname.startsWith("/v1/me/")) return authRoutes(req, env, url);
+    if (url.pathname === "/v1/telegram" && req.method === "POST") return telegramWebhook(req, env);
     if (url.pathname === "/v1/sync" && req.method === "POST") return syncRoute(req, env);
     if (req.method === "GET" && url.pathname === "/api/painel") return panelApi(req, env, url);
     if (req.method !== "POST" || url.pathname !== "/v1/logs") return json({ erro: "rota inválida" }, 404);
@@ -205,6 +206,13 @@ export default {
 
     ctx.waitUntil(maintenance(env).catch(() => {}));
     return json({ ok: true, gravados: eventos.length });
+  },
+
+  // De hora em hora (wrangler.toml → [triggers] crons): avisos da administração no Telegram.
+  async scheduled(event, env, ctx) {
+    if (!env.DB || !env.TELEGRAM_TOKEN) return;
+    await ensureSchema(env.DB);
+    ctx.waitUntil(telegramTick(env, new Date(event.scheduledTime || Date.now())).catch(() => {}));
   },
 };
 
@@ -464,6 +472,7 @@ async function authRoutes(req, env, url) {
        FROM events e LEFT JOIN users u ON u.id = e.user_id WHERE e.tipo = 'crash' ORDER BY e.id DESC LIMIT 30`).all();
     return json({ crashes: r.results || [] });
   }
+  if (p === "/v1/admin/telegram" && req.method === "POST") return json(await telegramAdmin(env, url, body));
   if (p === "/v1/admin/limpeza" && req.method === "POST") {
     return json({ ok: true, resultado: await maintenance(env, true), regra: `texto apagado após ${TEXT_DAYS} dias; telas apagadas após ${SCREEN_DAYS} dias` });
   }
@@ -770,6 +779,211 @@ async function accountAlerts(db, env, userIds) {
   return out.sort((x, y) => rank[x.nivel] - rank[y.nivel]);
 }
 
+// ============================== Bot do Telegram (administração) ==============================
+//
+// Só para quem administra o app: problemas (versão velha, sem sinal, pausado, ajustes fora do normal,
+// turno esquecido, leitura caindo) e travamentos. NUNCA manda ganhos, telas, pedidos, clientes ou endereços.
+// Como ligar: @BotFather → token no segredo TELEGRAM_TOKEN da Cloudflare → painel › Contas › "Ligar bot do
+// Telegram" → mandar ao bot o código que aparece (/vincular 123456). O segredo do webhook é gerado aqui
+// e fica só no banco (meta), sem ir para o repositório.
+const TG_API = "https://api.telegram.org/bot";
+
+async function metaGet(db, k, def = null) {
+  const row = await db.prepare("SELECT v FROM meta WHERE k = ?").bind(k).first().catch(() => null);
+  if (!row) return def;
+  try { return JSON.parse(row.v); } catch (_) { return def; }
+}
+async function metaSet(db, k, v) {
+  await db.prepare("INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(k, JSON.stringify(v)).run();
+}
+function randomDigits(n) {
+  const a = new Uint32Array(n); crypto.getRandomValues(a);
+  return [...a].map((x) => String(x % 10)).join("");
+}
+function randomToken() {
+  const a = new Uint8Array(24); crypto.getRandomValues(a);
+  return [...a].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+async function tgCall(env, method, payload) {
+  const r = await fetch(TG_API + env.TELEGRAM_TOKEN + "/" + method, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+  return r.json().catch(() => ({ ok: false }));
+}
+/** Texto puro (sem markdown, para nada quebrar). O Telegram aceita até 4096 caracteres. */
+async function tgSend(env, chatId, text) {
+  return tgCall(env, "sendMessage", { chat_id: chatId, text: String(text).slice(0, 4000), disable_web_page_preview: true });
+}
+async function tgBroadcast(env, text) {
+  for (const c of await metaGet(env.DB, "tg_chats", [])) await tgSend(env, c, text);
+}
+
+/** Painel do administrador: liga o webhook e gera o código de vínculo (vale 15 minutos). */
+async function telegramAdmin(env, url, body) {
+  if (!env.TELEGRAM_TOKEN) return { erro: "Crie o bot no @BotFather e guarde o token no segredo TELEGRAM_TOKEN da Cloudflare." };
+  const db = env.DB;
+  if (body.acao === "desligar") { await metaSet(db, "tg_chats", []); return { ok: true, vinculados: 0 }; }
+  let secret = await metaGet(db, "tg_segredo");
+  if (!secret) { secret = randomToken(); await metaSet(db, "tg_segredo", secret); }
+  const hook = await tgCall(env, "setWebhook", { url: url.origin + "/v1/telegram", secret_token: secret,
+    allowed_updates: ["message"], drop_pending_updates: true });
+  if (!hook.ok) return { erro: "O Telegram recusou o token: " + (hook.description || "confira o TELEGRAM_TOKEN") };
+  await tgCall(env, "setMyCommands", { commands: [
+    { command: "avisos", description: "Problemas pendentes nas contas" },
+    { command: "contas", description: "Versão, último sinal e leitura de cada conta" },
+    { command: "erros", description: "Travamentos dos últimos 7 dias" },
+    { command: "ajuda", description: "O que este bot faz" } ] });
+  const me = await tgCall(env, "getMe", {});
+  const codigo = randomDigits(6);
+  await metaSet(db, "tg_codigo", { c: codigo, ate: Date.now() + 15 * 60_000 });
+  return { ok: true, codigo, bot: me.result?.username || null, vinculados: (await metaGet(db, "tg_chats", [])).length };
+}
+
+async function telegramWebhook(req, env) {
+  const secret = await metaGet(env.DB, "tg_segredo");
+  if (!env.TELEGRAM_TOKEN || !secret || req.headers.get("x-telegram-bot-api-secret-token") !== secret) return json({ erro: "não autorizado" }, 401);
+  const up = await req.json().catch(() => ({}));
+  const msg = up.message;
+  if (!msg || !msg.chat || msg.chat.type !== "private" || typeof msg.text !== "string") return json({ ok: true });
+  const chat = msg.chat.id;
+  const [cmd0, ...args] = msg.text.trim().split(/\s+/);
+  const cmd = cmd0.toLowerCase().replace(/@.*/, "");
+  const db = env.DB;
+  const chats = await metaGet(db, "tg_chats", []);
+
+  if (cmd === "/vincular") {
+    const code = await metaGet(db, "tg_codigo");
+    if (await tooMany(db, "tg:" + chat, 5, 3600_000)) { await tgSend(env, chat, "Muitas tentativas. Tente daqui a 1 hora."); return json({ ok: true }); }
+    if (!code || Date.now() > code.ate || args[0] !== code.c) {
+      await marca(db, "tg:" + chat);
+      await tgSend(env, chat, "Código inválido ou vencido. Gere outro no painel (Contas › Ligar bot do Telegram).");
+      return json({ ok: true });
+    }
+    if (!chats.includes(chat)) chats.push(chat);
+    await metaSet(db, "tg_chats", chats);
+    await db.prepare("DELETE FROM meta WHERE k = 'tg_codigo'").run();
+    await tgSend(env, chat, "✅ Vinculado. Você vai receber aqui os problemas do app (sem ganhos de ninguém).\n\n" + TG_HELP);
+    return json({ ok: true });
+  }
+  if (!chats.includes(chat)) { await tgSend(env, chat, "Este bot é privado da administração do Farol."); return json({ ok: true }); }
+
+  let out;
+  if (cmd === "/avisos") out = await tgAvisosText(env);
+  else if (cmd === "/contas") out = await tgContasText(env);
+  else if (cmd === "/erros") out = await tgErrosText(env);
+  else if (cmd === "/desvincular") { await metaSet(db, "tg_chats", chats.filter((c) => c !== chat)); out = "Desvinculado. Para voltar, gere um código novo no painel."; }
+  else out = TG_HELP;
+  await tgSend(env, chat, out);
+  return json({ ok: true });
+}
+
+const TG_HELP = "Farol · administração\n" +
+  "/avisos  problemas pendentes nas contas\n" +
+  "/contas  versão, último sinal e leitura de cada conta\n" +
+  "/erros  travamentos dos últimos 7 dias\n" +
+  "/desvincular  parar de receber\n\n" +
+  "Aviso na hora quando aparece um problema novo e resumo todo dia às 8h. Nada de ganhos, telas ou clientes.";
+
+async function activeIds(db) {
+  return ((await db.prepare("SELECT id FROM users WHERE ativo = 1").all()).results || []).map((x) => x.id);
+}
+const tgIcon = (a) => (a.nivel === "problema" ? "🔴" : "🟡");
+const tgFirst = (nome) => String(nome || "").split(" ")[0] || "Conta";
+
+function tgGroup(alerts) {
+  const by = new Map();
+  for (const a of alerts) { const k = tgFirst(a.nome); if (!by.has(k)) by.set(k, []); by.get(k).push(a); }
+  return [...by.entries()].map(([nome, l]) => nome + "\n" + l.map((a) => `${tgIcon(a)} ${a.texto}\n   → ${a.acao}`).join("\n")).join("\n\n");
+}
+
+async function tgAvisosText(env) {
+  const alerts = await accountAlerts(env.DB, env, await activeIds(env.DB));
+  if (!alerts.length) return "✅ Nenhum problema pendente nas contas.";
+  return `⚠️ ${alerts.length} aviso(s) pendente(s)\n\n` + tgGroup(alerts);
+}
+
+function tgAgo(ms) {
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60_000));
+  if (m < 60) return `há ${m} min`;
+  if (m < 48 * 60) return `há ${Math.round(m / 60)} h`;
+  return `há ${Math.round(m / 1440)} dias`;
+}
+
+async function tgContasText(env) {
+  const db = env.DB;
+  const latest = await latestRelease(db, env);
+  const users = (await db.prepare("SELECT id, nome FROM users WHERE ativo = 1 ORDER BY id").all()).results || [];
+  const lines = [`Contas (versão publicada: ${latest || "?"})`];
+  for (const u of users) {
+    const last = await db.prepare("SELECT received_at, versao FROM events WHERE user_id = ? ORDER BY id DESC LIMIT 1").bind(u.id).first();
+    if (!last) { lines.push(`\n${tgFirst(u.nome)}: ainda sem sinal do app`); continue; }
+    const old = latest && last.versao && cmpVersion(last.versao, latest) < 0;
+    const health = await readerHealth(db, { scopeUser: u.id, modo: null });
+    const leit = health.filter((h) => h.status !== "SEM_DADOS")
+      .map((h) => `${APP_NAMES[h.app] || h.app} ${h.status === "OK" ? "ok" : h.status === "ATENCAO" ? "atenção" : "PROBLEMA"}`).join(", ");
+    lines.push(`\n${tgFirst(u.nome)}: v${last.versao || "?"}${old ? " (desatualizado)" : ""} · último sinal ${tgAgo(Number(last.received_at))}` +
+      `\n   leitura hoje: ${leit || "sem ofertas ainda"}`);
+  }
+  return lines.join("\n");
+}
+
+async function tgErrosText(env) {
+  const rows = (await env.DB.prepare(
+    `SELECT e.t, e.versao, u.nome, json_extract(e.data,'$.aparelho_modelo') AS modelo, json_extract(e.data,'$.erro') AS erro
+     FROM events e LEFT JOIN users u ON u.id = e.user_id WHERE e.tipo = 'crash' AND e.received_at > ? ORDER BY e.id DESC LIMIT 8`)
+    .bind(Date.now() - 7 * 86400_000).all()).results || [];
+  if (!rows.length) return "✅ Nenhum travamento nos últimos 7 dias.";
+  return `💥 ${rows.length} travamento(s) em 7 dias (detalhes no painel › Erros do app)\n\n` + rows.map(tgCrashLine).join("\n\n");
+}
+function tgCrashLine(c) {
+  const quando = c.t ? `${c.t.slice(8, 10)}/${c.t.slice(5, 7)} ${c.t.slice(11, 16)}` : "";
+  const erro = String(c.erro || "erro").split("\n")[0].slice(0, 160);
+  return `${quando} · ${tgFirst(c.nome)} · v${c.versao || "?"} · ${c.modelo || "?"}\n   ${erro}`;
+}
+
+/** De hora em hora: avisa o que é novo, o que foi resolvido, travamentos novos e, às 8h, o resumo do dia. */
+async function telegramTick(env, now = new Date()) {
+  const db = env.DB;
+  if (!(await metaGet(db, "tg_chats", [])).length) return { enviado: false };
+  const alerts = await accountAlerts(db, env, await activeIds(db));
+  const before = new Set(await metaGet(db, "tg_estado", []));
+  const nowIds = new Set(alerts.map((a) => a.id));
+  const fresh = alerts.filter((a) => !before.has(a.id));
+  const gone = [...before].filter((id) => !nowIds.has(id));
+  await metaSet(db, "tg_estado", [...nowIds]);
+  const msgs = [];
+  if (fresh.length) msgs.push(`⚠️ ${fresh.length === 1 ? "Problema novo" : fresh.length + " problemas novos"}\n\n` + tgGroup(fresh));
+  if (gone.length) {
+    const names = new Map(((await db.prepare("SELECT id, nome FROM users").all()).results || []).map((u) => [String(u.id), tgFirst(u.nome)]));
+    const label = { versao: "atualizou o app", sinal: "voltou a mandar sinal", pausado: "retomou o Farol", ajustes: "corrigiu os ajustes",
+      turno: "fechou o turno", leitor: "leitura voltou ao normal" };
+    const per = new Map();
+    for (const id of gone) { const [u, t] = id.split(":"); const k = names.get(u) || "conta " + u; if (!per.has(k)) per.set(k, []); per.get(k).push(label[t] || t); }
+    msgs.push("✅ Resolvido: " + [...per].map(([k, l]) => `${k} ${l.length > 1 ? l.slice(0, -1).join(", ") + " e " + l.at(-1) : l[0]}`).join("; "));
+  }
+  // travamentos novos desde a última passada
+  let lastId = Number(await metaGet(db, "tg_crash_id", 0));
+  if (!lastId) {   // primeira passada: começa do mais recente, sem reavisar os antigos
+    const mx = await db.prepare("SELECT MAX(id) AS m FROM events WHERE tipo = 'crash'").first();
+    lastId = Number(mx?.m) || -1; await metaSet(db, "tg_crash_id", lastId);
+  }
+  const crashes = (await db.prepare(
+    `SELECT e.id, e.t, e.versao, u.nome, json_extract(e.data,'$.aparelho_modelo') AS modelo, json_extract(e.data,'$.erro') AS erro
+     FROM events e LEFT JOIN users u ON u.id = e.user_id WHERE e.tipo = 'crash' AND e.id > ? ORDER BY e.id LIMIT 10`).bind(lastId).all()).results || [];
+  if (crashes.length) {
+    await metaSet(db, "tg_crash_id", crashes[crashes.length - 1].id);
+    msgs.push(`💥 ${crashes.length} travamento(s) novo(s)\n\n` + crashes.map(tgCrashLine).join("\n\n"));
+  }
+  // resumo diário às 8h de Brasília (11h UTC), uma vez por dia
+  const today = brtDate(0);
+  if (now.getUTCHours() === 11 && (await metaGet(db, "tg_resumo")) !== today) {
+    await metaSet(db, "tg_resumo", today);
+    msgs.push("☀️ Resumo das 8h\n\n" + (alerts.length ? `${alerts.length} aviso(s) pendente(s)\n\n` + tgGroup(alerts) : "✅ Nenhum problema pendente nas contas."));
+  }
+  for (const m of msgs) await tgBroadcast(env, m);
+  return { enviado: msgs.length > 0, mensagens: msgs };
+}
+
 // ============================== Saúde do leitor ==============================
 // Mesmas regras de app/src/main/java/com/farol/app/core/ReaderHealth.kt
 function healthStatus(today, previous) {
@@ -1050,7 +1264,9 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
   <section><h2>Últimas ofertas <span id="offCount"></span></h2><div class="card"><div class="offs" id="ultimas"></div></div></section>
   <section><h2>Pedidos <span>tempo medido pelo app</span></h2><div class="grid apps" id="pedidos"></div></section>
   <section id="secCrash" hidden><h2>Erros do app <span>travamentos enviados pelos celulares</span></h2><div class="card"><div class="users" id="crashes"></div></div></section>
-  <section id="secUsers" hidden><h2>Contas <span>só o administrador vê</span></h2><div class="card"><div class="users" id="users"></div></div></section>
+  <section id="secUsers" hidden><h2>Contas <span>só o administrador vê</span></h2><div class="card"><div class="users" id="users"></div>
+    <div class="u" style="margin-top:10px"><div><b>Bot do Telegram</b><div class="sub" id="tgInfo">Problemas do app no seu Telegram (sem ganhos de ninguém).</div></div>
+    <div class="b"><button id="tgOn">Ligar bot do Telegram</button></div></div></div></section>
   <footer>Farol · dados do seu servidor Cloudflare · <a href="/privacidade" style="color:var(--muted)">Política de privacidade</a></footer>
 </div>
 <script>
@@ -1227,6 +1443,9 @@ $("#users").addEventListener("click",async e=>{const b=e.target.closest("button"
   if(b.dataset.a==="reset"){const s=prompt("Nova senha para esta conta (mínimo 8 caracteres):");if(!s)return;
     const r=await fetch("/v1/admin/reset",{method:"POST",headers:H(),body:JSON.stringify({user_id:id,senha:s})});const d=await r.json();alert(r.ok?"Senha trocada. Passe a senha nova para a pessoa.":d.erro);}
   else{if(!confirm("Confirmar?"))return;const r=await fetch("/v1/admin/toggle",{method:"POST",headers:H(),body:JSON.stringify({user_id:id})});if(!r.ok)alert((await r.json()).erro);loadUsers();}});
+$("#tgOn").addEventListener("click",async()=>{const r=await fetch("/v1/admin/telegram",{method:"POST",headers:H(),body:"{}"}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})):{erro:"sem conexão"};
+  $("#tgInfo").textContent=d.erro?d.erro:"Abra "+(d.bot?"@"+d.bot:"o bot")+" no Telegram e mande: /vincular "+d.codigo+"  (vale 15 minutos)";});
 load();setInterval(()=>{if(tok&&!document.hidden)load()},60000);
 </script></body></html>
 `;
@@ -1330,6 +1549,7 @@ Você pode ver e alterar os critérios em Ajustes e pedir informações sobre el
 <tr><th>Operador</th><th>Para quê</th><th>Dados envolvidos</th></tr>
 <tr><td>Cloudflare, Inc. (Workers e banco D1)</td><td>Hospedagem do servidor, do banco e do painel</td><td>Todos os dados da conta descritos na seção 3; registros técnicos de acesso (IP, horário, rota)</td></tr>
 <tr><td>GitHub, Inc.</td><td>Distribuição das atualizações do app; cópia técnica para análise, <b>só</b> se você deu o consentimento opcional</td><td>Na atualização: IP e versão do aparelho que baixa o arquivo. Na cópia técnica: eventos das ofertas e telas</td></tr>
+<tr><td>Telegram (bot da administração)</td><td>Avisar o administrador sobre problemas de funcionamento do app</td><td>Só para o administrador: primeiro nome da conta, versão do app, quando chegou o último sinal, avisos técnicos (app pausado, ajustes fora do normal, turno esquecido, leitura caindo) e erros de travamento. <b>Nunca</b> ganhos, telas, pedidos, clientes ou endereços</td></tr>
 <tr><td>Google LLC (ML Kit, no aparelho)</td><td>Reconhecimento de texto offline (OCR de reserva)</td><td>Não recebe imagens nem textos. A biblioteca envia ao Google métricas técnicas de uso e desempenho e informações do aparelho (modelo, versão do Android)</td></tr>
 </table>
 <p>Os dados também podem ser fornecidos a autoridades quando houver obrigação legal ou ordem judicial (art. 7º, II e VI), sempre no limite do que for exigido.</p>
@@ -1392,7 +1612,7 @@ A comunicação dirá o que aconteceu, quais dados foram afetados, os riscos e a
 
 <h2 id="s16"><span>16.</span>Alterações e histórico de versões</h2>
 <p>Podemos atualizar este aviso. Mudanças relevantes, como nova finalidade, novo dado ou novo operador, serão informadas no app, e seu aceite será pedido de novo antes de continuar.</p>
-<table><tr><th>Versão</th><th>Mudança</th></tr><tr><td>${V}</td><td>Primeira versão: contas, sincronização, consentimento separado para textos, direitos no app, retenção automática</td></tr><tr><td>14/11/2026</td><td>Esclarecimento, sem mudar finalidades: gastos lançados e ganho por entrega no diário; nome do cliente mascarado e chat nunca enviado; nome de restaurante só no aparelho</td></tr></table>
+<table><tr><th>Versão</th><th>Mudança</th></tr><tr><td>${V}</td><td>Primeira versão: contas, sincronização, consentimento separado para textos, direitos no app, retenção automática</td></tr><tr><td>14/11/2026</td><td>Esclarecimento, sem mudar finalidades: gastos lançados e ganho por entrega no diário; nome do cliente mascarado e chat nunca enviado; nome de restaurante só no aparelho</td></tr><tr><td>14/11/2026</td><td>Novo operador: Telegram, para avisar o administrador sobre problemas técnicos do app (seção 7). Sem ganhos nem conteúdo das telas</td></tr></table>
 <p class="sub">Lei aplicável: legislação brasileira, em especial a LGPD e o Marco Civil da Internet (Lei nº 12.965/2014).</p>
 </main></body></html>`;
 }

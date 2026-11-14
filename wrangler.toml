@@ -14,3 +14,7 @@ database_id = "41eaae62-a9b8-4f78-b381-4aa5731b0eeb"
 
 [observability]
 enabled = true
+
+# De hora em hora: avisos da administração no bot do Telegram (só problemas do app, nunca ganhos)
+[triggers]
+crons = ["7 * * * *"]

@@ -54,7 +54,7 @@ object SecureStore {
 object Account {
     const val DEFAULT_SERVER = "https://farol-logs.carlos-pjjj.workers.dev"
     /** Versão do aviso de privacidade aceita (tem que bater com POLICY_VERSION do servidor). */
-    const val POLICY_VERSION = "2026-11-13"
+    const val POLICY_VERSION = "2026-11-14"
 
     fun policyUrl(ctx: Context) = server(ctx) + "/privacidade"
 

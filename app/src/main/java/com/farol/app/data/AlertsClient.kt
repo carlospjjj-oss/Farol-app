@@ -14,9 +14,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Alertas do servidor (Fase 3): app desatualizado, Farol pausado, ajustes fora do normal, turno esquecido,
- * leitura caindo, conta sem sinal. Quem é administrador recebe também os das outras contas
- * (ex.: "Marcelo: custos zerados"), para poder avisar.
+ * Alertas do servidor (Fase 3) da PRÓPRIA conta: turno esquecido, leitura caindo…
+ * Os problemas das outras contas não aparecem no app: vão para o bot do Telegram da administração.
  * Busca junto com a sincronização; um alerta novo vira notificação UMA vez por dia.
  */
 object AlertsClient {
@@ -58,7 +57,11 @@ object AlertsClient {
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
         val p = prefs(ctx)
         val seen = runCatching { JSONObject(p.getString("vistos", "{}")!!) }.getOrDefault(JSONObject())
-        val fresh = list.filter { seen.optString(it.id) != today }
+        val mine = me(ctx)
+        // Os da própria conta que o celular já mostra de outro jeito (pausa, ajustes, atualização) não viram notificação
+        // Só os da própria conta (os das outras contas vão para o bot do Telegram da administração),
+        // e sem o que o celular já mostra de outro jeito (pausa, ajustes, atualização)
+        val fresh = list.filter { seen.optString(it.id) != today && it.user == mine && it.type !in setOf("ajustes", "pausado", "sinal", "versao") }
         if (fresh.isEmpty()) return
         fresh.forEach { seen.put(it.id, today) }
         p.edit().putString("vistos", seen.toString()).apply()
@@ -67,15 +70,16 @@ object AlertsClient {
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(
             NotificationChannel(CH, "Alertas do Farol", NotificationManager.IMPORTANCE_DEFAULT).apply { description = "O que precisa de atenção nas contas" })
-        val mine = me(ctx)
-        val lines = fresh.map { (if (it.user != mine) "${it.name}: " else "") + it.text }
+        // Notificação curta: quem tem aviso; o detalhe fica no app (toque em "Ver")
+        val who = fresh.groupBy { if (it.user == mine) "você" else it.name.substringBefore(' ') }
+            .map { (n, l) -> "${l.size} ${if (n == "você") (if (l.size == 1) "seu" else "seus") else "do $n"}" }
+        val lines = listOf(who.joinToString(" · ") + " — toque para ver")
         val open = PendingIntent.getActivity(ctx, 5, Intent(ctx, DashboardActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(ctx, CH) else @Suppress("DEPRECATION") Notification.Builder(ctx)
         val n = b.setSmallIcon(com.farol.app.R.drawable.ic_tile)
-            .setContentTitle(if (fresh.size == 1) "Farol: precisa de atenção" else "Farol: ${fresh.size} coisas precisam de atenção")
+            .setContentTitle(if (fresh.size == 1) "Farol: 1 aviso novo" else "Farol: ${fresh.size} avisos novos")
             .setContentText(lines.first())
-            .setStyle(Notification.BigTextStyle().bigText(lines.joinToString("\n")))
             .setContentIntent(open).setAutoCancel(true).build()
         runCatching { nm.notify(NOTIF_ID, n) }
     }
