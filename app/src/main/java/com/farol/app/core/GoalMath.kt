@@ -32,7 +32,7 @@ object GoalMath {
     fun dayNet(d: DayRecord, costPerKm: Double): Double =
         d.totalEarnings - (d.kmDriven?.let { it * costPerKm } ?: 0.0) - d.totalExpenses
 
-    private fun worked(d: DayRecord?) = d != null && !d.dayOff && (d.hasShift || d.totalEarnings > 0)
+    private fun worked(d: DayRecord?) = d != null && (d.hasShift || d.totalEarnings > 0)   // trabalhou num dia marcado como folga: conta como trabalhado
 
     fun compute(days: List<DayRecord>, today: String, dailyGoal: Double, workDaysPerWeek: Int, costPerKm: Double): Goals {
         val byDate = days.associateBy { it.date }
