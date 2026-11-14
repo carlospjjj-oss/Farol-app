@@ -12,11 +12,9 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
-          echo "== u2 dias =="
-          q "SELECT modo, date, datetime(updated_at/1000,'unixepoch','-3 hours') upd, data d FROM user_days WHERE user_id=2 AND date >= '2026-11-12' ORDER BY date"
+          echo "== versao e ultimo sinal por conta =="
+          q "SELECT user_id, versao, max(t) ultimo, count(*) n FROM events WHERE t >= '2026-11-14T00:00' GROUP BY user_id, versao ORDER BY user_id, ultimo"
           echo "== u2 ultimos ajustes =="
-          q "SELECT t, versao, json_extract(data,'$.ajustes') a FROM events WHERE user_id=2 AND tipo='ajustes' ORDER BY id DESC LIMIT 1"
-          echo "== u2 eventos desde 13/11 19h =="
-          q "SELECT tipo, app, versao, count(*) n, max(t) ultimo FROM events WHERE user_id=2 AND t >= '2026-11-13T19:00' GROUP BY tipo, app, versao ORDER BY ultimo"
-          echo "== u2 conta =="
-          q "SELECT compartilhar, consent_versao FROM users WHERE id=2"
+          q "SELECT t, versao, json_extract(data,'$.ajustes.etanol') et, json_extract(data,'$.ajustes.gasolina') ga, json_extract(data,'$.ajustes.outros_km') o, json_extract(data,'$.ajustes.custo_km') c, json_extract(data,'$.ajustes.verde_km') vk, json_extract(data,'$.ajustes.amarelo_km') ak, json_extract(data,'$.ajustes.verde_h') vh, json_extract(data,'$.ajustes.amarelo_h') ah, json_extract(data,'$.ajustes.meta_dia') meta FROM events WHERE user_id=2 AND tipo='ajustes' ORDER BY id DESC LIMIT 1"
+          echo "== u2 dia 13 =="
+          q "SELECT datetime(updated_at/1000,'unixepoch','-3 hours') upd, data FROM user_days WHERE user_id=2 AND date='2026-11-13'"
