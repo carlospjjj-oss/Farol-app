@@ -199,7 +199,7 @@ internal fun DashboardActivity.askEnd() {
             val up = d.resume(now).copy(kmEnd = km, endAt = now)
             store.putDay(up)
             sendDaySummary(up)
-            toast("Turno encerrado")
+            toast("Turno encerrado" + (maintenanceHint()?.let { "\n$it" } ?: ""))
             render()
         }
         val warn = d.kmStart?.let { suspicious(km - it, d.workedMs()?.let { w -> System.currentTimeMillis() - w }) }

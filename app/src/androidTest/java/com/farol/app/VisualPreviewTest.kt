@@ -142,6 +142,7 @@ class VisualPreviewTest {
             st.putDay(keep)
         }
         open(SettingsActivity::class.java, "5-ajustes")
+        prints68()
         // tema claro
         Settings(ctx).theme = "claro"
         open(ModeActivity::class.java, "6-claro-modo")
@@ -150,5 +151,56 @@ class VisualPreviewTest {
         Account.clear(ctx)
         open(LoginActivity::class.java, "9-claro-login")
         Settings(ctx).theme = "escuro"
+    }
+
+    /** Rola o painel (ou ajustes) até o cartão cujo título contém [title] e tira o print. */
+    private fun <T : Activity> scrolled(cls: Class<T>, title: String, name: String) {
+        runCatching {
+            ActivityScenario.launch(cls).use { sc ->
+                Thread.sleep(1200)
+                sc.onActivity { a ->
+                    fun find(v: android.view.View): android.widget.ScrollView? = when (v) {
+                        is android.widget.ScrollView -> v
+                        is android.view.ViewGroup -> (0 until v.childCount).firstNotNullOfOrNull { find(v.getChildAt(it)) }
+                        else -> null
+                    }
+                    fun hasText(v: android.view.View, depth: Int = 0): Boolean = when {
+                        v is android.widget.TextView -> v.text.toString().contains(title, ignoreCase = true)
+                        v is android.view.ViewGroup && depth < 3 -> (0 until minOf(v.childCount, 2)).any { hasText(v.getChildAt(it), depth + 1) }
+                        else -> false
+                    }
+                    find(a.window.decorView)?.let { s -> val col = s.getChildAt(0) as android.view.ViewGroup
+                        val t = (0 until col.childCount).map { col.getChildAt(it) }.firstOrNull { hasText(it) }
+                        s.scrollTo(0, t?.top?.minus(40) ?: 0) }
+                }
+                shot(name)
+            }
+        }
+    }
+
+    /** 6.8: indicadores, manutenção com caixinha e a aba do etanol nos ajustes. */
+    private fun prints68() {
+        val st = Settings(ctx)
+        val store = JournalStore(ctx)
+        val now = System.currentTimeMillis()
+        val today = store.day()
+        store.putDay(today.copy(
+            orderAt = mapOf("Keeta#7040" to now - 3 * 3600_000L, "Keeta#7553" to now - 2 * 3600_000L, "99#149031" to now - 3600_000L),
+            expenses = today.expenses + com.farol.app.core.Expense(now - 300_000L, "manutencao", 45.0, "Óleo do motor", item = "oleo_motor", km = 58100.0)))
+        val items = com.farol.app.core.Maintenance.defaults("moto").map {
+            when (it.id) {
+                "oleo_motor" -> it.copy(lastKm = 58100.0)
+                "freios" -> it.copy(lastKm = 50300.0)       // vence logo
+                "pneu_traseiro" -> it.copy(lastKm = 45900.0) // já passou
+                else -> it
+            }
+        }
+        com.farol.app.data.MaintenanceStore.save(st, items)
+        scrolled(DashboardActivity::class.java, "Indicadores", "14-painel-indicadores")
+        scrolled(DashboardActivity::class.java, "Manutenção", "15-painel-manutencao")
+        st.fuelType = "etanol"
+        scrolled(SettingsActivity::class.java, "Seus custos", "16-ajustes-aba-etanol")
+        st.fuelType = "gasolina"
+        scrolled(SettingsActivity::class.java, "Seus custos", "17-ajustes-aba-gasolina")
     }
 }

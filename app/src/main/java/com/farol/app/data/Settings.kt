@@ -185,6 +185,16 @@ class Settings(context: Context, private val modeOverride: String? = null) {
         get() = vprefs.getString("dailyGoal", null)?.toDoubleOrNull() ?: 0.0
         set(v) = vprefs.edit().putString("dailyGoal", v.toString()).apply()
 
+    /** Meta em bruto (o que os apps pagaram) em vez de líquido. Padrão: líquido. */
+    var goalGross: Boolean
+        get() = vprefs.getBoolean("goalGross", false)
+        set(v) = vprefs.edit().putBoolean("goalGross", v).apply()
+
+    /** Itens de manutenção (intervalo e última troca), em JSON. Vazio = sugestões do modo. */
+    var maintenanceJson: String
+        get() = vprefs.getString("maintenance", "") ?: ""
+        set(v) = vprefs.edit().putString("maintenance", v).apply()
+
     /** Tamanho do cartão: 0 = P, 1 = M, 2 = G. */
     var cardSize: Int
         get() = prefs.getInt("cardSize", 1)

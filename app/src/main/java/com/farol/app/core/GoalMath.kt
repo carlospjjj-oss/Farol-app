@@ -30,15 +30,18 @@ object GoalMath {
 
     /** Líquido do dia: ganhos − custo do km (quando há km) − gastos. */
     fun dayNet(d: DayRecord, costPerKm: Double): Double =
-        d.totalEarnings - (d.kmDriven?.let { it * costPerKm } ?: 0.0) - d.totalExpenses
+        d.totalEarnings - (d.kmDriven?.let { it * costPerKm } ?: 0.0) - d.operatingExpenses
+
+    /** O que conta para a meta: líquido (padrão) ou bruto (o que os apps pagaram), conforme o ajuste. */
+    fun dayValue(d: DayRecord, costPerKm: Double, gross: Boolean): Double = if (gross) d.totalEarnings else dayNet(d, costPerKm)
 
     private fun worked(d: DayRecord?) = d != null && (d.hasShift || d.totalEarnings > 0)   // trabalhou num dia marcado como folga: conta como trabalhado
 
-    fun compute(days: List<DayRecord>, today: String, dailyGoal: Double, workDaysPerWeek: Int, costPerKm: Double): Goals {
+    fun compute(days: List<DayRecord>, today: String, dailyGoal: Double, workDaysPerWeek: Int, costPerKm: Double, gross: Boolean = false): Goals {
         val byDate = days.associateBy { it.date }
         val wd = workDaysPerWeek.coerceIn(1, 7)
         val cal = Calendar.getInstance().apply { time = fmt.parse(today)!! }
-        fun net(date: String) = byDate[date]?.let { dayNet(it, costPerKm) } ?: 0.0
+        fun net(date: String) = byDate[date]?.let { dayValue(it, costPerKm, gross) } ?: 0.0
         val todayRec = byDate[today]
         val todayOff = todayRec?.dayOff == true
 

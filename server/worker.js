@@ -43,7 +43,9 @@ function appEarnings(d) {
   return out;
 }
 const sumValues = (o) => Object.values(o).reduce((a, v) => a + (Number(v) || 0), 0);
-const dayExpenses = (d) => (Array.isArray(d.expenses) ? d.expenses : []).reduce((a, x) => a + (Number(x && x.v) || 0), 0);
+// Gastos que saem do líquido. Manutenção não: ela já está no custo por km (sai da "caixinha"; mesma regra do app).
+const dayExpenses = (d) => (Array.isArray(d.expenses) ? d.expenses : [])
+  .filter((x) => x && x.cat !== "manutencao").reduce((a, x) => a + (Number(x.v) || 0), 0);
 
 // ---- Dados de terceiros (clientes) — mesma regra do app (LogSanitizer.forServer) ----
 // Vale também para versões antigas do app: chat com o cliente não é guardado e o nome do cliente

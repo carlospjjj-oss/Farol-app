@@ -116,11 +116,20 @@ internal fun DashboardActivity.askFuel() {
         addView(full, k.lp(top = 10))
         addView(k.text("Completar o tanque toda vez é o que permite medir o consumo real.", 12, Palette.MUTED), k.lp(top = 2))
     }
+    var confirmed = false
     dialog("Abastecimento", box, "Registrar") {
         val o = odo.num() ?: return@dialog fail("Digite o km do painel")
         val l = liters.num()?.takeIf { it > 0 } ?: return@dialog fail("Digite os litros")
         val t = total.num()?.takeIf { it > 0 } ?: return@dialog fail("Digite o valor pago")
-        store.addFuel(FuelEntry(System.currentTimeMillis(), o, l, t, full.isChecked))
+        // Preço com cara do outro combustível (ex.: R$ 5,79 marcado como etanol): pede para conferir uma vez
+        val other = if (fuelType == "etanol") "gasolina" else "etanol"
+        val ppl = t / l
+        val mine = settings.fuel(fuelType).price; val theirs = settings.fuel(other).price
+        if (!confirmed && mine > 0 && theirs > 0 && Math.abs(mine - theirs) > 0.8 && Math.abs(ppl - theirs) < Math.abs(ppl - mine)) {
+            confirmed = true
+            return@dialog fail("${Fmt.money(ppl)}/L parece preço de $other. Confira o combustível marcado e toque em Registrar de novo.")
+        }
+        store.addFuel(FuelEntry(System.currentTimeMillis(), o, l, t, full.isChecked, fuelType))
         // O preço pago vira o preço daquele combustível, e ele passa a ser o do tanque.
         val price = Math.round(t / l * 100) / 100.0
         settings.setFuel(fuelType, settings.fuel(fuelType).copy(price = price))
@@ -139,12 +148,14 @@ internal fun DashboardActivity.undoFuel() {
 }
 
 internal fun DashboardActivity.applyRealFuel() {
-    val fs = JournalMath.fuelStats(store.fuel())
-    val p = settings.profile
-    settings.profile = p.copy(
-        kmPerLiter = fs.realKmPerLiter?.let { Math.round(it * 10) / 10.0 } ?: p.kmPerLiter,
-        fuelPrice = fs.lastPricePerLiter?.let { Math.round(it * 100) / 100.0 } ?: p.fuelPrice,
-    )
+    // Só o combustível do tanque agora, com o consumo e o preço medidos NELE (nada de misturar os dois)
+    val type = settings.fuelType
+    val fs = JournalMath.fuelStats(store.fuel(), type)
+    val cur = settings.fuel(type)
+    settings.setFuel(type, com.farol.app.data.Settings.Fuel(
+        price = fs.lastPricePerLiter?.let { Math.round(it * 100) / 100.0 } ?: cur.price,
+        kml = fs.realKmPerLiter?.let { Math.round(it * 10) / 10.0 } ?: cur.kml,
+    ))
     toast("Custo atualizado: ${Fmt.money(settings.profile.costPerKm)}/km")
     render()
 }

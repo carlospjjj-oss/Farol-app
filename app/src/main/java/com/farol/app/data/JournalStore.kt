@@ -214,10 +214,11 @@ class JournalStore(context: Context, private val suffix: String? = null) : com.f
     // ---------- json ----------
 
     private fun fuelFromJson(it: JSONObject) =
-        FuelEntry(it.getLong("at"), it.getDouble("odo"), it.getDouble("liters"), it.getDouble("total"), it.optBoolean("full", true))
+        FuelEntry(it.getLong("at"), it.getDouble("odo"), it.getDouble("liters"), it.getDouble("total"), it.optBoolean("full", true),
+            it.optString("comb").takeIf { c -> c == "gasolina" || c == "etanol" })
 
     private fun fuelToJson(f: FuelEntry) = JSONObject().put("at", f.at).put("odo", f.odometer).put("liters", f.liters)
-        .put("total", f.total).put("full", f.fullTank)
+        .put("total", f.total).put("full", f.fullTank).apply { f.fuel?.let { put("comb", it) } }
 
 
     private fun dayFromJson(date: String, o: JSONObject): DayRecord {
@@ -234,10 +235,12 @@ class JournalStore(context: Context, private val suffix: String? = null) : com.f
             orders = o.optJSONObject("orders")?.let { j -> j.keys().asSequence().associateWith { j.getDouble(it) } } ?: emptyMap(),
             expenses = o.optJSONArray("expenses")?.let { a ->
                 (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { x ->
-                    Expense(x.optLong("at"), x.optString("cat", "outros"), x.optDouble("v", 0.0), x.optString("nota", ""))
+                    Expense(x.optLong("at"), x.optString("cat", "outros"), x.optDouble("v", 0.0), x.optString("nota", ""),
+                        x.optString("item").ifBlank { null }, x.optDoubleOrNull("km"))
                 } }.filter { it.value > 0 }
             } ?: emptyList(),
             dayOff = o.optBoolean("folga", false),
+            orderAt = o.optJSONObject("orderAt")?.let { j -> j.keys().asSequence().associateWith { j.getLong(it) } } ?: emptyMap(),
         )
     }
 
@@ -251,9 +254,11 @@ class JournalStore(context: Context, private val suffix: String? = null) : com.f
         put("earnings", JSONObject().apply { r.earnings.forEach { (k, v) -> put(k, v) } })
         if (r.orders.isNotEmpty()) put("orders", JSONObject().apply { r.orders.forEach { (k, v) -> put(k, v) } })
         if (r.expenses.isNotEmpty()) put("expenses", JSONArray().apply {
-            r.expenses.forEach { put(JSONObject().put("at", it.at).put("cat", it.category).put("v", it.value).put("nota", it.note)) }
+            r.expenses.forEach { e -> put(JSONObject().put("at", e.at).put("cat", e.category).put("v", e.value).put("nota", e.note)
+                .apply { e.item?.let { put("item", it) }; e.km?.let { put("km", it) } }) }
         })
         if (r.dayOff) put("folga", true)
+        if (r.orderAt.isNotEmpty()) put("orderAt", JSONObject().apply { r.orderAt.forEach { (k, v) -> put(k, v) } })
     }
 
     private fun JSONObject.optDoubleOrNull(k: String) = if (has(k) && !isNull(k)) optDouble(k).takeIf { !it.isNaN() } else null

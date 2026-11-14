@@ -139,7 +139,9 @@ class DashboardActivity : Activity() {
         offersCard()
         deliveriesCard()
         hoursCard()
+        indicatorsCard()
         fuelCard()
+        maintenanceCard()
         periodCard()
         footer()
     }

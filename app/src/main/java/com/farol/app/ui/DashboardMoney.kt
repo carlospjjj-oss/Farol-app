@@ -15,7 +15,7 @@ import java.util.Date
 internal fun DashboardActivity.goals(): GoalMath.Goals? {
     val goal = settings.dailyGoal
     if (goal <= 0) return null
-    return GoalMath.compute(store.days(), store.day().date, goal, settings.workDaysPerWeek, settings.profile.costPerKm)
+    return GoalMath.compute(store.days(), store.day().date, goal, settings.workDaysPerWeek, settings.profile.costPerKm, settings.goalGross)
 }
 
 // gastos
@@ -27,7 +27,7 @@ internal fun DashboardActivity.expensesCard(day: DayRecord) {
         if (day.expenses.isNotEmpty()) addView(k.text(Fmt.money(day.totalExpenses), 15, Palette.TEXT, k.bold))
     })
     if (day.expenses.isEmpty()) {
-        card.addView(k.text("Almoço, café, uma peça, um lava-rápido… lance aqui e o líquido do dia já desconta. O combustível já entra no custo por km.",
+        card.addView(k.text("Almoço, café, estacionamento… lance aqui e o líquido do dia já desconta. Combustível e manutenção já entram no custo por km (a manutenção sai da caixinha).",
             13, Palette.MUTED), k.lp(top = 10))
     }
     day.expenses.sortedBy { it.at }.forEach { e ->
@@ -81,13 +81,14 @@ internal fun DashboardActivity.askExpense() {
     renderSeg()
     val value = k.field("R$ 0,00").apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL }
     val note = k.field("Ex.: marmita, óleo, estacionamento")
+    note.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES   // texto, não só número
     val day = store.day()
     val box = k.vbox().apply {
         addView(seg)
         addView(labeled("Valor", value), k.lp(top = 14))
         addView(labeled("Observação (opcional)", note), k.lp(top = 12))
         val s = com.farol.app.core.JournalMath.summarize(day, settings.profile.costPerKm)
-        addView(k.text("Líquido do dia agora: ${Fmt.money(s.netAfterExpenses)}", 12, Palette.MUTED), k.lp(top = 10))
+        addView(k.text("Líquido do dia agora: ${Fmt.money(s.netAfterExpenses)}. Manutenção não sai do líquido: sai da caixinha (para trocas de peça, use Manutenção › Registrar troca).", 12, Palette.MUTED), k.lp(top = 10))
     }
     dialog("Novo gasto", box, "Salvar") {
         val v = value.num()?.takeIf { it > 0 && it < 10_000 } ?: return@dialog fail("Digite o valor")

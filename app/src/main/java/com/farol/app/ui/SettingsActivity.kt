@@ -46,6 +46,7 @@ class SettingsActivity : Activity() {
     // status
     internal lateinit var statusBox: LinearLayout
     // custos
+    internal lateinit var swGoalGross: Switch
     internal lateinit var etFuel: EditText
     internal lateinit var etKml: EditText
     internal lateinit var etFuelE: EditText
@@ -336,6 +337,7 @@ class SettingsActivity : Activity() {
         etAlerts.setText(settings.alertWordsText)
         etFavorites.setText(settings.favoriteWordsText)
         etGoal.setText(fmt(settings.dailyGoal))
+        swGoalGross.isChecked = settings.goalGross
         etWorkDays.setText(settings.workDaysPerWeek.toString())
         cardSize = settings.cardSize; renderSize()
         swCompact.isChecked = settings.cardCompact
@@ -428,6 +430,7 @@ class SettingsActivity : Activity() {
         settings.alertWordsText = etAlerts.text.toString()  // antes do profile: profile lê as palavras
         settings.favoriteWordsText = etFavorites.text.toString()
         settings.dailyGoal = etGoal.num(0.0).coerceAtLeast(0.0)
+        settings.goalGross = swGoalGross.isChecked
         settings.workDaysPerWeek = etWorkDays.num(6.0).toInt()
         settings.cardSize = cardSize
         settings.cardCompact = swCompact.isChecked
@@ -470,6 +473,10 @@ class SettingsActivity : Activity() {
                 isClickable = true; setOnClickListener { activeFuel = type; renderFuel(); showCost() }
             }, LinearLayout.LayoutParams(0, -2, 1f))
         }
+        // Cada aba mostra só os campos daquele combustível (a comparação embaixo continua usando os dois)
+        val eth = activeFuel == "etanol"
+        listOf(etFuel, etKml).forEach { (it.parent as? android.view.View)?.visibility = if (eth) android.view.View.GONE else android.view.View.VISIBLE }
+        listOf(etFuelE, etKmlE).forEach { (it.parent as? android.view.View)?.visibility = if (eth) android.view.View.VISIBLE else android.view.View.GONE }
     }
 
     internal fun showCost() {
@@ -484,6 +491,7 @@ class SettingsActivity : Activity() {
             val diff = Math.abs(g - e) * 1000   // em 1.000 km
             var txt = "Gasolina ${Fmt.money(g)}/km · Etanol ${Fmt.money(e)}/km\nCompensa $best: economia de ${Fmt.money(diff)} a cada 1.000 km (etanol a $pct% da gasolina)."
             if (ek > gk * 0.85) txt += "\n⚠️ Consumo do etanol parece alto: costuma ser uns 70% do da gasolina (${fmt(Math.round(gk * 0.7 * 10) / 10.0)} km/L)."
+            else if (ek < gk * 0.5) txt += "\n⚠️ Consumo do etanol parece baixo: costuma ser uns 70% do da gasolina (${fmt(Math.round(gk * 0.7 * 10) / 10.0)} km/L). Confira na aba Etanol."
             if ((best.contains("etanol")) != (activeFuel == "etanol")) txt += "\n💡 Na próxima, abastecer com $best sai mais barato."
             tvFuelCmp.text = txt
         } else tvFuelCmp.text = "Preencha preço e consumo dos dois para comparar."

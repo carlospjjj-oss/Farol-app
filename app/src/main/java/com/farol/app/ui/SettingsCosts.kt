@@ -44,15 +44,15 @@ internal fun SettingsActivity.buildCostSections() {
             }, k.lp(w = -2).apply { if (i > 0) marginStart = k.dp(8) })
         }
     }, k.lp(top = 12))
-    cCost.addView(k.text("No tanque agora", 13, Palette.MUTED, k.medium), k.lp(top = 16))
+    cCost.addView(k.text("No tanque agora (toque para ver e editar cada um)", 13, Palette.MUTED, k.medium), k.lp(top = 16))
     segFuel = k.hbox().apply {
         background = k.rounded(Palette.SURFACE2, 12)
         setPadding(k.dp(4), k.dp(4), k.dp(4), k.dp(4))
     }
     cCost.addView(segFuel, k.lp(top = 6))
-    etFuel = numRow(cCost, "⛽ Gasolina", "R$/L")
+    etFuel = numRow(cCost, "⛽ Preço da gasolina", "R$/L")
     etKml = numRow(cCost, "Consumo com gasolina", "km/L", "média real na cidade")
-    etFuelE = numRow(cCost, "🌱 Etanol", "R$/L")
+    etFuelE = numRow(cCost, "🌱 Preço do etanol", "R$/L")
     etKmlE = numRow(cCost, "Consumo com etanol", "km/L", "costuma ser uns 70% do da gasolina")
     tvFuelCmp = k.text("", 13, Palette.MUTED).apply {
         setPadding(k.dp(14), k.dp(10), k.dp(14), k.dp(10))
@@ -72,8 +72,9 @@ internal fun SettingsActivity.buildCostSections() {
     }, k.lp(top = 12))
 
     // Meta
-    val cGoal = card("Metas", "Meta do dia em líquido (ganhos − custo do km − gastos). Semana e mês saem dela")
-    etGoal = numRow(cGoal, "Quero ganhar por dia (líquido)", "R$", "0 = sem meta")
+    val cGoal = card("Metas", "Semana e mês saem da meta do dia, sem contar suas folgas")
+    etGoal = numRow(cGoal, "Quero ganhar por dia", "R$", "0 = sem meta")
+    swGoalGross = toggle(cGoal, "Contar a meta em bruto", "Ligado: o que os apps pagaram. Desligado: líquido (ganhos − custo do km − gastos)")
     etWorkDays = numRow(cGoal, "Dias de trabalho por semana", "dias", "1 a 7 · folga não conta contra a meta")
 
     // Semáforo

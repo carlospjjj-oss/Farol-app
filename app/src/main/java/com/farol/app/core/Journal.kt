@@ -17,6 +17,7 @@ data class DayRecord(
     val orders: Map<String, Double> = emptyMap(),   // "Keeta#7553" -> R$ de cada entrega concluída
     val expenses: List<Expense> = emptyList(),      // gastos do dia (alimentação, manutenção, outros)
     val dayOff: Boolean = false,                    // folga marcada: não conta contra a meta da semana
+    val orderAt: Map<String, Long> = emptyMap(),    // hora em que cada entrega foi concluída (para os indicadores por horário)
 ) {
     val kmDriven: Double? get() = if (kmStart != null && kmEnd != null && kmEnd >= kmStart) kmEnd - kmStart else null
 
@@ -35,6 +36,14 @@ data class DayRecord(
     }
     val totalEarnings: Double get() = appEarnings.values.sum()
     val totalExpenses: Double get() = expenses.sumOf { it.value }
+    /**
+     * Gastos que saem do líquido. Manutenção NÃO entra: ela já está no custo por km ("outros custos" = reserva).
+     * Ela sai da caixinha de manutenção (ver [Maintenance]); descontar de novo seria contar duas vezes.
+     */
+    val operatingExpenses: Double get() = expenses.filter { it.category != "manutencao" }.sumOf { it.value }
+    val maintenanceSpent: Double get() = expenses.filter { it.category == "manutencao" }.sumOf { it.value }
+    /** Entregas concluídas contadas uma vez (as lidas da oferta/concluído; sem os lançamentos do histórico). */
+    val deliveries: Int get() = orders.keys.count { '$' !in it }
     fun ordersOf(app: String) = orders.filterKeys { appOf(it) == app && '$' !in it }
 
     companion object {
@@ -61,8 +70,12 @@ data class DayRecord(
     fun clearShift() = copy(kmStart = null, kmEnd = null, startAt = null, endAt = null, pausedMs = 0L, pauseAt = null)
 }
 
-/** Gasto do dia. [category]: "alimentacao", "manutencao" ou "outros". */
-data class Expense(val at: Long, val category: String, val value: Double, val note: String = "") {
+/**
+ * Gasto do dia. [category]: "alimentacao", "manutencao" ou "outros".
+ * Na manutenção, [item] diz qual peça/serviço (ex.: "oleo_motor") e [km] o km do painel na hora.
+ */
+data class Expense(val at: Long, val category: String, val value: Double, val note: String = "",
+                   val item: String? = null, val km: Double? = null) {
     companion object {
         val CATEGORIES = listOf("alimentacao" to "Alimentação", "manutencao" to "Manutenção", "outros" to "Outros")
         fun label(cat: String) = CATEGORIES.firstOrNull { it.first == cat }?.second ?: "Outros"
@@ -75,8 +88,11 @@ data class FuelEntry(
     val liters: Double,
     val total: Double,       // R$ pagos
     val fullTank: Boolean = true,
+    val fuel: String? = null,  // "gasolina" ou "etanol" (abastecimentos antigos: null)
 ) {
     val pricePerLiter: Double get() = if (liters > 0) total / liters else 0.0
+    /** Combustível do abastecimento. Os antigos não guardavam: deduz pelo preço (até R$ 4,80/L é etanol). */
+    val fuelType: String get() = fuel ?: if (pricePerLiter in 0.01..4.8) "etanol" else "gasolina"
 }
 
 data class DaySummary(
@@ -118,9 +134,9 @@ object JournalMath {
             net = net,
             perKm = km?.takeIf { it > 0 }?.let { e / it },
             perHour = h?.takeIf { it > 0 }?.let { e / it },
-            netPerHour = if (h != null && h > 0 && net != null) (net - day.totalExpenses) / h else null,
+            netPerHour = if (h != null && h > 0 && net != null) (net - day.operatingExpenses) / h else null,
             expenses = day.totalExpenses,
-            netAfterExpenses = e - (cost ?: 0.0) - day.totalExpenses,
+            netAfterExpenses = e - (cost ?: 0.0) - day.operatingExpenses,
         )
     }
 
@@ -129,28 +145,37 @@ object JournalMath {
      * km entre dois abastecimentos de tanque cheio ÷ litros colocados no segundo
      * (somando abastecimentos parciais no meio). Usa todos os intervalos válidos.
      */
-    fun fuelStats(entries: List<FuelEntry>): FuelStats {
+    /**
+     * Consumo real de tanque cheio a tanque cheio. Com [fuel], só conta os trechos rodados com aquele
+     * combustível (o tanque cheio do começo do trecho e os parciais no meio, todos do mesmo tipo):
+     * misturar gasolina e etanol daria um consumo que não é de nenhum dos dois.
+     */
+    fun fuelStats(entries: List<FuelEntry>, fuel: String? = null): FuelStats {
         val sorted = entries.sortedBy { it.odometer }
         var km = 0.0
         var liters = 0.0
         var lastFull: FuelEntry? = null
         var pendingLiters = 0.0
+        var mixed = false
         for (f in sorted) {
             if (lastFull == null) {
                 if (f.fullTank) lastFull = f
                 continue
             }
             pendingLiters += f.liters
+            if (!f.fullTank && f.fuelType != lastFull.fuelType) mixed = true
             if (f.fullTank) {
                 val d = f.odometer - lastFull.odometer
-                if (d > 0 && pendingLiters > 0) { km += d; liters += pendingLiters }
+                val ok = !mixed && (fuel == null || lastFull.fuelType == fuel)
+                if (ok && d > 0 && pendingLiters > 0) { km += d; liters += pendingLiters }
                 lastFull = f
                 pendingLiters = 0.0
+                mixed = false
             }
         }
         return FuelStats(
             realKmPerLiter = if (liters > 0 && km > 0) km / liters else null,
-            lastPricePerLiter = entries.maxByOrNull { it.at }?.pricePerLiter?.takeIf { it > 0 },
+            lastPricePerLiter = entries.filter { fuel == null || it.fuelType == fuel }.maxByOrNull { it.at }?.pricePerLiter?.takeIf { it > 0 },
             litersMeasured = liters,
             kmMeasured = km,
         )
@@ -165,7 +190,7 @@ object JournalMath {
             days = sel.count { it.totalEarnings > 0 || it.kmDriven != null },
             earnings = earnings,
             km = km,
-            net = earnings - km * costPerKm - sel.sumOf { it.totalExpenses },
+            net = earnings - km * costPerKm - sel.sumOf { it.operatingExpenses },
             fuelSpent = fuel.filter { dateOf(it.at) in dates }.sumOf { it.total },
             expenses = sel.sumOf { it.totalExpenses },
         )

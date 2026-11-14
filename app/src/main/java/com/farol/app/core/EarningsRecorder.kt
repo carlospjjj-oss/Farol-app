@@ -53,7 +53,7 @@ class EarningsRecorder(private val store: DayStore, private val clock: () -> Lon
         val done = orders.onScreen(app, text, clock()) ?: return false
         val day = store.currentDay()
         if (done.key in day.orders) return false
-        store.putDay(day.copy(orders = day.orders + (done.key to done.value)))
+        store.putDay(day.copy(orders = day.orders + (done.key to done.value), orderAt = day.orderAt + (done.key to clock())))
         onRecorded(day.date, app)
         return true
     }

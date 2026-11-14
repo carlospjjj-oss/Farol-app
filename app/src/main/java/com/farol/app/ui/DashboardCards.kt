@@ -124,8 +124,8 @@ internal fun DashboardActivity.hero(day: DayRecord, s: DaySummary) {
 
     val goal = settings.dailyGoal
     if (goal > 0 && !day.dayOff) {
-        // Meta em líquido: ganhos − custo do km − gastos
-        val net = s.netAfterExpenses
+        // Meta em líquido (ganhos − custo do km − gastos) ou em bruto, conforme Ajustes › Metas
+        val net = if (settings.goalGross) s.earnings else s.netAfterExpenses
         val frac = (net / goal).toFloat()
         val left = goal - net
         card.addView(k.bar(frac, dark).apply { background = k.rounded(Palette.alpha(0xFFFFFFFF.toInt(), 0x55), 999) },
@@ -133,7 +133,8 @@ internal fun DashboardActivity.hero(day: DayRecord, s: DaySummary) {
         val workedH = day.workedMs()?.let { it / 3_600_000.0 }?.takeIf { it >= 0.5 }
         val pace = workedH?.let { net / it }?.takeIf { it > 1 }
         val eta = if (left > 0 && pace != null) " · ~${Fmt.min(left / pace * 60)} no seu ritmo" else ""
-        card.addView(k.text(if (left <= 0) "🎯 Meta de ${Fmt.money(goal)} batida!" else "🎯 Meta ${Fmt.money(goal)} · faltam ${Fmt.money(left)}$eta",
+        val kind = if (settings.goalGross) "bruta" else "líquida"
+        card.addView(k.text(if (left <= 0) "🎯 Meta $kind de ${Fmt.money(goal)} batida!" else "🎯 Meta $kind ${Fmt.money(goal)} · faltam ${Fmt.money(left)}$eta",
             13, dark, k.bold), k.lp(top = 8))
     }
     card.isClickable = true
@@ -342,7 +343,9 @@ internal fun DashboardActivity.hoursCard() {
 // fuel
 internal fun DashboardActivity.fuelCard() {
     val fuel = store.fuel()
-    val fs = JournalMath.fuelStats(fuel)
+    val tank = settings.fuelType
+    val fs = JournalMath.fuelStats(fuel, tank)
+    val tankName = if (tank == "etanol") "etanol" else "gasolina"
     val month = store.thisMonth()
     val monthSpent = fuel.filter { store.dateOf(it.at) in month }.sumOf { it.total }
 
@@ -351,8 +354,9 @@ internal fun DashboardActivity.fuelCard() {
     card.addView(k.hbox().apply {
         val left = k.vbox().apply {
             addView(k.text(fs.realKmPerLiter?.let { "${Fmt.dec(it, 1)} km/L" } ?: "— km/L", 24, Palette.TEXT, k.bold))
-            addView(k.text(if (fs.realKmPerLiter != null) "consumo real em ${Fmt.km(fs.kmMeasured)}"
-                else "precisa de 2 abastecimentos de tanque cheio", 12, Palette.MUTED), k.lp(top = 4))
+            addView(k.text(if (fs.realKmPerLiter != null) "consumo real com $tankName em ${Fmt.km(fs.kmMeasured)}" +
+                    " (ajuste: ${Fmt.dec(settings.fuel(tank).kml, 1)})"
+                else "com $tankName: precisa de 2 abastecimentos de tanque cheio", 12, Palette.MUTED), k.lp(top = 4))
         }
         addView(left, weighted(left))
         addView(k.vbox().apply {
@@ -363,7 +367,7 @@ internal fun DashboardActivity.fuelCard() {
     }, k.lp(top = 10))
 
     fuel.sortedByDescending { it.at }.take(3).forEach {
-        card.addView(k.text("${ddmm.format(Date(it.at))}   ${fmtKm(it.odometer)} km   ${Fmt.dec(it.liters, 2)} L   ${Fmt.money(it.total)}" +
+        card.addView(k.text("${ddmm.format(Date(it.at))}   ${if (it.fuelType == "etanol") "🌱" else "⛽"} ${fmtKm(it.odometer)} km   ${Fmt.dec(it.liters, 2)} L   ${Fmt.money(it.total)}" +
             if (it.fullTank) "" else "  (parcial)", 12, Palette.MUTED), k.lp(top = 8))
     }
 

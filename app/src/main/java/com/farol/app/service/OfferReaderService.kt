@@ -198,7 +198,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         }
         val goal = settings.dailyGoal
         if (goal > 0) {
-            val left = goal - com.farol.app.core.GoalMath.dayNet(journal.day(), settings.profile.costPerKm)
+            val left = goal - com.farol.app.core.GoalMath.dayValue(journal.day(), settings.profile.costPerKm, settings.goalGross)
             add(com.farol.app.ui.OverlayCard.Extra(if (left <= 0) "🎯 Meta do dia batida!" else "🎯 Faltam ${com.farol.app.core.Fmt.money(left)} para a meta",
                 if (left <= 0) Palette.GREEN else Palette.MUTED))
         }
