@@ -1,0 +1,13 @@
+# Telas REAIS dos logs (já mascaradas: [endereço], [cliente], [num]). Cada linha diz o que o Farol tem de entender.
+# Para acrescentar: python3 tools/telas_golden.py <pasta dos logs>  → copie as linhas, confira e preencha "esperado".
+# app	verifica	esperado	texto
+Keeta	pedido	Keeta#7553=13.47	Pedido concluído!  Seus ganhos | R$ 13,47 | #7553 | Taxa base | R$ 9,97 | Outros extras | R$ 3,50 | Resumo do pedido
+Keeta	painel	0	Painel | R$ 0,00 | 0 | Ficar online | R$ 0,00 | Ganhos | 0 | Pedidos hoje | Offline | Perfil | Prime | Desempenho | Promoções | Recados | 52 | Verificação aleatória | Contestações | Contestáveis | Aprendizado | Novo | Central de Ajuda
+Keeta	painel	0	Painel | R$ 0,00 | 0 | Ficar online | Mapa do Google | Marcador do mapa | +R$ 5,00 | Ganhos extras para todos os pedidos em ACLIMAÇÃO agora | Extra pelo pedido | Você receberá seu extra assim que o pedido for concluído | 10:30-11:00 | +R$ 5,00 | R$ 0,00 | Ganhos | 0 | Pedidos hoje | Offline | Perfil | Prime | Desempenho
+Keeta	painel	25.19	Painel | R$ 25,19 | 2 | Ficar online | Mapa do Google
+Keeta	historico_dia	2026-11-13=25.19	Estatísticas | Diárias | Semanais | Mensais | 13 de nov. | Ganhos totais | R$ 25,19 | Taxa de entrega | R$ 25,19 | Recompensas e extras | R$ 0,00 | Gorjeta | R$ 0,00 | Taxa de entrega | R$ 13,47 | 13 de nov. 23:09 | Concluído | Taxa de entrega | R$ 11,72 | 13 de nov. 22:46 | Concluído | [num]
+Keeta	espera	sim	Mapa do Google | Marcador do mapa | 1 | Tempero e Doçura | [endereço] | . | 2 | Rotas | Restaurante | Pedido pronto em cerca de 5–10 min. | #7801 | Go to Delivery Details | Chegue na loja até 10:56 | 1 item | Número do pedido | Order number | [num] | Chat da entrega | Suporte | Cheguei na loja | [num]
+99	pedido_oferta	15.65	Entregar em até 5 minutos | [endereço] | Vila Clara, São Paulo - SP | #149031 [cliente] | muro rosa | Peça o código de verificação ao cliente | Insira o código | Detalhes do pedido > | Central de Ajuda | Concluir
+99	saldo	27.54	Saldo | Configurações | Transferência R$0,00 | Bônus | R$5,00 > | 23:57 | Entrega Food | R$10,65 > | 23:57 | Bônus | R$5,00 > | 23:49 | Entrega Food | R$6,89 > | 23:48 | Entrega Food | -R$21,49 > | 22:09-Dinheiro
+99	saldo	0	Saldo | Configurações | R$ | -,-- | [num] | Transferência | [num] | Transferência | [num] | Transferência | [num] | Transferência | [num] | Transferência | [num] | Transferência | [num] | Transferência
+iFood	lancamentos	38.33	Financeiro | Extrato | Lançamentos | Repasses | 09 - 15 Nov | Tipo de lançamento | Ganhos da semana | R$ 38,33 | Quinta, 12 de novembro | Rota completa | 15:32 | R$ 8,07 | Rota completa | 15:12 | R$ 10,09 | Rota completa | 14:56 | R$ 9,09 | Quarta, 11 de novembro | Rota completa | 15:05 | R$ 11,08 | Isso é tudo

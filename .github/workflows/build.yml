@@ -9,6 +9,7 @@ on:
       - "wrangler.toml"
       - ".github/workflows/deploy-server.yml"
       - ".github/workflows/android-tests.yml"
+      - ".github/workflows/promote.yml"
       - "**.md"
       - "docs/**"
   workflow_dispatch:
@@ -80,4 +81,7 @@ jobs:
             sha256=${{ env.SHA }}
             APK gerado automaticamente a partir de ${{ github.sha }}.
           files: Farol.apk
-          make_latest: true
+          # Canal de teste: sai como prévia (quem está no canal de teste recebe na hora).
+          # O workflow "Promover versão" a torna estável para todos depois de 24 h.
+          prerelease: true
+          make_latest: false

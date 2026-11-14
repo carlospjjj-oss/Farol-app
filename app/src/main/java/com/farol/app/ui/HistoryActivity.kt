@@ -268,6 +268,8 @@ class HistoryActivity : Activity() {
             add("R$/km: ${Fmt.money(o.optDouble("perKm"))}")
             add("R$/h: ${Fmt.money(o.optDouble("perHour"))}")
             if (o.has("waitMin")) add("Espera do restaurante: ~${Math.round(o.optDouble("waitMin"))} min (já no tempo)")
+            if (o.has("destino")) add("Destino: ${o.optString("destino")}" + when (o.optString("volta")) {
+                "BOA" -> " · boa chance de volta"; "MEDIA" -> " · alguma chance de volta"; "POUCA" -> " · pouca chance de volta"; else -> "" })
             if (o.has("cost")) add("Custo estimado: ${Fmt.money(o.optDouble("cost"))}")
             add("Lucro líquido: ${Fmt.money(o.optDouble("net"))}")
             o.optJSONArray("warnings")?.let { w -> if (w.length() > 0) add("Avisos: " + (0 until w.length()).joinToString(", ") { w.getString(it) }) }

@@ -1371,7 +1371,7 @@ Se não ficar satisfeito, você pode peticionar à <b>Autoridade Nacional de Pro
 <li>Toda a comunicação usa HTTPS. A senha é guardada só como código irreversível (PBKDF2 com sal único).</li>
 <li>A conta é bloqueada temporariamente depois de várias senhas erradas, e cada conta só acessa os próprios dados.</li>
 <li>O app é assinado com chave protegida e confere a assinatura e a impressão digital (SHA-256) de cada atualização antes de instalar.</li>
-<li>Os textos são mascarados no aparelho antes do envio (endereços, telefones, CEPs e nome do cliente nas telas de entrega). Telas de conversa (chat) com o cliente nunca são enviadas. O nome dos restaurantes usado para estimar a espera fica só no seu celular.</li>
+<li>Os textos são mascarados no aparelho antes do envio (endereços, telefones, CEPs e nome do cliente nas telas de entrega). Telas de conversa (chat) com o cliente nunca são enviadas. O nome dos restaurantes usado para estimar a espera e o bairro de coleta e de destino das ofertas (usado para a chance de volta) ficam só no seu celular.</li>
 <li>Seguimos minimização, retenção limitada e acesso administrativo restrito ao controlador.</li>
 </ul>
 <p>Nenhum sistema é 100% invulnerável, mas adotamos medidas técnicas e administrativas aptas a proteger os dados (art. 46).</p>

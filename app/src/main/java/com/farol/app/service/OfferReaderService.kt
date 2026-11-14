@@ -57,7 +57,11 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     private lateinit var ocr: OcrFallback
     private lateinit var remote: RemoteLog
     private lateinit var journal: JournalStore
-    private val orderEarnings = com.farol.app.core.OrderEarnings()
+    private val recorder by lazy {
+        com.farol.app.core.EarningsRecorder(journal).apply {
+            onRecorded = { date, app -> settings.markAuto(date, app); runCatching { ShiftNotifier.refresh(this@OfferReaderService) } }
+        }
+    }
     private val waits by lazy { com.farol.app.data.WaitStore(this) }
     private val tracker = DeliveryTracker { r ->
         runCatching { journal.addDelivery(r) }
@@ -106,7 +110,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         ocr = OcrFallback(this)
         remote = RemoteLog.get(this)
         journal = JournalStore(this)
-        runCatching { orderEarnings.markUsed(journal.day().orders.keys) }
+        recorder.start()
         // Uma vez: limpa as ofertas repetidas gravadas pelas versões antigas
         if (!settings.prefs.getBoolean("dedupDone", false)) {
             runCatching { history.removeDuplicates() }
@@ -263,7 +267,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
 
         val offer = OfferParser.parse(snap.text, label, settings.requireHint)
         readRejections(label, snap.text)
-        if (offer == null && snap.onTop) { logScreen(snap, label); autoEarnings(label, snap.text); recordOrder(label, snap.text); readHistory(label, snap.text); trackPhase(label, snap.text) }
+        if (offer == null && snap.onTop) { logScreen(snap, label); earnings(label, snap.text); trackPhase(label, snap.text) }
         if (offer != null) {
             accessibleApps += snap.pkg
             handleOffer(offer, snap.pkg, "acessibilidade", snap.text); return
@@ -306,21 +310,21 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         // Texto curto (app que esconde o texto, ex.: 99): o runOcr registra a tela lida pela imagem.
     }
 
-    /**
-     * Se a tela é o painel do app, guarda o "ganhos de hoje" dele no dashboard.
-     * Usa o maior valor do dia (o total só cresce; evita voltar a zero enquanto o app carrega).
-     */
-    private fun autoEarnings(label: String, text: String) {
-        if (!settings.autoEarnings) return
-        if (com.farol.app.core.HistoryReader.isHistory(label, text)) return   // histórico não é o "hoje"
-        val v = EarningsReader.read(label, text) ?: return
-        val day = journal.day()
-        val cur = day.earnings[label]
-        if (cur != null && v <= cur) return
-        if (v <= 0.0 && cur == null) return
-        journal.putDay(day.copy(earnings = day.earnings + (label to v)))
-        settings.markAuto(day.date, label)
-        runCatching { ShiftNotifier.refresh(this) }
+    // Histórico de regiões de coleta dos últimos 30 dias (carregado uma vez; cresce a cada oferta)
+    private var regionSeen: MutableList<com.farol.app.core.ReturnChance.Seen>? = null
+    private fun regionHistory(): MutableList<com.farol.app.core.ReturnChance.Seen> = regionSeen ?: mutableListOf<com.farol.app.core.ReturnChance.Seen>().also { l ->
+        regionSeen = l
+        runCatching {
+            history.since(System.currentTimeMillis() - 30 * 86_400_000L).forEach { o ->
+                val k = o.optString("origem", ""); val c = o.optString("origemCidade", "")
+                if (k.isNotEmpty() || c.isNotEmpty()) l += com.farol.app.core.ReturnChance.Seen(o.optLong("t"), k.ifEmpty { null }, c.ifEmpty { null }, o.optString("rating") == "GREEN")
+            }
+        }
+    }
+
+    /** Ganhos lidos da tela (painel do app, entrega concluída, histórico): ver core/EarningsRecorder. */
+    private fun earnings(label: String, text: String) {
+        if (settings.autoEarnings) recorder.onScreen(label, text)
     }
 
     /** Acompanha as etapas do pedido (coleta → entrega → livre) para medir o tempo de cada um. */
@@ -331,60 +335,9 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         tracker.feed(label, phase, PhaseDetector.restaurant(label, text), now, km, PhaseDetector.atStore(label, text))
     }
 
-    /**
-     * Entrega concluída (Keeta: "Pedido concluído! Seus ganhos"; 99: "Concluir" com o número do pedido):
-     * soma no dia do turno, uma vez por pedido.
-     */
     @Volatile private var lastHistoryLogAt = 0L
     @Volatile private var lastSaldoOcrAt = 0L
 
-    /**
-     * Telas de histórico (Keeta › Estatísticas › Diárias, 99 › Saldo): completam dias que já passaram,
-     * sem contar duas vezes (Keeta: o total do dia só aumenta; 99: cada lançamento uma vez, no turno
-     * em que aconteceu).
-     */
-    private fun readHistory(label: String, text: String) {
-        if (!settings.autoEarnings) return
-        val now = System.currentTimeMillis()
-        com.farol.app.core.HistoryReader.keetaDay(text, journal.today())?.let { t ->
-            val d = journal.day(t.date)
-            if (t.value > (d.earnings[t.app] ?: 0.0) + 0.004) {
-                journal.putDay(d.copy(earnings = d.earnings + (t.app to t.value)))
-                settings.markAuto(t.date, t.app)
-                runCatching { ShiftNotifier.refresh(this) }
-            }
-        }
-        val entries = when (label) {
-            "99" -> com.farol.app.core.HistoryReader.ninetyNineSaldo(text)
-            "iFood" -> com.farol.app.core.HistoryReader.ifoodEntries(text, journal.today())
-            else -> emptyList()
-        }
-        if (entries.isEmpty()) return
-        val recent = journal.lastDays(9).map { journal.day(it) }
-        val add = mutableMapOf<String, MutableMap<String, Double>>()
-        for (e in entries) {
-            val dated = e.date
-            val at = if (dated != null) com.farol.app.core.HistoryReader.instantOf(dated, e.minuteOfDay)
-                     else com.farol.app.core.HistoryReader.instantOf(e.minuteOfDay, now)
-            // No turno que cobre a hora; com data na tela (iFood) e sem turno, vai para a data mostrada
-            val day = com.farol.app.core.HistoryReader.dayFor(at, recent, now)
-                ?: dated?.let { journal.day(it) } ?: continue
-            if (e.key in day.orders) continue
-            add.getOrPut(day.date) { mutableMapOf() }[e.key] = e.value
-        }
-        add.forEach { (date, m) -> val d = journal.day(date); journal.putDay(d.copy(orders = d.orders + m)) }
-        if (add.isNotEmpty()) runCatching { ShiftNotifier.refresh(this) }
-    }
-
-    private fun recordOrder(label: String, text: String) {
-        if (!settings.autoEarnings) return
-        val done = orderEarnings.onScreen(label, text, System.currentTimeMillis()) ?: return
-        val day = journal.day()
-        if (done.key in day.orders) return
-        journal.putDay(day.copy(orders = day.orders + (done.key to done.value)))
-        settings.markAuto(day.date, label)
-        runCatching { ShiftNotifier.refresh(this) }
-    }
 
     private fun minutesSinceOffer(): Int? {
         if (lastAnyOfferAt == 0L) return null
@@ -410,7 +363,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
                 return@run
             }
             // O print pega a tela inteira: só usa para ganhos/avisos/telas se o app estiver na frente
-            if (snap.onTop) { autoEarnings(label, text); recordOrder(label, text); readHistory(label, text); readRejections(label, text) }
+            if (snap.onTop) { earnings(label, text); readRejections(label, text) }
             val hint = hasHint || OfferParser.OFFER_HINTS.containsMatchIn(text)
             if (hint && ocrRetries < 4) {
                 ocrRetries++
@@ -448,16 +401,25 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         lastSigAt = now
 
         lastOfferKm[offer.app] = offer.totalKm to System.currentTimeMillis()
-        orderEarnings.onOffer(offer.app, offer.price, System.currentTimeMillis())
+        recorder.onOffer(offer.app, offer.price)
         // Restaurante que costuma demorar (Keeta, com 3+ coletas suas lá): a espera entra no tempo
         val place = PhaseDetector.offerRestaurant(offer.app, raw)
         val wait = waits.estimate(place)?.takeIf { it.avgMin >= com.farol.app.core.WaitStats.WARN_MIN }
         offer.totalMin?.let { m -> com.farol.app.core.SpeedLearner.sample(offer.totalKm, m)?.let { settings.addSpeedSample(offer.app, it) } }
         // Cada app com a sua velocidade (só usada quando a oferta não mostra o tempo)
-        val result = ProfitCalculator.evaluate(offer, settings.effectiveProfile(offer.app), wait?.avgMin, wait?.restaurant)
+        val evaluated = ProfitCalculator.evaluate(offer, settings.effectiveProfile(offer.app), wait?.avgMin, wait?.restaurant)
+        // 6.6: de onde sai e para onde vai; chance de pegar outra corrida saindo do destino (histórico do celular)
+        val (origin, dest) = runCatching { com.farol.app.core.RegionReader.parse(offer.app, raw) }.getOrDefault(null to null)
+        val chance = runCatching { com.farol.app.core.ReturnChance.estimate(regionHistory(), dest, System.currentTimeMillis()) }.getOrNull()
+        val result = evaluated.copy(origin = origin, dest = dest, returnChance = chance)
         overlay.show(result, extrasFor(offer.app))
         runCatching { ShiftNotifier.refresh(this) }
-        runCatching { if (history.add(result, source)) health.ok(offer.app) }
+        runCatching {
+            if (history.add(result, source)) {
+                health.ok(offer.app)
+                if (origin != null) regionHistory() += com.farol.app.core.ReturnChance.Seen(System.currentTimeMillis(), origin.key, origin.city, result.rating == com.farol.app.core.Rating.GREEN)
+            }
+        }
         runCatching { remote.offer(pkg, source, raw, result) }
         if (result.rating == Rating.GREEN && settings.vibrateOnGreen) vibrate()
         speak(result)

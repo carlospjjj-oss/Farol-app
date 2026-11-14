@@ -117,6 +117,11 @@ internal fun SettingsActivity.buildAccountSections() {
     // Atualizações
     val cUpd = card("Atualizações", "Versão instalada: " + com.farol.app.service.Updater.installedName(this))
     buttons(cUpd, "🔄 Procurar atualização" to { com.farol.app.service.Updater.checkNow(this) }, primaryFirst = true)
+    // Canal de teste: recebe a versão nova na hora; os outros só depois de 24 h sem problema
+    val swBeta = toggle(cUpd, "Receber versões de teste primeiro",
+        "A versão nova chega aqui na hora. Para quem deixa desligado, ela chega 24 h depois, se não aparecer problema.")
+    swBeta.isChecked = com.farol.app.service.Updater.channel(this) == "teste"
+    swBeta.setOnCheckedChangeListener { _, on -> com.farol.app.service.Updater.setChannel(this, if (on) "teste" else "estavel") }
     hint(cUpd, "O Farol procura sozinho a cada 6 horas e instala a versão nova. Na primeira vez o Android pede para permitir \"Instalar apps desconhecidos\" e confirmar; depois disso atualiza sem perguntar (Android 12 ou mais novo).")
 
     // Backup

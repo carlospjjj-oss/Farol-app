@@ -18,7 +18,10 @@ import java.util.Locale
  * Diário (turnos, ganhos por app, abastecimentos, pedidos) no banco do modo atual (FarolDb).
  * Cada mudança marca updated_at: é assim que a sincronização com a conta sabe o que mandar.
  */
-class JournalStore(context: Context, private val suffix: String? = null) {
+class JournalStore(context: Context, private val suffix: String? = null) : com.farol.app.core.EarningsRecorder.DayStore {
+
+    override fun currentDay(): DayRecord = day()
+    override fun dayAt(date: String): DayRecord = day(date)
 
     private val ctx = context.applicationContext
     /** Banco do modo atual, ou de um modo específico ("" moto, "_carro" carro) para a sincronização. */
@@ -26,10 +29,10 @@ class JournalStore(context: Context, private val suffix: String? = null) {
     private val dayFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     fun dateOf(ms: Long): String = dayFmt.format(Date(ms))
-    fun today(): String = dateOf(System.currentTimeMillis())
+    override fun today(): String = dateOf(System.currentTimeMillis())
 
     /** Datas dos últimos [n] dias, incluindo hoje. */
-    fun lastDays(n: Int): Set<String> {
+    override fun lastDays(n: Int): Set<String> {
         val c = Calendar.getInstance()
         return (0 until n).map { i ->
             if (i > 0) c.add(Calendar.DAY_OF_YEAR, -1)
@@ -75,7 +78,7 @@ class JournalStore(context: Context, private val suffix: String? = null) {
         } ?: DayRecord(date)
 
     @Synchronized
-    fun putDay(r: DayRecord) {
+    override fun putDay(r: DayRecord) {
         db.writableDatabase.insertWithOnConflict("days", null, ContentValues().apply {
             put("date", r.date); put("data", dayToJson(r).toString()); put("updated_at", System.currentTimeMillis())
         }, SQLiteDatabase.CONFLICT_REPLACE)

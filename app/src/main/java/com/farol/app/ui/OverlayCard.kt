@@ -230,6 +230,17 @@ class OverlayCard(private val svc: AccessibilityService, private val settings: S
                 }, k.lp(w = -2, top = d(6f)))
             }
         } else if (r.warnings.isNotEmpty()) body.addView(t("⚠ " + r.warnings.joinToString(" • "), 13f, DarkPalette.ACCENT), k.lp(w = -2, top = d(8f)))
+        // Chance de volta saindo do destino (6.6) — só quando há histórico suficiente
+        r.returnChance?.let { c ->
+            if (!compact) {
+                val (icon, col) = when (c.level) {
+                    com.farol.app.core.ReturnChance.Level.BOA -> "↩" to Palette.GREEN
+                    com.farol.app.core.ReturnChance.Level.MEDIA -> "↩" to Palette.YELLOW
+                    com.farol.app.core.ReturnChance.Level.POUCA -> "↩" to Palette.RED
+                }
+                body.addView(t("$icon ${c.text}", 12f, col, k.medium).apply { maxWidth = d(250f) }, k.lp(w = -2, top = d(6f)))
+            }
+        }
         if (r.favorites.isNotEmpty() && why?.plus?.none { it.startsWith("⭐") } != false)
             body.addView(t("⭐ " + r.favorites.joinToString(" • "), 13f, Palette.GREEN), k.lp(w = -2, top = d(6f)))
         extras.forEach { body.addView(t(it.text, 12f, it.color, k.medium), k.lp(w = -2, top = d(6f))) }

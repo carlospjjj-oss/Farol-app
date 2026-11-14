@@ -46,6 +46,10 @@ class History(context: Context) {
         r.why?.let { o.put("why", it.headline); if (it.plus.isNotEmpty() || it.minus.isNotEmpty())
             o.put("whyTags", org.json.JSONArray(it.plus.map { p -> "+ $p" } + it.minus.map { m -> "− $m" })) }
         r.waitMin?.let { o.put("waitMin", it) }
+        // região de coleta/destino: só no celular (base da "chance de volta")
+        r.origin?.let { o.put("origem", it.key); it.city?.let { c -> o.put("origemCidade", c) } }
+        r.dest?.let { o.put("destino", it.label) }
+        r.returnChance?.let { o.put("volta", it.level.name) }
         db.insertOffer(db.writableDatabase, o)
         return true
     }

@@ -28,6 +28,13 @@ import java.net.URL
  */
 object Updater {
     private const val API = "https://api.github.com/repos/carlospjjj-oss/Farol-app/releases/latest"
+    /** Canal de teste: a versão nova sai como "prévia" e chega aqui primeiro; 24 h depois vira estável para todos. */
+    private const val API_ALL = "https://api.github.com/repos/carlospjjj-oss/Farol-app/releases?per_page=8"
+
+    /** "teste" recebe a prévia na hora; "estavel" só depois de 24 h sem problema. Admin começa no teste. */
+    fun channel(ctx: Context): String = prefs(ctx).getString("update_channel", null)
+        ?: if (com.farol.app.data.Account.user(ctx)?.role == "admin") "teste" else "estavel"
+    fun setChannel(ctx: Context, c: String) = prefs(ctx).edit().putString("update_channel", c).apply()
     private const val CHECK_EVERY_MS = 6 * 60 * 60 * 1000L
     private const val CH = "farol_update"
     private const val NOTIF_ID = 77
@@ -68,7 +75,7 @@ object Updater {
         val app = ctx.applicationContext
         Thread {
             try {
-                val rel = fetchLatest()
+                val rel = if (channel(app) == "teste") fetchNewestAny() ?: fetchLatest() else fetchLatest()
                 val mine = installedCode(app)
                 when {
                     rel == null -> if (manual) toast(app, "Não consegui ver a versão nova (sem internet?)")
@@ -95,6 +102,35 @@ object Updater {
     }
 
     private data class Release(val code: Long, val name: String, val url: String, val sha256: String?)
+
+    /** A mais nova entre as últimas versões, prévia ou não (canal de teste). */
+    private fun fetchNewestAny(): Release? {
+        val c = (URL(API_ALL).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15000; readTimeout = 15000
+            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("User-Agent", "Farol-app")
+        }
+        try {
+            if (c.responseCode != 200) return null
+            val arr = org.json.JSONArray(c.inputStream.bufferedReader().readText())
+            return (0 until arr.length()).mapNotNull { i -> parseRelease(arr.getJSONObject(i)) }
+                .maxByOrNull { it.code }
+        } finally { c.disconnect() }
+    }
+
+    private fun parseRelease(j: JSONObject): Release? {
+        if (j.optBoolean("draft")) return null
+        val body = j.optString("body")
+        val code = Regex("""versionCode=(\d+)""").find(body)?.groupValues?.get(1)?.toLongOrNull() ?: return null
+        val name = Regex("""versionName=([\w.\-]+)""").find(body)?.groupValues?.get(1) ?: j.optString("tag_name")
+        val sha = Regex("""sha256=([0-9a-f]{64})""").find(body)?.groupValues?.get(1)
+        val assets = j.optJSONArray("assets") ?: return null
+        for (i in 0 until assets.length()) {
+            val a = assets.getJSONObject(i)
+            if (a.optString("name").endsWith(".apk")) return Release(code, name, a.getString("browser_download_url"), sha)
+        }
+        return null
+    }
 
     private fun fetchLatest(): Release? {
         val c = (URL(API).openConnection() as HttpURLConnection).apply {

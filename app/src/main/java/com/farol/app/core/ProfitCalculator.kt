@@ -52,6 +52,10 @@ data class OfferResult(
     val perHourNoWait: Double? = null,
     /** Por que a oferta é boa ou ruim (frase curta + até 2 motivos). */
     val why: OfferExplainer.Why? = null,
+    /** Região da coleta e do destino (só no celular) e a chance de pegar corrida de volta saindo do destino. */
+    val origin: RegionReader.Place? = null,
+    val dest: RegionReader.Place? = null,
+    val returnChance: ReturnChance.Chance? = null,
 )
 
 object ProfitCalculator {
