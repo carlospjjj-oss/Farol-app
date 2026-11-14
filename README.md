@@ -7,7 +7,7 @@
 Lê a oferta do **iFood, 99, Keeta, Uber e inDrive** e mostra na hora se a corrida compensa,<br>
 com **R$/km, R$/h e lucro líquido** calculados com os **seus** custos.
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-6.3.1-C8F23C?style=for-the-badge&labelColor=17191C)
+![versão](https://img.shields.io/badge/vers%C3%A3o-6.3.2-C8F23C?style=for-the-badge&labelColor=17191C)
 ![android](https://img.shields.io/badge/Android-8%2B-C8F23C?style=for-the-badge&logo=android&logoColor=white&labelColor=17191C)
 ![kotlin](https://img.shields.io/badge/Kotlin-100%25-C8F23C?style=for-the-badge&logo=kotlin&logoColor=white&labelColor=17191C)
 ![testes](https://img.shields.io/badge/testes-104%20%2B%20102%20reais%20%2B%2012%20emulador-C8F23C?style=for-the-badge&labelColor=17191C)
@@ -235,6 +235,7 @@ docs/lgpd/            registro das operações, RIPD, incidentes, atendimento
 
 | Versão | Principais mudanças |
 |---|---|
+| 6.3.2 | Turno que passa da meia-noite continua no dia em que começou: o painel não zera e dá para encerrar; ganhos, km e horas contam para esse dia |
 | 6.3.1 | Pausa sempre visível: notificação fixa com Retomar, lembrete se um app de corrida abrir pausado, turno novo retoma sozinho, painel mostra "Farol pausado" |
 | 6.3 | Visual novo: grafite + verde-limão no app, no ícone, no widget e no painel web; tema claro (branco + verde-oliva) e automático, escolhidos em Ajustes → Aparência; card das ofertas sempre escuro |
 | 6.2 | Fase 2 (parte 1): saúde do leitor (ofertas lidas × telas não lidas por app/dia, só números; painel alerta quando a leitura cai) e resumo da semana no painel (comparação com a semana anterior, melhor dia/horário/app e dicas) |

@@ -53,7 +53,22 @@ class JournalStore(context: Context, private val suffix: String? = null) {
         return out
     }
 
-    fun day(date: String = today()): DayRecord =
+    /**
+     * Data do turno em andamento. Um turno que passou da meia-noite continua sendo do dia em que
+     * começou (até ser encerrado, ou por no máximo 20 h): assim o painel não "zera" à meia-noite e o
+     * turno de ontem ainda pode ser fechado. Sem turno aberto de ontem, é hoje.
+     */
+    fun workDate(now: Long = System.currentTimeMillis()): String {
+        val today = dateOf(now)
+        if (day(today).hasShift) return today
+        val yesterday = dateOf(Calendar.getInstance().apply { timeInMillis = now; add(Calendar.DAY_OF_YEAR, -1) }.timeInMillis)
+        val y = day(yesterday)
+        val open = y.kmStart != null && y.kmEnd == null && y.endAt == null
+        val recent = y.startAt == null || now - y.startAt < 20 * 3_600_000L
+        return if (open && recent) yesterday else today
+    }
+
+    fun day(date: String = workDate()): DayRecord =
         db.readableDatabase.rawQuery("SELECT data FROM days WHERE date = ?", arrayOf(date)).use { c ->
             if (c.moveToFirst()) runCatching { dayFromJson(date, JSONObject(c.getString(0))) }.getOrNull() else null
         } ?: DayRecord(date)

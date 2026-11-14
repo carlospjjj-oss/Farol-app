@@ -136,4 +136,24 @@ class DataLayerTest {
         assertTrue(h.takeChanged())
         assertFalse(h.takeChanged())
     }
+
+    @Test fun turnoQuePassaDaMeiaNoiteContaParaODiaEmQueComecou() {
+        val st = JournalStore(ctx, "_mn" + System.nanoTime())
+        val c = java.util.Calendar.getInstance().apply { set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 30) }
+        val now = c.timeInMillis                      // 00:30 de hoje
+        val today = st.dateOf(now)
+        val yesterday = st.dateOf(now - 24 * 3_600_000L)
+        // Sem turno: é hoje
+        assertEquals(today, st.workDate(now))
+        // Turno aberto ontem às 21:30: continua sendo de ontem
+        st.putDay(DayRecord(yesterday, kmStart = 58203.5, startAt = now - 3 * 3_600_000L, earnings = mapOf("Keeta" to 25.19)))
+        assertEquals(yesterday, st.workDate(now))
+        // Encerrado: volta para hoje, e os números ficam no dia de ontem
+        st.putDay(st.day(yesterday).copy(kmEnd = 58260.0, endAt = now))
+        assertEquals(today, st.workDate(now))
+        assertEquals(25.19, st.day(yesterday).totalEarnings, 0.001)
+        // Turno esquecido aberto há mais de 20 h não prende o dia de hoje
+        st.putDay(DayRecord(yesterday, kmStart = 1.0, startAt = now - 21 * 3_600_000L))
+        assertEquals(today, st.workDate(now))
+    }
 }

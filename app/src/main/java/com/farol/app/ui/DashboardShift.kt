@@ -51,8 +51,13 @@ internal fun DashboardActivity.shiftCard(day: DayRecord, s: DaySummary) {
             card.addView(k.hbox().apply {
                 addView(k.dot(if (paused) Palette.YELLOW else Palette.GREEN, 10))
                 val t = if (paused) "Pausado desde ${hhmm.format(Date(day.pauseAt!!))}" else "Em turno desde $since"
+                // Turno que passou da meia-noite: segue contando para o dia em que começou.
                 addView(k.text(t, 18, Palette.TEXT, k.bold), k.lp(w = -2).apply { marginStart = k.dp(10) })
             }, k.lp(top = 8))
+            if (day.date != store.today()) {
+                card.addView(k.text("Turno de ${day.date.substring(8)}/${day.date.substring(5, 7)}: passou da meia-noite e conta para esse dia. Encerre normalmente.",
+                    12, Palette.YELLOW), k.lp(top = 6))
+            }
             val pauseTxt = if (day.pausedMs > 0) "  •  pausas ${Fmt.min(day.pausedMs / 60_000.0)}" else ""
             card.addView(k.text("$elapsed trabalhados$pauseTxt  •  km inicial ${fmtKm(day.kmStart)}", 13, Palette.MUTED), k.lp(top = 4))
             card.addView(k.hbox().apply {
