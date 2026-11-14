@@ -380,6 +380,13 @@ async function authRoutes(req, env, url) {
   if (p === "/v1/auth/me") return json({ politica: POLICY_VERSION, usuario: { id: sess.user_id, email: sess.email, nome: sess.nome, papel: sess.papel,
     consent_versao: sess.consent_versao || null, compartilhar: sess.compartilhar === 1 } });
 
+  // Alertas da conta (o admin recebe os de todas as contas, para avisar quem precisa)
+  if (p === "/v1/me/alertas") {
+    let ids = [sess.user_id];
+    if (sess.papel === "admin") ids = ((await db.prepare("SELECT id FROM users WHERE ativo = 1").all()).results || []).map((x) => x.id);
+    return json({ alertas: await accountAlerts(db, env, ids), eu: sess.user_id });
+  }
+
   // ---- LGPD: consentimento e direitos do titular ----
   if (p === "/v1/me/consent" && req.method === "POST") {
     if (body.aceite !== true) return json({ erro: "é preciso aceitar a política para usar a conta" }, 400);
@@ -648,7 +655,11 @@ async function panelApi(req, env, url) {
   if (isAdmin) usuarios = (await db.prepare("SELECT id, nome, email FROM users ORDER BY nome").all()).results || [];
 
   const scope = { scopeUser, modo };
-  const [saude, semana] = await Promise.all([readerHealth(db, scope), weeklySummary(db, scope)]);
+  const alertIds = isAdmin
+    ? (typeof scopeUser === "number" ? [scopeUser] : (usuarios || []).map((x) => x.id))
+    : (me ? [me.id] : []);
+  const [saude, semana, alertas] = await Promise.all([readerHealth(db, scope), weeklySummary(db, scope),
+    accountAlerts(db, env, alertIds).catch(() => [])]);
 
   return json({
     eu: me, admin: isAdmin, usuarios, escopo: scopeUser,
@@ -664,7 +675,7 @@ async function panelApi(req, env, url) {
     horas: porHora,
     ultimas: ultimas.map((o) => ({ ...o, app: name(o.app) })),
     pedidos: pedidos.map((p) => ({ ...p, app: name(p.app) })),
-    saude, semana,
+    saude, semana, alertas,
   });
 }
 
@@ -675,6 +686,88 @@ function scopeWhere(scope, { modoCol = "modo", userCol = "user_id" } = {}) {
   if (scope.scopeUser === "anon") conds.push(`${userCol} IS NULL`);
   else if (scope.scopeUser != null) { conds.push(`${userCol} = ?`); args.push(scope.scopeUser); }
   return { conds, args };
+}
+
+// ============================== Alertas (Fase 3: confiabilidade) ==============================
+// Confere cada conta e diz o que precisa de atenção, sem ninguém ter de ir procurar:
+// app desatualizado, Farol pausado, custos ou faixas absurdos, turno esquecido aberto,
+// leitura de um app caindo, conta sem sinal. Regras iguais às do app (core/SettingsSanity.kt).
+// Nível: "problema" (o Farol está dando número errado ou parado) ou "atencao".
+
+function cmpVersion(a, b) {
+  const pa = String(a || "0").split(".").map((x) => parseInt(x, 10) || 0), pb = String(b || "0").split(".").map((x) => parseInt(x, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) { const d = (pa[i] || 0) - (pb[i] || 0); if (d) return d; }
+  return 0;
+}
+
+/** Versão publicada mais nova (GitHub Releases), guardada por 1 hora no meta. */
+async function latestRelease(db, env) {
+  const row = await db.prepare("SELECT v FROM meta WHERE k = 'ultima_versao'").first().catch(() => null);
+  if (row) { try { const o = JSON.parse(row.v); if (Date.now() - o.em < 3600_000) return o.versao; } catch (_) {} }
+  try {
+    const r = await fetch(`https://api.github.com/repos/${env.APP_REPO || "carlospjjj-oss/Farol-app"}/releases/latest`,
+      { headers: { "user-agent": "farol-worker", accept: "application/vnd.github+json" } });
+    if (!r.ok) return row ? JSON.parse(row.v).versao : null;
+    const j = await r.json();
+    const m = /versionName=([\d.]+)/.exec(j.body || "") || /([\d]+\.[\d.]+)/.exec(j.name || j.tag_name || "");
+    const versao = m ? m[1] : null;
+    if (versao) await db.prepare("INSERT INTO meta (k, v) VALUES ('ultima_versao', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v")
+      .bind(JSON.stringify({ versao, em: Date.now() })).run();
+    return versao;
+  } catch (_) { return row ? JSON.parse(row.v).versao : null; }
+}
+
+/** Mesmas faixas do app (SettingsSanity.kt). */
+function settingsProblems(a) {
+  if (!a || typeof a !== "object") return [];
+  const out = [], car = a.modo === "carro";
+  const tank = a.tanque === "gasolina" ? a.gasolina : a.etanol;
+  const kml = Number(tank?.km_l ?? a.consumo), preco = Number(tank?.preco ?? a.combustivel);
+  const [kmin, kmax] = car ? [4, 25] : [12, 70];
+  if (Number.isFinite(kml) && (kml < kmin || kml > kmax)) out.push(`consumo ${kml} km/l (${car ? "carro: 6 a 14" : "moto: 25 a 45"})`);
+  if (Number.isFinite(preco) && (preco < 2.5 || preco > 10)) out.push(`combustível R$ ${preco.toFixed(2).replace(".", ",")} (normal: R$ 3 a 7)`);
+  const custo = Number(a.custo_km);
+  if (Number.isFinite(custo) && custo < (car ? 0.25 : 0.08)) out.push(`custo R$ ${custo.toFixed(2).replace(".", ",")}/km (${car ? "carro: ~R$ 0,80" : "moto: ~R$ 0,35"})`);
+  const vk = Number(a.verde_km), ak = Number(a.amarelo_km);
+  if (Number.isFinite(vk) && Number.isFinite(ak) && vk <= ak) out.push("faixa verde menor ou igual à amarela");
+  if (Number.isFinite(ak) && Number.isFinite(custo) && ak > 0 && ak < custo) out.push("faixa amarela abaixo do seu custo por km");
+  return out;
+}
+
+async function accountAlerts(db, env, userIds) {
+  if (!userIds.length) return [];
+  const latest = await latestRelease(db, env);
+  const now = Date.now(), out = [];
+  const users = (await db.prepare(`SELECT id, nome FROM users WHERE ativo = 1 AND id IN (${userIds.map(() => "?").join(",")})`).bind(...userIds).all()).results || [];
+  for (const u of users) {
+    const add = (tipo, nivel, texto, acao) => out.push({ id: `${u.id}:${tipo}`, usuario: u.id, nome: u.nome, tipo, nivel, texto, acao });
+    const last = await db.prepare("SELECT t, received_at, versao FROM events WHERE user_id = ? ORDER BY id DESC LIMIT 1").bind(u.id).first();
+    if (!last) continue;
+    const daysQuiet = (now - Number(last.received_at)) / 86400_000;
+    if (latest && last.versao && cmpVersion(last.versao, latest) < 0)
+      add("versao", "atencao", `Está na ${last.versao}; a mais nova é a ${latest}.`, "Ajustes › Procurar atualização");
+    if (daysQuiet >= 3) add("sinal", "atencao", `Sem sinal do app há ${Math.floor(daysQuiet)} dias.`, "Abrir o Farol e conferir a internet");
+    const aj = await db.prepare("SELECT received_at, json_extract(data,'$.ajustes') a FROM events WHERE user_id = ? AND tipo = 'ajustes' ORDER BY id DESC LIMIT 1").bind(u.id).first();
+    let a = null; try { a = aj ? JSON.parse(aj.a) : null; } catch (_) {}
+    if (a) {
+      if (a.ligado === false) add("pausado", "atencao", "O Farol está pausado: as ofertas não estão sendo lidas.", "Tocar em ▶ Retomar na notificação");
+      const pr = settingsProblems(a);
+      if (pr.length) add("ajustes", "problema", `Ajustes fora do normal: ${pr.join("; ")}.`, "Ajustes › Seus custos / Suas faixas");
+    }
+    const open = (await db.prepare("SELECT date, data FROM user_days WHERE user_id = ? AND date >= ? ORDER BY date DESC").bind(u.id, brtDate(3)).all()).results || [];
+    for (const r of open) {
+      let d; try { d = JSON.parse(r.data); } catch (_) { continue; }
+      if (d.kmStart != null && d.kmEnd == null && d.startAt && now - d.startAt > 20 * 3600_000) {
+        add("turno", "atencao", `Turno de ${r.date.slice(8)}/${r.date.slice(5, 7)} ainda aberto.`, "Painel › Turno de " + r.date.slice(8) + "/" + r.date.slice(5, 7) + " › encerrar");
+        break;
+      }
+    }
+    const health = await readerHealth(db, { scopeUser: u.id, modo: null });
+    const bad = health.filter((h) => h.status === "PROBLEMA").map((h) => APP_NAMES[h.app] || h.app);
+    if (bad.length) add("leitor", "problema", `Leitura caindo hoje: ${bad.join(", ")}.`, "Conferir acessibilidade e o guia do celular");
+  }
+  const rank = { problema: 0, atencao: 1 };
+  return out.sort((x, y) => rank[x.nivel] - rank[y.nivel]);
 }
 
 // ============================== Saúde do leitor ==============================
@@ -830,7 +923,10 @@ header{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:s
 .cmp{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.cmp span{font-size:12px;padding:6px 10px;border-radius:10px;background:rgba(0,0,0,.25);border:1px solid var(--line)}
 .up{color:var(--green)}.down{color:var(--red)}
 .hs{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}.hs.OK{background:rgba(34,197,94,.15);color:var(--green)}.hs.ATENCAO{background:rgba(245,176,20,.15);color:var(--yellow)}
-.hs.PROBLEMA{background:rgba(239,68,68,.15);color:var(--red)}.hs.SEM_DADOS{background:rgba(255,255,255,.06);color:var(--muted)}
+.hs.PROBLEMA{background:rgba(239,68,68,.15);color:var(--red)}
+.alerts{margin-top:14px}.al{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:14px;margin-top:8px;border:1px solid var(--line)}
+.al.problema{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.35)}.al.atencao{background:rgba(245,176,20,.09);border-color:rgba(245,176,20,.3)}
+.al b{display:block}.al .ac{color:var(--muted);font-size:12px;margin-top:3px}.hs.SEM_DADOS{background:rgba(255,255,255,.06);color:var(--muted)}
 .alert{margin-top:14px;padding:14px 16px;border-radius:16px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);font-size:14px}
 .users{display:grid;gap:8px}.u{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.025);border:1px solid var(--line)}
 .u .b{display:flex;gap:6px;flex-wrap:wrap}.u button{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:7px 10px;font:600 12px Inter,system-ui;cursor:pointer}
@@ -941,6 +1037,7 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
     <div class="card hero" id="hero"></div>
     <div class="card" id="cores"></div>
   </div>
+  <div id="alertas"></div>
   <div id="healthAlert"></div>
   <div class="card week" style="margin-top:14px" id="semana"></div>
   <div class="grid k4" style="margin-top:14px" id="kpis"></div>
@@ -1076,6 +1173,11 @@ function renderHealth(list){
       '<div class="big">'+pct+' <small>lidas hoje</small></div><div class="sub">'+h.hoje.ok+' lidas · '+h.hoje.falhas+' não lidas'+(h.taxa_7d!=null?' · 7 dias: '+Math.round(h.taxa_7d*100)+'%':'')+'</div></div>';
   }).join(""):'<div class="empty">Ainda sem dados. Eles aparecem quando você rodar com o Farol 6.2 ou mais novo.</div>';
 }
+function renderAlerts(list,admin){
+  if(!list||!list.length){$("#alertas").innerHTML="";return;}
+  $("#alertas").innerHTML='<div class="card alerts"><div class="ov">🔔 Precisa de atenção <span class="tag">'+list.length+' alerta(s)</span></div>'+
+    list.map(a=>'<div class="al '+a.nivel+'"><div>'+(a.nivel==="problema"?"🔴":"🟡")+'</div><div><b>'+(admin?esc(a.nome)+': ':'')+esc(a.texto)+'</b><div class="ac">O que fazer: '+esc(a.acao||"")+'</div></div></div>').join("")+'</div>';
+}
 function render(d){
   const s=d.resumo,p=d.periodo,days=d.dias;
   $("#who").textContent=d.eu?(d.eu.nome||d.eu.email).split(" ")[0]:"admin";
@@ -1101,7 +1203,7 @@ function render(d){
       '<div class="big">'+brl(a.r_km)+' <small>/km</small></div><div class="meter"><i style="width:'+pct+'%"></i></div><div class="sub">'+pct+'% verdes</div>'+
       '<div class="ft"><span>Preço <b>'+brl(a.preco)+'</b></span><span>Km <b>'+num(a.km)+'</b></span><span><b>'+brl(a.r_h)+'</b>/h</span></div></div>';}).join(""):'<div class="empty">Sem ofertas no período.</div>';
   renderOffers();
-  renderWeek(d.semana);renderHealth(d.saude||[]);
+  renderAlerts(d.alertas,d.admin);renderWeek(d.semana);renderHealth(d.saude||[]);
   $("#pedidos").innerHTML=d.pedidos.length?d.pedidos.map(x=>'<div class="card app"><div class="hd"><div class="badge" style="background:'+appc(x.app)+'">'+esc(x.app.slice(0,2))+'</div><div><div class="nm">'+esc(x.app)+'</div><div class="cnt">'+x.n+' pedidos</div></div></div>'+
     '<div class="ft" style="margin-top:0"><span>Até coletar <b>'+num(x.coleta,0)+' min</b></span><span>Até entregar <b>'+num(x.entrega,0)+' min</b></span></div></div>').join(""):'<div class="empty">Nenhum pedido medido no período.</div>';
 }

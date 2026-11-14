@@ -279,7 +279,7 @@ class SettingsActivity : Activity() {
         buildAccountSections()
 
         // Raiz com botão Salvar fixo embaixo
-        val save = k.pill("Salvar alterações") { save() }.apply { elevation = k.dp(8).toFloat() }
+        val save = k.pill("Salvar alterações") { saveChecked() }.apply { elevation = k.dp(8).toFloat() }
         val saveLp = FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply { setMargins(k.dp(18), 0, k.dp(18), k.dp(16)) }
         // Faixa escura atrás do botão, para a lista não aparecer por baixo dele
         val saveBar = FrameLayout(this).apply {
@@ -401,6 +401,25 @@ class SettingsActivity : Activity() {
         p.greenStars > 5 || p.minPassengerRating > 5 -> "A nota vai até 5 (ex.: 4,90)"
         p.greenStars > 0 && p.minPassengerRating > p.greenStars -> "Na nota, 'atenção' precisa ser menor que 'aceitar'"
         else -> null
+    }
+
+    /**
+     * Salvar pelo botão: se algum valor está fora do normal (1 km/l, combustível R$ 0, custo R$ 0,05/km…),
+     * pergunta antes. Com esses valores o card mostraria tudo verde.
+     */
+    private fun saveChecked() {
+        val p = currentProfile()
+        if (problem(p) != null) { save(); return }
+        val issues = com.farol.app.core.SettingsSanity.check(p, settings.isCar)
+        if (issues.isEmpty()) { save(); return }
+        val msg = issues.joinToString("\n\n") { "• ${it.text}\n   normal: ${it.typical}" } +
+            "\n\nCom esses valores o card pode mostrar oferta ruim como boa."
+        android.app.AlertDialog.Builder(this, Palette.dialogTheme)
+            .setTitle("Esses valores parecem errados")
+            .setMessage(msg)
+            .setPositiveButton("Corrigir", null)
+            .setNegativeButton("Salvar mesmo assim") { _, _ -> save() }
+            .show()
     }
 
     internal fun save(silent: Boolean = false) {

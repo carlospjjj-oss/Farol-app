@@ -88,6 +88,14 @@ class VisualPreviewTest {
             open(com.farol.app.ui.OnboardingActivity::class.java, name)
         }
         com.farol.app.data.Settings(ctx).prefs.edit().remove("deviceBrand").apply()
+        // Fase 3: ajustes fora do normal aparecem no topo do painel
+        run {
+            val st = com.farol.app.data.Settings(ctx)
+            val keep = st.profile
+            st.profile = keep.copy(fuelPrice = 0.0, kmPerLiter = 1.0, otherCostPerKm = 0.05)
+            open(DashboardActivity::class.java, "13-painel-alerta-ajustes")
+            st.profile = keep
+        }
         open(DashboardActivity::class.java, "4-painel")
         runCatching {
             ActivityScenario.launch(DashboardActivity::class.java).use { sc ->

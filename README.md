@@ -7,7 +7,7 @@
 Lê a oferta do **iFood, 99, Keeta, Uber e inDrive** e mostra na hora se a corrida compensa,<br>
 com **R$/km, R$/h e lucro líquido** calculados com os **seus** custos.
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-6.5.4-C8F23C?style=for-the-badge&labelColor=17191C)
+![versão](https://img.shields.io/badge/vers%C3%A3o-6.5.5-C8F23C?style=for-the-badge&labelColor=17191C)
 ![android](https://img.shields.io/badge/Android-8%2B-C8F23C?style=for-the-badge&logo=android&logoColor=white&labelColor=17191C)
 ![kotlin](https://img.shields.io/badge/Kotlin-100%25-C8F23C?style=for-the-badge&logo=kotlin&logoColor=white&labelColor=17191C)
 ![testes](https://img.shields.io/badge/testes-104%20%2B%20102%20reais%20%2B%2012%20emulador-C8F23C?style=for-the-badge&labelColor=17191C)
@@ -242,6 +242,7 @@ docs/lgpd/            registro das operações, RIPD, incidentes, atendimento
 
 | Versão | Principais mudanças |
 |---|---|
+| 6.5.5 | Fase 3 (confiabilidade): alertas automáticos das contas (desatualizado, pausado, ajustes fora do normal, turno aberto, leitura caindo, sem sinal) no painel web, no app e por notificação; o admin recebe os de todas as contas; salvar ajustes absurdos pede confirmação |
 | 6.5.4 | Guia de instalação por marca (Samsung, Motorola, Xiaomi/Redmi/POCO) com o caminho exato de cada tela; "Leitor desligado" abre o guia; custos iniciais de carro ou moto conforme o modo; docs/celulares.md |
 | 6.5.3 | Iniciar turno desmarca a folga do dia |
 | 6.5.2 | 99 › Saldo lido pela imagem (a 99 esconde os valores da acessibilidade) |

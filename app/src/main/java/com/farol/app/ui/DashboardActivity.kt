@@ -105,6 +105,7 @@ class DashboardActivity : Activity() {
         val d = store.day()
         if (settings.gpsEnabled && d.kmStart != null && d.kmEnd == null && !d.isPaused) com.farol.app.service.GpsService.start(this)
         render()
+        refreshAlertsSoon()
         runCatching { com.farol.app.service.ShiftNotifier.refresh(this) }
     }
 
@@ -127,6 +128,7 @@ class DashboardActivity : Activity() {
         val day = store.day()
         val s = JournalMath.summarize(day, settings.profile.costPerKm)
         header()
+        alertsCard()
         hero(day, s)
         kpis(s)
         shiftCard(day, s)

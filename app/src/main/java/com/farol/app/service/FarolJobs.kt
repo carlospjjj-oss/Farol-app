@@ -58,7 +58,10 @@ class FarolJobService : JobService() {
             runCatching {
                 when (params.jobId) {
                     FarolJobs.LOGS -> RemoteLog.get(app).flushBlocking()
-                    FarolJobs.SYNC, FarolJobs.SYNC + 100 -> if (Account.isLoggedIn(app)) retry = !SyncClient.syncAll(app)
+                    FarolJobs.SYNC, FarolJobs.SYNC + 100 -> if (Account.isLoggedIn(app)) {
+                        retry = !SyncClient.syncAll(app)
+                        com.farol.app.data.AlertsClient.refresh(app)   // alertas das contas (Fase 3)
+                    }
                     FarolJobs.UPDATE -> Updater.maybeCheck(app, foreground = false)
                 }
             }.onFailure { retry = true }
