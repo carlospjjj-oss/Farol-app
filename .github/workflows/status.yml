@@ -18,7 +18,14 @@ jobs:
           q "SELECT user_id, tipo, app, versao, count(*) n, max(t) ultimo FROM events WHERE received_at > (strftime('%s','now')-6*3600)*1000 GROUP BY user_id, tipo, app, versao ORDER BY user_id, ultimo DESC"
           echo "== ultimo evento de cada conta =="
           q "SELECT user_id, max(t) ultimo, max(versao) versao FROM events GROUP BY user_id"
-          echo "== dias (u2) =="
-          q "SELECT t, versao, substr(data,1,900) d FROM events WHERE user_id=2 AND tipo='dia' ORDER BY id DESC LIMIT 3"
-          echo "== user_days =="
-          q "SELECT user_id, modo, date, substr(data,1,600) d FROM user_days WHERE date >= '2026-11-12' ORDER BY user_id, date"
+      - uses: actions/checkout@v4
+      - name: Limpar dados de terceiros já guardados (chat e nomes de clientes)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
+        run: |
+          npx -y wrangler@3 d1 execute farol --remote --json --command "SELECT id, data FROM events WHERE tipo IN ('tela','miss','offer','pedido') AND (json_extract(data,'$.texto') IS NOT NULL OR json_extract(data,'$.texto_acessibilidade') IS NOT NULL OR json_extract(data,'$.restaurante') IS NOT NULL)" > rows.json
+          node limpar.mjs rows.json
+          if [ -s limpar.sql ] && [ "$(wc -c < limpar.sql)" -gt 2 ]; then npx -y wrangler@3 d1 execute farol --remote --file limpar.sql --yes; fi
+          echo "== conferência =="
+          npx -y wrangler@3 d1 execute farol --remote --json --command "SELECT count(*) n FROM events WHERE data LIKE '%Insira sua mensagem%' OR data LIKE '%Minha imagem de perfil%' OR json_extract(data,'$.restaurante') IS NOT NULL" | jq -c '.[0].results'
