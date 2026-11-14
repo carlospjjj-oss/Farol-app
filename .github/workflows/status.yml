@@ -13,8 +13,8 @@ jobs:
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
           echo "== dias u1 =="
-          q "SELECT modo, date, updated_at, data d FROM user_days WHERE user_id=1 AND date >= '2026-11-12' ORDER BY date"
-          echo "== u1 eventos desde 00:00 =="
-          q "SELECT tipo, app, versao, count(*) n, min(t) primeiro, max(t) ultimo FROM events WHERE user_id=1 AND t >= '2026-11-14T03:00' GROUP BY tipo, app, versao ORDER BY ultimo"
-          echo "== u1 dia/pedido =="
-          q "SELECT t, tipo, versao, substr(data,1,700) d FROM events WHERE user_id=1 AND tipo IN ('dia','pedido') ORDER BY id DESC LIMIT 6"
+          q "SELECT date, datetime(updated_at/1000,'unixepoch','-3 hours') upd, data d FROM user_days WHERE user_id=1 AND date >= '2026-11-09' ORDER BY date"
+          echo "== u1 telas de historico (desde 07:40) =="
+          q "SELECT t, app, versao, json_extract(data,'$.fonte') f, substr(json_extract(data,'$.texto'),1,900) tx FROM events WHERE user_id=1 AND tipo='tela' AND t >= '2026-11-14T07:40' ORDER BY id"
+          echo "== u1 eventos desde 07:40 =="
+          q "SELECT tipo, app, versao, count(*) n FROM events WHERE user_id=1 AND t >= '2026-11-14T07:40' GROUP BY tipo, app, versao"
