@@ -115,7 +115,7 @@ consentimento do usuário, e dados de clientes nunca saem.
 - **Atualizador:** confere SHA-256 do arquivo, pacote, versão maior e certificado da chave antes de instalar.
 - **Servidor:** token da Cloudflare só no segredo `CLOUDFLARE_API_TOKEN` do GitHub. O deploy é automático a cada
   mudança em `server/worker.js`.
-- **LGPD:** aviso de privacidade versão 2026-11-13, aceite obrigatório, compartilhamento de textos desligado por
+- **LGPD:** aviso de privacidade versão 2026-11-14 (Telegram entrou como operador; pede novo aceite), aceite obrigatório, compartilhamento de textos desligado por
   padrão, exportar e excluir dados no app. Documentos de DPO em [`docs/lgpd/`](lgpd/) (registro, RIPD, incidentes,
   atendimento).
 - **Retenção:** textos apagados em 90 dias, telas em 1 ano, erros do app em 180 dias (rotina diária no servidor).
