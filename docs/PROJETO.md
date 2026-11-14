@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 14/11/2026 · versão **6.6** (versionCode 51)
+Atualizado em 14/11/2026 · versão **6.7** (versionCode 52)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -51,7 +51,8 @@ atualiza sozinho.
 - **App:** Kotlin, Android 8 a 15 (minSdk 26, targetSdk 35), telas montadas em código. Tarefas de fundo: logs e
   sincronização a cada 15 min, procura de atualização a cada 6 h.
 - **Servidor:** `server/worker.js`; rotas `/v1/auth/*`, `/v1/logs`, `/v1/sync`, `/v1/me/*` (consentimento, exportar,
-  excluir, alertas), `/v1/admin/*`, `/api/painel`, `/painel`, `/privacidade`.
+  excluir, alertas), `/v1/admin/*` (inclui ligar o bot do Telegram), `/v1/telegram` (webhook do bot), `/api/painel`,
+  `/painel`, `/privacidade`. De hora em hora (cron do Worker) roda a passada do bot do Telegram.
 - **Banco D1:** contas, sessões, eventos, dias do diário, abastecimentos, erros do app.
 
 ## Regras de negócio
@@ -75,7 +76,8 @@ contado duas vezes.
 | Pausa | notificação fixa enquanto pausado, lembrete se um app de corrida abrir, iniciar turno religa | `PauseControl` |
 | Ajustes fora do normal | consumo, preço, custo por km e faixas fora das faixas típicas: salvar pede confirmação e o painel mostra "Precisa de atenção" | `SettingsSanity` (app) e `settingsProblems` (servidor) |
 | Destino e chance de volta | região de coleta e destino lida do endereço (Keeta, iFood, 99 corrida). Chance de volta = ofertas com coleta naquela região no mesmo horário (±1 h) nos últimos 30 dias: 6+ boa, 2–5 alguma, 0–1 pouca. Precisa de 30 ofertas com região; destino só com a cidade de casa não mostra nada. Só no celular | `RegionReader`, `ReturnChance` |
-| Alertas das contas | desatualizado, pausado, ajustes fora do normal, turno aberto > 20 h, leitura caindo, sem sinal 3+ dias. No painel web, no app e por notificação (uma vez por dia); o admin recebe os de todas as contas | `accountAlerts`, `/v1/me/alertas`, `AlertsClient` |
+| Alertas das contas | desatualizado, pausado, ajustes fora do normal, turno aberto > 20 h, leitura caindo, sem sinal 3+ dias. No app: uma linha curta só com os avisos da própria conta (detalhe ao tocar). No painel web: todos, para o admin | `accountAlerts`, `/v1/me/alertas`, `AlertsClient`, `DashboardAlerts` |
+| Bot do Telegram (administração) | só problemas do app: `/avisos`, `/contas` (versão, último sinal, leitura), `/erros` (travamentos); aviso na hora de problema novo, de resolvido e de travamento novo; resumo às 8h. Nunca ganhos, telas ou clientes. Vínculo por código de 6 dígitos gerado no painel | `telegramWebhook`, `telegramTick`, `TELEGRAM_TOKEN` |
 
 ## Leitura dos apps
 
@@ -108,6 +110,8 @@ consentimento do usuário, e dados de clientes nunca saem.
   celular, o token fica no cofre do Android (Keystore AES-GCM). Há limite de tentativas.
 - **Assinatura do app:** rotação de chave APK v3. A chave antiga assina v2 e a nova (`farol2`, RSA 4096) assina v3.
   As duas ficam só nos segredos do GitHub (`FAROL_OLD_*`, `FAROL_NEW_*`).
+- **Bot do Telegram:** token só no segredo `TELEGRAM_TOKEN` da Cloudflare; o segredo do webhook é gerado pelo servidor e
+  fica no banco; só chats vinculados com o código do painel recebem algo.
 - **Atualizador:** confere SHA-256 do arquivo, pacote, versão maior e certificado da chave antes de instalar.
 - **Servidor:** token da Cloudflare só no segredo `CLOUDFLARE_API_TOKEN` do GitHub. O deploy é automático a cada
   mudança em `server/worker.js`.
@@ -161,12 +165,13 @@ Nada chega ao celular sem passar por testes no computador e no emulador.
 
 ## Estado atual e roteiro
 
-A 6.5 fechou a parte de dinheiro e a 6.6 a confiabilidade (Fase 3) e o destino com chance de volta. O que falta depende
+A 6.5 fechou a parte de dinheiro, a 6.6 a confiabilidade (Fase 3) e o destino com chance de volta, e a 6.7 levou os
+avisos das outras contas para um bot do Telegram da administração. O que falta depende
 de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a previsão.
 
 | Quando | O quê |
 | --- | --- |
-| Agora | validar a 6.6 rodando: chance de volta, alertas, explicação no card, soma das entregas, leitura do histórico |
+| Agora | ligar o bot do Telegram; validar a 6.6/6.7 rodando: chance de volta, alertas, explicação no card, soma das entregas, leitura do histórico |
 | Fase 3 (confiabilidade) | concluída: alertas e checagem dos ajustes (6.5.5); leitor de ganhos separado e testado, banco de telas reais, canal de teste (6.6) |
 | Com as telas do Marcelo | etapas e ganho da corrida da 99 Motorista (carro) |
 | ~3 semanas de dados (início de dez/2026) | previsão de ganho por horário, faixas que se ajustam sozinhas, "Pergunte ao Farol" no painel |
@@ -187,7 +192,8 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 | Carlos | moto: Keeta, 99, iFood (e Uber, inDrive) | 6.5.x, compartilhamento desligado, dias 11 a 13 completos |
 | Marcelo | carro: só 99 | ainda na 6.3.1; custos zerados (R$ 0,05/km), faixas baixas, km do turno de 13/11 errado; compartilhamento ligado |
 
-- [ ] Marcelo: atualizar para a 6.6, corrigir custos e faixas, corrigir o km do turno de 13/11
+- [ ] Criar o bot no @BotFather, guardar o token no segredo `TELEGRAM_TOKEN` da Cloudflare e ligar pelo painel (Contas › Ligar bot do Telegram)
+- [ ] Marcelo: atualizar para a 6.7 (vai pedir para aceitar o aviso de privacidade de novo: novo operador, Telegram), corrigir custos e faixas, corrigir o km do turno de 13/11
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
 - [x] Conectar o Notion e criar a cópia deste documento
 - [ ] Conferir a leitura do Saldo da 99 pela imagem no próximo fechamento de dia
