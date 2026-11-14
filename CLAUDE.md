@@ -6,7 +6,7 @@
 - **A cada versão publicada, atualizar as três cópias do documento mestre:**
   1. `docs/PROJETO.md` (este repositório);
   2. o documento do Claude: https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE ;
-  3. a página do Notion (quando o conector estiver ligado).
+  3. a página do Notion: https://www.notion.so/41819e43f6b18192ab72e0f481010611 (página privada "Farol — Documento mestre do projeto").
   Atualizar também o README (selo da versão e linha do histórico).
 - Nunca colocar segredos no repositório; chaves só nos segredos do GitHub e da Cloudflare.
 - Dados de clientes (nome, chat, endereço) nunca saem do celular; nome de restaurante fica só no aparelho.

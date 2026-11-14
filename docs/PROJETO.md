@@ -3,7 +3,7 @@
 Atualizado em 14/11/2026 · versão **6.5.4** (versionCode 49)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
-> [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no Notion (depois de conectado).
+> [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
 
 ## Visão geral
 
@@ -181,5 +181,5 @@ destino e chance de volta.
 
 - [ ] Marcelo: atualizar para a 6.5.4, corrigir custos e faixas, corrigir o km do turno de 13/11
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
-- [ ] Conectar o Notion para manter a cópia deste documento lá
+- [x] Conectar o Notion e criar a cópia deste documento
 - [ ] Conferir a leitura do Saldo da 99 pela imagem no próximo fechamento de dia
