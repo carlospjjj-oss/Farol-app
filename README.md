@@ -7,7 +7,7 @@
 Lê a oferta do **iFood, 99, Keeta, Uber e inDrive** e mostra na hora se a corrida compensa,<br>
 com **R$/km, R$/h e lucro líquido** calculados com os **seus** custos.
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-6.5.3-C8F23C?style=for-the-badge&labelColor=17191C)
+![versão](https://img.shields.io/badge/vers%C3%A3o-6.5.4-C8F23C?style=for-the-badge&labelColor=17191C)
 ![android](https://img.shields.io/badge/Android-8%2B-C8F23C?style=for-the-badge&logo=android&logoColor=white&labelColor=17191C)
 ![kotlin](https://img.shields.io/badge/Kotlin-100%25-C8F23C?style=for-the-badge&logo=kotlin&logoColor=white&labelColor=17191C)
 ![testes](https://img.shields.io/badge/testes-104%20%2B%20102%20reais%20%2B%2012%20emulador-C8F23C?style=for-the-badge&labelColor=17191C)
@@ -158,9 +158,16 @@ O card das ofertas fica **sempre escuro**, para aparecer bem sobre qualquer app.
 3. **Configurações restritas (Android 13+):**
    - Tente ligar o Farol em Acessibilidade uma vez.
    - Depois vá em *Configurações → Apps → Farol → ⋮ → Permitir configurações restritas*.
-4. **Acessibilidade:** *Acessibilidade → Apps instalados → Farol* → ligar.
-5. **Bateria:** *Apps → Farol → Bateria → Sem restrições*. Nos Samsung, tire o Farol também de *Apps em suspensão*.
-6. **Abra o Farol**, crie sua conta, aceite o aviso de privacidade e escolha 🛵 ou 🚗.
+4. **Acessibilidade e bateria:** o caminho muda por marca. O guia do app mostra o certo para o seu celular:
+
+   | | Acessibilidade | Extra |
+   |---|---|---|
+   | **Samsung** | Acessibilidade › Apps instalados › Farol | Desligar o *Bloqueador automático*; tirar de *Apps em suspensão* |
+   | **Motorola** | Acessibilidade › Farol (em Apps baixados) | — |
+   | **Xiaomi / Redmi / POCO** | Configurações adicionais › Acessibilidade › Apps baixados › Farol | *Início automático* + cadeado nos recentes |
+
+   Em todos: *Apps › Farol › Bateria › Sem restrições*. Passo a passo completo: **[docs/celulares.md](docs/celulares.md)**.
+5. **Abra o Farol**, crie sua conta, aceite o aviso de privacidade e escolha 🛵 ou 🚗. O guia de instalação abre sozinho na primeira vez.
 
 > **Depois disso, as atualizações chegam sozinhas.** O Farol procura versão nova a cada 6 horas, confere a assinatura e instala. Para buscar na hora: *Ajustes → Atualizações*.
 
@@ -235,6 +242,7 @@ docs/lgpd/            registro das operações, RIPD, incidentes, atendimento
 
 | Versão | Principais mudanças |
 |---|---|
+| 6.5.4 | Guia de instalação por marca (Samsung, Motorola, Xiaomi/Redmi/POCO) com o caminho exato de cada tela; "Leitor desligado" abre o guia; custos iniciais de carro ou moto conforme o modo; docs/celulares.md |
 | 6.5.3 | Iniciar turno desmarca a folga do dia |
 | 6.5.2 | 99 › Saldo lido pela imagem (a 99 esconde os valores da acessibilidade) |
 | 6.5.1 | iFood › Financeiro › Lançamentos: cada lançamento com a data do cabeçalho, sem contar duas vezes |

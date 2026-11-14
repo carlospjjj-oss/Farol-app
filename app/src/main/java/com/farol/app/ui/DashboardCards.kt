@@ -86,7 +86,8 @@ internal fun DashboardActivity.header() {
         addView(k.text(label, 13, color, k.medium), k.lp(w = -2).apply { marginStart = k.dp(8) })
         if (!on) {
             isClickable = true
-            setOnClickListener { startActivity(Intent(AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS)) }
+            // Abre o guia com o caminho exato da marca do celular (Samsung, Motorola, Xiaomi…)
+            setOnClickListener { startActivity(Intent(self, OnboardingActivity::class.java)) }
         } else if (paused) {
             isClickable = true
             setOnClickListener {

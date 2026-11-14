@@ -82,6 +82,12 @@ class VisualPreviewTest {
         open(ConsentActivity::class.java, "2-privacidade")
         SecureStore.plain(ctx).edit().putString("consent_versao", Account.POLICY_VERSION).apply()
         open(ModeActivity::class.java, "3-modo")
+        // Guia de instalação por marca (Samsung, Motorola, Xiaomi)
+        for ((brand, name) in listOf("SAMSUNG" to "10-guia-samsung", "MOTOROLA" to "11-guia-motorola", "XIAOMI" to "12-guia-xiaomi")) {
+            com.farol.app.data.Settings(ctx).prefs.edit().putString("deviceBrand", brand).apply()
+            open(com.farol.app.ui.OnboardingActivity::class.java, name)
+        }
+        com.farol.app.data.Settings(ctx).prefs.edit().remove("deviceBrand").apply()
         open(DashboardActivity::class.java, "4-painel")
         runCatching {
             ActivityScenario.launch(DashboardActivity::class.java).use { sc ->
