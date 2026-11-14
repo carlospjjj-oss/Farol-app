@@ -200,10 +200,16 @@ internal fun DashboardActivity.indicatorsCard() {
             card.addView(k.hbox().apply {
                 gravity = Gravity.CENTER_VERTICAL
                 addView(k.dot(Palette.app(a.app), 10))
-                val n = k.text(a.app, 14, Palette.TEXT, k.medium)
-                addView(n, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = k.dp(10) })
-                addView(k.text(Fmt.money(a.earnings) + (if (a.deliveries > 0) " · ${a.deliveries} entregas · ${Fmt.money(a.ticket!!)}/entrega" else ""), 12, Palette.MUTED))
-            }, k.lp(top = 8))
+                val col = k.vbox().apply {
+                    addView(k.hbox().apply {
+                        val n = k.text(a.app, 14, Palette.TEXT, k.medium)
+                        addView(n, LinearLayout.LayoutParams(0, -2, 1f))
+                        addView(k.text(Fmt.money(a.earnings), 14, Palette.TEXT, k.bold))
+                    })
+                    if (a.deliveries > 0) addView(k.text("${a.deliveries} ${if (a.deliveries == 1) "entrega lida" else "entregas lidas"} · ${Fmt.money(a.ticket!!)} por entrega", 12, Palette.MUTED), k.lp(top = 2))
+                }
+                addView(col, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = k.dp(10) })
+            }, k.lp(top = 10))
         }
     }
     val slots = r.slots.filter { it.hours >= 0.5 || it.deliveries > 0 }
@@ -213,11 +219,10 @@ internal fun DashboardActivity.indicatorsCard() {
         slots.forEach { s ->
             val txt = if (!s.enough) "${s.deliveries} entregas · juntando dados (mín. ${Indicators.MIN_SAMPLE})"
                 else "${s.perHour?.let { Fmt.money(it) + "/h" } ?: "—"} · ${s.deliveries} entregas em ${Fmt.dec(s.hours, 1)} h"
-            card.addView(k.hbox().apply {
-                val n = k.text(s.slot.label + if (s == best) "  ⭐" else "", 13, Palette.TEXT, k.medium)
-                addView(n, LinearLayout.LayoutParams(0, -2, 1f))
-                addView(k.text(txt, 12, Palette.MUTED))
-            }, k.lp(top = 6))
+            card.addView(k.vbox().apply {
+                addView(k.text(s.slot.label + if (s == best) "  ⭐ melhor" else "", 13, Palette.TEXT, k.medium))
+                addView(k.text(txt, 12, Palette.MUTED), k.lp(top = 2))
+            }, k.lp(top = 8))
         }
     }
     add(card)

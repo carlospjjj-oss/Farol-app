@@ -26,10 +26,11 @@ object Indicators {
     data class Result(
         val days: Int, val earnings: Double, val deliveries: Int, val hours: Double, val km: Double,
         val apps: List<AppLine>, val slots: List<SlotLine>,
+        val hoursWithDeliveries: Double = hours,   // só os dias em que o Farol leu entregas (para entregas/hora)
     ) {
         val ticket: Double? get() = apps.sumOf { it.deliveries }.takeIf { it > 0 }?.let { n -> apps.sumOf { it.ordersValue } / n }
         val perHour: Double? get() = if (hours >= 0.5) earnings / hours else null
-        val deliveriesPerHour: Double? get() = if (hours >= 0.5 && deliveries > 0) deliveries / hours else null
+        val deliveriesPerHour: Double? get() = if (hoursWithDeliveries >= 0.5 && deliveries > 0) deliveries / hoursWithDeliveries else null
         val perKm: Double? get() = if (km > 0) earnings / km else null
     }
 
@@ -65,6 +66,7 @@ object Indicators {
         return Result(
             days = worked.size, earnings = worked.sumOf { it.totalEarnings }, deliveries = orders.size,
             hours = worked.sumOf { d -> d.hours ?: 0.0 }, km = worked.sumOf { it.kmDriven ?: 0.0 }, apps = apps, slots = slots,
+            hoursWithDeliveries = worked.filter { d -> d.deliveries > 0 }.sumOf { d -> d.hours ?: 0.0 },
         )
     }
 }
