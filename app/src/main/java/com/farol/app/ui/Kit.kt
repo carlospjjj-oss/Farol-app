@@ -278,3 +278,48 @@ class BarChartView(ctx: Context) : View(ctx) {
         }
     }
 }
+
+/** Gráfico de área do ganho acumulado no dia (desenhado à mão). Pontos: (x em ms, y em R$). */
+class AreaChartView(ctx: Context) : View(ctx) {
+    var points: List<Pair<Long, Double>> = emptyList()
+    var xLabel: (Long) -> String = { "" }
+    var yLabel: (Double) -> String = { it.toInt().toString() }
+    private val density = ctx.resources.displayMetrics.density
+    private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Palette.ACCENT; strokeWidth = 2.5f * density; style = Paint.Style.STROKE; strokeJoin = Paint.Join.ROUND }
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Palette.ACCENT }
+    private val grid = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Palette.STROKE; strokeWidth = 1f * density }
+    private val txt = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Palette.MUTED; textSize = 11 * density }
+    private val big = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Palette.TEXT; textSize = 12 * density; typeface = Typeface.create("sans-serif-medium", Typeface.BOLD); textAlign = Paint.Align.RIGHT }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), (170 * density).toInt())
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        if (points.size < 2) return
+        val left = 4 * density; val right = width - 4 * density
+        val top = 22 * density; val bottom = height - 22 * density
+        val x0 = points.first().first; val x1 = maxOf(points.last().first, x0 + 1)
+        val yMax = (points.maxOf { it.second }).coerceAtLeast(1.0)
+        fun px(t: Long) = left + (t - x0).toFloat() / (x1 - x0) * (right - left)
+        fun py(v: Double) = (bottom - v / yMax * (bottom - top)).toFloat()
+        for (i in 0..2) { val y = top + (bottom - top) * i / 2f; canvas.drawLine(left, y, right, y, grid) }
+        val path = android.graphics.Path(); val area = android.graphics.Path()
+        points.forEachIndexed { i, (t, v) ->
+            if (i == 0) { path.moveTo(px(t), py(v)); area.moveTo(px(t), bottom); area.lineTo(px(t), py(v)) }
+            else { path.lineTo(px(t), py(v)); area.lineTo(px(t), py(v)) }
+        }
+        area.lineTo(px(points.last().first), bottom); area.close()
+        fill.shader = android.graphics.LinearGradient(0f, top, 0f, bottom, Palette.alpha(Palette.ACCENT, 0x66), Palette.alpha(Palette.ACCENT, 0x05), android.graphics.Shader.TileMode.CLAMP)
+        canvas.drawPath(area, fill)
+        canvas.drawPath(path, line)
+        points.drop(1).forEach { (t, v) -> canvas.drawCircle(px(t), py(v), 3.2f * density, dot) }
+        val last = points.last()
+        canvas.drawText(yLabel(last.second), right, (py(last.second) - 8 * density).coerceAtLeast(12 * density), big)
+        // horários embaixo: início, meio e fim
+        txt.textAlign = Paint.Align.LEFT; canvas.drawText(xLabel(x0), left, height - 4 * density, txt)
+        txt.textAlign = Paint.Align.CENTER; canvas.drawText(xLabel((x0 + x1) / 2), (left + right) / 2, height - 4 * density, txt)
+        txt.textAlign = Paint.Align.RIGHT; canvas.drawText(xLabel(x1), right, height - 4 * density, txt)
+    }
+}

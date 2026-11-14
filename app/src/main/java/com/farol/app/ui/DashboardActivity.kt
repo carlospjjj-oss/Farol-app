@@ -45,6 +45,8 @@ class DashboardActivity : Activity() {
     internal lateinit var k: Kit
     internal lateinit var col: LinearLayout
     internal lateinit var headerBox: LinearLayout
+    internal lateinit var navBar: LinearLayout
+    internal lateinit var scroll: ScrollView
 
     internal val apps: List<String>
         get() = if (settings.isCar) listOf("Uber", "99", "inDrive", "Outros") else listOf("iFood", "99", "Keeta", "Uber", "inDrive", "Outros")
@@ -67,19 +69,27 @@ class DashboardActivity : Activity() {
         window.decorView.setBackgroundColor(Palette.BG)
 
         headerBox = k.vbox().apply { setPadding(k.dp(18), k.dp(12), k.dp(18), k.dp(10)); setBackgroundColor(Palette.BG) }
-        col = k.vbox().apply { setPadding(k.dp(18), k.dp(4), k.dp(18), k.dp(40)) }
+        col = k.vbox().apply { setPadding(k.dp(18), k.dp(4), k.dp(18), k.dp(28)) }
+        scroll = ScrollView(self).apply {
+            setBackgroundColor(Palette.BG)
+            isVerticalScrollBarEnabled = false
+            clipToPadding = false
+            addView(col)
+        }
+        navBar = k.hbox().apply {
+            setPadding(k.dp(6), k.dp(4), k.dp(6), k.dp(4))
+            setBackgroundColor(Palette.SURFACE)
+        }
         val root = k.vbox().apply {
             setBackgroundColor(Palette.BG)
             addView(headerBox, LinearLayout.LayoutParams(-1, -2))
-            addView(ScrollView(self).apply {
-                setBackgroundColor(Palette.BG)
-                isVerticalScrollBarEnabled = false
-                clipToPadding = false
-                addView(col)
-            }, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(navBar, LinearLayout.LayoutParams(-1, -2))
         }
         setContentView(root)
-        k.fitSystemBars(root)
+        // a barra de abas ocupa também a faixa da navegação do Android (mesma cor, sem "degrau")
+        window.navigationBarColor = Palette.SURFACE
+        k.fitSystemBars(root) { _, bottom -> navBar.setPadding(k.dp(6), k.dp(4), k.dp(6), k.dp(4) + bottom) }
     }
 
     override fun onResume() {
@@ -126,24 +136,9 @@ class DashboardActivity : Activity() {
         col.removeAllViews()
         headerBox.removeAllViews()
         val day = store.day()
-        val s = JournalMath.summarize(day, settings.profile.costPerKm)
         header()
-        alertsCard()
-        hero(day, s)
-        kpis(s)
-        shiftCard(day, s)
-        gpsCard(day)
-        earningsCard(day)
-        expensesCard(day)
-        goalsCard(day)
-        offersCard()
-        deliveriesCard()
-        hoursCard()
-        indicatorsCard()
-        fuelCard()
-        maintenanceCard()
-        periodCard()
-        footer()
+        renderTab(day)
+        renderNav()
     }
 
     internal fun add(v: View, top: Int = 14) = col.addView(v, k.lp(top = top))

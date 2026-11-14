@@ -11,8 +11,8 @@ android {
         applicationId = "com.farol.app"
         minSdk = 26          // Android 8.0
         targetSdk = 35
-        versionCode = 53
-        versionName = "6.8"
+        versionCode = 54
+        versionName = "6.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

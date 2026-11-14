@@ -69,4 +69,24 @@ object Indicators {
             hoursWithDeliveries = worked.filter { d -> d.deliveries > 0 }.sumOf { d -> d.hours ?: 0.0 },
         )
     }
+
+    /**
+     * Evolução do dia: ganho acumulado ao longo do turno, pelas entregas com hora gravada.
+     * Se o total do dia (painel/histórico) for maior que a soma das entregas, o último ponto sobe até ele.
+     * Devolve pares (epoch ms, R$ acumulado), começando em zero no início do turno.
+     */
+    fun dayCurve(d: DayRecord, now: Long): List<Pair<Long, Double>> {
+        val timed = d.orders.filterKeys { '$' !in it && d.orderAt[it] != null }
+            .map { (k, v) -> d.orderAt.getValue(k) to v }.sortedBy { it.first }
+        if (timed.isEmpty()) return emptyList()
+        val start = d.startAt?.takeIf { it <= timed.first().first } ?: timed.first().first
+        val out = mutableListOf(start to 0.0)
+        var acc = 0.0
+        for ((t, v) in timed) { acc += v; out += t to acc }
+        val end = d.endAt ?: now
+        val total = d.totalEarnings
+        if (total > acc + 0.01) out += maxOf(end, out.last().first) to total
+        else if (end > out.last().first) out += end to acc
+        return out
+    }
 }

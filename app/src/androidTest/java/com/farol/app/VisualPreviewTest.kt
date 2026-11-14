@@ -42,6 +42,8 @@ class VisualPreviewTest {
         runCatching { ActivityScenario.launch(cls).use { shot(name) } }
     }
 
+    private fun setTab(key: String) = Settings(ctx).prefs.edit().putString("dashTab", key).apply()
+
     private fun demoAccount() {
         SecureStore.put(ctx, "token", "demo-token-0123456789abcdefghij")
         SecureStore.plain(ctx).edit().putString("email", "carlos@exemplo.com").putString("nome", "Carlos")
@@ -96,7 +98,9 @@ class VisualPreviewTest {
             open(DashboardActivity::class.java, "13-painel-alerta-ajustes")
             st.profile = keep
         }
+        setTab("inicio")
         open(DashboardActivity::class.java, "4-painel")
+        setTab("financeiro")
         runCatching {
             ActivityScenario.launch(DashboardActivity::class.java).use { sc ->
                 Thread.sleep(1200)
@@ -113,6 +117,7 @@ class VisualPreviewTest {
                         s.scrollTo(0, target?.top?.minus(40) ?: c.height / 2) }
                 }
                 shot("4b-painel-gastos-metas")
+                setTab("inicio")
             }
         }
         // 6.4.1: dia de hoje sem turno + ontem com turno encerrado na manhã seguinte -> linha "Último dia"
@@ -196,8 +201,16 @@ class VisualPreviewTest {
             }
         }
         com.farol.app.data.MaintenanceStore.save(st, items)
+        setTab("analises")
         scrolled(DashboardActivity::class.java, "Indicadores", "14-painel-indicadores")
+        setTab("mais")
         scrolled(DashboardActivity::class.java, "Manutenção", "15-painel-manutencao")
+        // 6.9: cada aba do painel
+        for ((key, name) in listOf("inicio" to "20-aba-inicio", "corridas" to "21-aba-corridas", "financeiro" to "22-aba-financeiro",
+                "analises" to "23-aba-analises", "mais" to "24-aba-mais")) {
+            setTab(key); open(DashboardActivity::class.java, name)
+        }
+        setTab("inicio")
         st.fuelType = "etanol"
         scrolled(SettingsActivity::class.java, "Seus custos", "16-ajustes-aba-etanol")
         st.fuelType = "gasolina"

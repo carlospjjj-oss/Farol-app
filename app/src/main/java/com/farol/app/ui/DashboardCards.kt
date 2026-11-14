@@ -52,7 +52,7 @@ internal fun DashboardActivity.header() {
             addView(modeChip, k.lp(w = -2).apply { marginStart = k.dp(10) })
         })
         val name = settings.userName.substringBefore(' ')
-        val hello = if (name.isEmpty()) "$greeting 👋" else "$greeting, $name 👋"
+        val hello = if (tab != Tab.INICIO) tab.title else if (name.isEmpty()) "$greeting 👋" else "$greeting, $name 👋"
         addView(k.text(hello, 26, Palette.TEXT, k.bold).apply {
             isClickable = true
             setOnClickListener { askName() }   // toque na saudação para trocar o nome
