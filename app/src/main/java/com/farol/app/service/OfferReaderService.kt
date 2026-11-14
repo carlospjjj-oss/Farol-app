@@ -57,8 +57,13 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     private lateinit var ocr: OcrFallback
     private lateinit var remote: RemoteLog
     private lateinit var journal: JournalStore
+    private val orderEarnings = com.farol.app.core.OrderEarnings()
+    private val waits by lazy { com.farol.app.data.WaitStore(this) }
     private val tracker = DeliveryTracker { r ->
         runCatching { journal.addDelivery(r) }
+        // Espera no restaurante: aprende a média (fica só no celular)
+        val rest = r.restaurant; val w = r.waitMin
+        if (rest != null && w != null) runCatching { waits.add(rest, w) }
         runCatching { remote.delivery(r) }
         // Pedido completo com km da oferta: amostra real de velocidade de entrega
         val km = r.km; val mins = r.totalMin
@@ -101,6 +106,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         ocr = OcrFallback(this)
         remote = RemoteLog.get(this)
         journal = JournalStore(this)
+        runCatching { orderEarnings.markUsed(journal.day().orders.keys) }
         // Uma vez: limpa as ofertas repetidas gravadas pelas versões antigas
         if (!settings.prefs.getBoolean("dedupDone", false)) {
             runCatching { history.removeDuplicates() }
@@ -188,7 +194,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         }
         val goal = settings.dailyGoal
         if (goal > 0) {
-            val left = goal - journal.day().totalEarnings
+            val left = goal - com.farol.app.core.GoalMath.dayNet(journal.day(), settings.profile.costPerKm)
             add(com.farol.app.ui.OverlayCard.Extra(if (left <= 0) "🎯 Meta do dia batida!" else "🎯 Faltam ${com.farol.app.core.Fmt.money(left)} para a meta",
                 if (left <= 0) Palette.GREEN else Palette.MUTED))
         }
@@ -257,7 +263,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
 
         val offer = OfferParser.parse(snap.text, label, settings.requireHint)
         readRejections(label, snap.text)
-        if (offer == null && snap.onTop) { logScreen(snap); autoEarnings(label, snap.text); trackPhase(label, snap.text) }
+        if (offer == null && snap.onTop) { logScreen(snap); autoEarnings(label, snap.text); recordOrder(label, snap.text); trackPhase(label, snap.text) }
         if (offer != null) {
             accessibleApps += snap.pkg
             handleOffer(offer, snap.pkg, "acessibilidade", snap.text); return
@@ -307,7 +313,21 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         val phase = PhaseDetector.detect(label, text) ?: return
         val now = System.currentTimeMillis()
         val km = lastOfferKm[label]?.takeIf { now - it.second < 3 * 60_000L }?.first
-        tracker.feed(label, phase, PhaseDetector.restaurant(label, text), now, km)
+        tracker.feed(label, phase, PhaseDetector.restaurant(label, text), now, km, PhaseDetector.atStore(label, text))
+    }
+
+    /**
+     * Entrega concluída (Keeta: "Pedido concluído! Seus ganhos"; 99: "Concluir" com o número do pedido):
+     * soma no dia do turno, uma vez por pedido.
+     */
+    private fun recordOrder(label: String, text: String) {
+        if (!settings.autoEarnings) return
+        val done = orderEarnings.onScreen(label, text, System.currentTimeMillis()) ?: return
+        val day = journal.day()
+        if (done.key in day.orders) return
+        journal.putDay(day.copy(orders = day.orders + (done.key to done.value)))
+        settings.markAuto(day.date, label)
+        runCatching { ShiftNotifier.refresh(this) }
     }
 
     private fun minutesSinceOffer(): Int? {
@@ -334,7 +354,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
                 return@run
             }
             // O print pega a tela inteira: só usa para ganhos/avisos/telas se o app estiver na frente
-            if (snap.onTop) { autoEarnings(label, text); readRejections(label, text) }
+            if (snap.onTop) { autoEarnings(label, text); recordOrder(label, text); readRejections(label, text) }
             val hint = hasHint || OfferParser.OFFER_HINTS.containsMatchIn(text)
             if (hint && ocrRetries < 4) {
                 ocrRetries++
@@ -369,9 +389,13 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         lastSigAt = now
 
         lastOfferKm[offer.app] = offer.totalKm to System.currentTimeMillis()
+        orderEarnings.onOffer(offer.app, offer.price, System.currentTimeMillis())
+        // Restaurante que costuma demorar (Keeta, com 3+ coletas suas lá): a espera entra no tempo
+        val place = PhaseDetector.offerRestaurant(offer.app, raw)
+        val wait = waits.estimate(place)?.takeIf { it.avgMin >= com.farol.app.core.WaitStats.WARN_MIN }
         offer.totalMin?.let { m -> com.farol.app.core.SpeedLearner.sample(offer.totalKm, m)?.let { settings.addSpeedSample(offer.app, it) } }
         // Cada app com a sua velocidade (só usada quando a oferta não mostra o tempo)
-        val result = ProfitCalculator.evaluate(offer, settings.effectiveProfile(offer.app))
+        val result = ProfitCalculator.evaluate(offer, settings.effectiveProfile(offer.app), wait?.avgMin, wait?.restaurant)
         overlay.show(result, extrasFor(offer.app))
         runCatching { ShiftNotifier.refresh(this) }
         runCatching { if (history.add(result, source)) health.ok(offer.app) }

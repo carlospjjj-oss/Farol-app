@@ -132,6 +132,8 @@ class DashboardActivity : Activity() {
         shiftCard(day, s)
         gpsCard(day)
         earningsCard(day)
+        expensesCard(day)
+        goalsCard(day)
         offersCard()
         deliveriesCard()
         hoursCard()
@@ -156,8 +158,9 @@ class DashboardActivity : Activity() {
             RemoteLog.get(this).day(JSONObject()
                 .put("data", d.date).put("km", s.km).put("km_inicial", d.kmStart).put("km_final", d.kmEnd)
                 .put("custo_km", settings.profile.costPerKm).put("horas", s.hours)
-                .put("ganhos", JSONObject(d.earnings)).put("ganho_total", s.earnings)
-                .put("custo", s.cost).put("liquido", s.net).put("r_km", s.perKm).put("r_h", s.perHour)
+                .put("ganhos", JSONObject(d.appEarnings)).put("ganho_total", s.earnings)
+                .put("gastos", s.expenses).put("entregas", d.orders.size)
+                .put("custo", s.cost).put("liquido", s.netAfterExpenses).put("r_km", s.perKm).put("r_h", s.perHour)
                 .put("ofertas", history.recent(500).count { it.optLong("t") >= (d.startAt ?: 0L) }))
         }
     }

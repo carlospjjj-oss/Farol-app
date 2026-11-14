@@ -72,6 +72,7 @@ class SettingsActivity : Activity() {
     internal lateinit var etMaxMin: EditText
     internal lateinit var bandsBox: LinearLayout
     internal lateinit var etGoal: EditText
+    internal lateinit var etWorkDays: EditText
     internal lateinit var etFavorites: EditText
     internal lateinit var segSize: LinearLayout
     internal var cardSize = 1
@@ -335,6 +336,7 @@ class SettingsActivity : Activity() {
         etAlerts.setText(settings.alertWordsText)
         etFavorites.setText(settings.favoriteWordsText)
         etGoal.setText(fmt(settings.dailyGoal))
+        etWorkDays.setText(settings.workDaysPerWeek.toString())
         cardSize = settings.cardSize; renderSize()
         swCompact.isChecked = settings.cardCompact
         swShiftNotif.isChecked = settings.shiftNotification
@@ -407,6 +409,7 @@ class SettingsActivity : Activity() {
         settings.alertWordsText = etAlerts.text.toString()  // antes do profile: profile lê as palavras
         settings.favoriteWordsText = etFavorites.text.toString()
         settings.dailyGoal = etGoal.num(0.0).coerceAtLeast(0.0)
+        settings.workDaysPerWeek = etWorkDays.num(6.0).toInt()
         settings.cardSize = cardSize
         settings.cardCompact = swCompact.isChecked
         settings.shiftNotification = swShiftNotif.isChecked

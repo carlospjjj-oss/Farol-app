@@ -72,8 +72,9 @@ internal fun SettingsActivity.buildCostSections() {
     }, k.lp(top = 12))
 
     // Meta
-    val cGoal = card("Meta do dia", "Aparece no dashboard, no cartão de cada oferta, na notificação e no widget")
-    etGoal = numRow(cGoal, "Quero ganhar por dia", "R$", "0 = sem meta")
+    val cGoal = card("Metas", "Meta do dia em líquido (ganhos − custo do km − gastos). Semana e mês saem dela")
+    etGoal = numRow(cGoal, "Quero ganhar por dia (líquido)", "R$", "0 = sem meta")
+    etWorkDays = numRow(cGoal, "Dias de trabalho por semana", "dias", "1 a 7 · folga não conta contra a meta")
 
     // Semáforo
     val cLight = card("Suas faixas", "A cor final é a pior entre R$/km, R$/h e nota")

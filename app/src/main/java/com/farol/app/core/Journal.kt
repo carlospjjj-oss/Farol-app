@@ -14,9 +14,25 @@ data class DayRecord(
     val earnings: Map<String, Double> = emptyMap(), // app -> R$ ganhos no dia
     val pausedMs: Long = 0L,                // pausas já encerradas (não contam como trabalho)
     val pauseAt: Long? = null,              // pausa em andamento desde
+    val orders: Map<String, Double> = emptyMap(),   // "Keeta#7553" -> R$ de cada entrega concluída
+    val expenses: List<Expense> = emptyList(),      // gastos do dia (alimentação, manutenção, outros)
+    val dayOff: Boolean = false,                    // folga marcada: não conta contra a meta da semana
 ) {
     val kmDriven: Double? get() = if (kmStart != null && kmEnd != null && kmEnd >= kmStart) kmEnd - kmStart else null
-    val totalEarnings: Double get() = earnings.values.sum()
+
+    /**
+     * Ganho de cada app no dia: o MAIOR entre o valor lançado/lido da tela inicial e a soma das entregas
+     * concluídas. Nunca soma os dois (seria contar a mesma entrega duas vezes): a tela inicial já inclui
+     * as entregas, e depois da meia-noite ela zera enquanto a soma das entregas do turno continua.
+     */
+    val appEarnings: Map<String, Double> get() {
+        if (orders.isEmpty()) return earnings
+        val byApp = orders.entries.groupBy({ it.key.substringBefore('#') }, { it.value }).mapValues { it.value.sum() }
+        return (earnings.keys + byApp.keys).associateWith { maxOf(earnings[it] ?: 0.0, byApp[it] ?: 0.0) }
+    }
+    val totalEarnings: Double get() = appEarnings.values.sum()
+    val totalExpenses: Double get() = expenses.sumOf { it.value }
+    fun ordersOf(app: String) = orders.filterKeys { it.substringBefore('#') == app }
     val isPaused: Boolean get() = pauseAt != null && endAt == null
     val hasShift: Boolean get() = kmStart != null || startAt != null
 
@@ -34,6 +50,14 @@ data class DayRecord(
     fun resume(now: Long) = pauseAt?.let { copy(pausedMs = pausedMs + (now - it).coerceAtLeast(0), pauseAt = null) } ?: this
     /** Exclui o turno, mas mantém os ganhos do dia. */
     fun clearShift() = copy(kmStart = null, kmEnd = null, startAt = null, endAt = null, pausedMs = 0L, pauseAt = null)
+}
+
+/** Gasto do dia. [category]: "alimentacao", "manutencao" ou "outros". */
+data class Expense(val at: Long, val category: String, val value: Double, val note: String = "") {
+    companion object {
+        val CATEGORIES = listOf("alimentacao" to "Alimentação", "manutencao" to "Manutenção", "outros" to "Outros")
+        fun label(cat: String) = CATEGORIES.firstOrNull { it.first == cat }?.second ?: "Outros"
+    }
 }
 
 data class FuelEntry(
@@ -55,6 +79,9 @@ data class DaySummary(
     val perKm: Double?,
     val perHour: Double?,
     val netPerHour: Double?,
+    val expenses: Double = 0.0,
+    /** Ganhos − custo estimado do km (quando há km) − gastos lançados. */
+    val netAfterExpenses: Double = 0.0,
 )
 
 data class FuelStats(
@@ -64,7 +91,7 @@ data class FuelStats(
     val kmMeasured: Double,
 )
 
-data class PeriodSummary(val days: Int, val earnings: Double, val km: Double, val net: Double, val fuelSpent: Double)
+data class PeriodSummary(val days: Int, val earnings: Double, val km: Double, val net: Double, val fuelSpent: Double, val expenses: Double = 0.0)
 
 object JournalMath {
 
@@ -82,7 +109,9 @@ object JournalMath {
             net = net,
             perKm = km?.takeIf { it > 0 }?.let { e / it },
             perHour = h?.takeIf { it > 0 }?.let { e / it },
-            netPerHour = if (h != null && h > 0 && net != null) net / h else null,
+            netPerHour = if (h != null && h > 0 && net != null) (net - day.totalExpenses) / h else null,
+            expenses = day.totalExpenses,
+            netAfterExpenses = e - (cost ?: 0.0) - day.totalExpenses,
         )
     }
 
@@ -127,8 +156,9 @@ object JournalMath {
             days = sel.count { it.totalEarnings > 0 || it.kmDriven != null },
             earnings = earnings,
             km = km,
-            net = earnings - km * costPerKm,
+            net = earnings - km * costPerKm - sel.sumOf { it.totalExpenses },
             fuelSpent = fuel.filter { dateOf(it.at) in dates }.sumOf { it.total },
+            expenses = sel.sumOf { it.totalExpenses },
         )
     }
 }

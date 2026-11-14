@@ -4,7 +4,8 @@ package com.farol.app.core
  * Limpa o texto antes de ele sair do celular nos logs remotos.
  * - Troca rua/número por "[endereço]", mantendo o bairro/cidade (útil para análise).
  * - Remove sequências longas de dígitos (telefone, CPF, códigos de pedido).
- * Não é perfeito (nome de passageiro, por exemplo, não é detectado): mantenha o repositório privado.
+ * - Telas de conversa com o cliente não saem do celular ([isChat]).
+ * - Nome do cliente nas telas de entrega vira "[cliente]" ([maskPeople]).
  */
 object LogSanitizer {
 
@@ -30,5 +31,50 @@ object LogSanitizer {
             seg = if (rest.isEmpty()) "[endereço]" else "[endereço], $rest"
         }
         return seg
+    }
+
+    // ---------- dados de terceiros (clientes) ----------
+
+    private val CHAT = Regex(
+        """Insira sua mensagem|Mensagens r[aá]pidas|Criar nova frase r[aá]pida|Minha imagem de perfil|Imagem de perfil dele|Chat da entrega\s*\|\s*Voz|Digite uma mensagem|Enviar mensagem""",
+        RegexOption.IGNORE_CASE)
+
+    /** Tela de conversa (chat) com o cliente: não é registrada. */
+    fun isChat(text: String) = CHAT.containsMatchIn(text)
+
+    private val DELIVERY = Regex(
+        """\bCliente\b|Entregue at[eé]|Para finalizar a entrega|Cheguei na entrega|Entregar em at[eé]|c[oó]digo de (verifica[cç][aã]o|entrega)|Entrega em m[aã]os|Venha retirar|\bEntrega\s*\|""",
+        RegexOption.IGNORE_CASE)
+    // 1 a 4 palavras com inicial maiúscula, só letras (ex.: "Emanoel", "Franciely Gomes", "Laura Maria")
+    private val PERSON = Regex("""^\p{Lu}[\p{L}'´`]+(?:\s+(?:d[aeo]s?\s+)?\p{Lu}[\p{L}'´`]*\.?){0,3}$""")
+    private val ORDER_NAME = Regex("""(#\d{3,})\s+\p{Lu}[\p{L}]+(?:\s+\p{Lu}[\p{L}]+)*""")
+    private val NOT_NAME = Regex(
+        """^(Mapa|Marcador|Rotas|Cliente|Restaurante|Entrega|Coleta|Suporte|Ajuda|Passo|Chamada|Mensagem|Concluir|Detalhes|Central|Bloco|Cheguei|Entregue|Para|Falar|Por|Go|Order|N[uú]mero|Ir|Voz|Texto|Mais|Lida|Limite|Rotat[oó]ria|Mantenha|Vire|Siga|Pedido|Aceitar|Recusar|Google|Waze|Insira|Pe[cç]a|Chegada|Previs[aã]o|Em|Sua|Seu|Voc[eê]|Inclui|Taxa|Outros|Resumo|Painel|Ganhos|Iniciar|Confirmar|Cancelar)\b""",
+        RegexOption.IGNORE_CASE)
+
+    /**
+     * Nas telas de entrega, troca o nome do cliente por "[cliente]": o texto logo antes do endereço,
+     * logo depois de "Entrega |" e o nome que vem junto do número do pedido ("#149031 Laura").
+     */
+    fun maskPeople(text: String): String {
+        if (!DELIVERY.containsMatchIn(text)) return text
+        val parts = text.split(" | ").toMutableList()
+        for (i in parts.indices) {
+            val p = parts[i].trim()
+            val next = parts.getOrNull(i + 1)?.trim() ?: ""
+            val prev = parts.getOrNull(i - 1)?.trim() ?: ""
+            val beforeAddress = next.startsWith("[endereço]") || next.startsWith("#")
+            val afterHeader = prev.equals("Entrega", true) || prev.equals("Marcador do mapa", true) && DELIVERY.containsMatchIn(text)
+            if ((beforeAddress || afterHeader) && PERSON.matches(p) && !NOT_NAME.containsMatchIn(p) && p.length <= 40) parts[i] = "[cliente]"
+            parts[i] = parts[i].replace(ORDER_NAME) { it.groupValues[1] + " [cliente]" }
+        }
+        return parts.joinToString(" | ")
+    }
+
+    /** Tudo o que sai do celular passa por aqui. null = a tela não deve ser registrada. */
+    fun forServer(text: String, maskAddresses: Boolean = true): String? {
+        if (isChat(text)) return null
+        val t = maskPeople(text)
+        return if (maskAddresses) mask(t) else t
     }
 }

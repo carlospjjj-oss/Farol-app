@@ -43,6 +43,9 @@ class History(context: Context) {
         r.offer.pickupKm?.let { o.put("pickup", it) }
         r.offer.passengerRating?.let { o.put("stars", it) }
         if (r.warnings.isNotEmpty()) o.put("warnings", org.json.JSONArray(r.warnings))
+        r.why?.let { o.put("why", it.headline); if (it.plus.isNotEmpty() || it.minus.isNotEmpty())
+            o.put("whyTags", org.json.JSONArray(it.plus.map { p -> "+ $p" } + it.minus.map { m -> "− $m" })) }
+        r.waitMin?.let { o.put("waitMin", it) }
         db.insertOffer(db.writableDatabase, o)
         return true
     }

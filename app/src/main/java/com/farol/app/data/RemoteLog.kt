@@ -99,7 +99,7 @@ class RemoteLog private constructor(context: Context) {
         if (key == lastMissKey && now - lastMissAt < 20_000) return
         lastMissKey = key; lastMissAt = now
         val e = base("miss", pkg, source, raw)
-        if (extra != null) e.put("texto_acessibilidade", clean(extra))
+        if (extra != null) clean(extra)?.let { e.put("texto_acessibilidade", it) }
         enqueue(e)
     }
 
@@ -112,6 +112,7 @@ class RemoteLog private constructor(context: Context) {
      */
     fun screen(pkg: String, source: String, raw: String, minutesSinceOffer: Int) {
         if (!enabled || !share) return   // telas são só texto: sem consentimento, não saem do celular
+        if (LogSanitizer.isChat(raw)) return   // conversa com o cliente: nunca sai do celular
         val key = raw.replace(Regex("""\d"""), "").replace(Regex("""\s+"""), " ").take(600)
         val now = SystemClock.elapsedRealtime()
         if (key == lastScreenKey[pkg]) return
@@ -123,7 +124,8 @@ class RemoteLog private constructor(context: Context) {
     fun delivery(r: com.farol.app.core.DeliveryRecord) {
         if (!enabled) return
         enqueue(JSONObject().put("t", iso(Date())).put("tipo", "pedido").put("versao", appVersion).put("aparelho", deviceId)
-            .put("app", r.app).put("restaurante", r.restaurant ?: JSONObject.NULL)
+            .put("app", r.app)   // nome do restaurante fica só no celular
+            .put("min_espera", r.waitMin?.let { round(it) } ?: JSONObject.NULL)
             .put("min_coleta", r.collectMin?.let { round(it) } ?: JSONObject.NULL)
             .put("min_entrega", r.deliverMin?.let { round(it) } ?: JSONObject.NULL))
     }
@@ -217,11 +219,12 @@ class RemoteLog private constructor(context: Context) {
         .put("modo", settings.vehicleMode)
         .put("app", pkg)
         .put("fonte", source)
-        .apply { if (share) put("texto", clean(raw)) }
+        .apply { if (share) clean(raw)?.let { put("texto", it) } }
         .put("versao", appVersion)
         .put("aparelho", deviceId)
 
-    private fun clean(s: String) = if (settings.maskAddresses) LogSanitizer.mask(s) else s
+    /** Nome de cliente sempre mascarado; chat nunca sai (null). Endereço conforme o ajuste. */
+    private fun clean(s: String): String? = LogSanitizer.forServer(s, settings.maskAddresses)
 
     /** LGPD: o texto das telas só sai do celular com o consentimento opcional. */
     private val share: Boolean get() = Account.shareScreens(ctx)

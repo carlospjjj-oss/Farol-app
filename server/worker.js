@@ -27,6 +27,49 @@ const MAX_EVENTS = 500;           // eventos por lote
 const MAX_BATCHES_PER_HOUR = 120; // por celular
 const DEVICE_RE = /^[A-Za-z0-9_-]{6,64}$/;
 
+// Ganho de cada app no dia: o maior entre o valor lançado/lido da tela inicial e a soma das entregas
+// concluídas ("orders": {"Keeta#7553": 13.47}). Igual ao app (DayRecord.appEarnings): nunca soma os dois.
+function appEarnings(d) {
+  const e = d.earnings || {}, out = {};
+  const byApp = {};
+  for (const [k, v] of Object.entries(d.orders || {})) { const a = k.split("#")[0]; byApp[a] = (byApp[a] || 0) + (Number(v) || 0); }
+  for (const a of new Set([...Object.keys(e), ...Object.keys(byApp)])) out[a] = Math.max(Number(e[a]) || 0, byApp[a] || 0);
+  return out;
+}
+const sumValues = (o) => Object.values(o).reduce((a, v) => a + (Number(v) || 0), 0);
+const dayExpenses = (d) => (Array.isArray(d.expenses) ? d.expenses : []).reduce((a, x) => a + (Number(x && x.v) || 0), 0);
+
+// ---- Dados de terceiros (clientes) — mesma regra do app (LogSanitizer.forServer) ----
+// Vale também para versões antigas do app: chat com o cliente não é guardado e o nome do cliente
+// nas telas de entrega vira "[cliente]". Nome de restaurante (estabelecimento) não é mascarado.
+const CHAT_RE = /Insira sua mensagem|Mensagens r[aá]pidas|Criar nova frase r[aá]pida|Minha imagem de perfil|Imagem de perfil dele|Chat da entrega\s*\|\s*Voz|Digite uma mensagem|Enviar mensagem/i;
+const DELIVERY_RE = /\bCliente\b|Entregue at[eé]|Para finalizar a entrega|Cheguei na entrega|Entregar em at[eé]|c[oó]digo de (verifica[cç][aã]o|entrega)|Entrega em m[aã]os|Venha retirar|\bEntrega\s*\|/i;
+const PERSON_RE = /^\p{Lu}[\p{L}'´`]+(?:\s+(?:d[aeo]s?\s+)?\p{Lu}[\p{L}'´`]*\.?){0,3}$/u;
+const ORDER_NAME_RE = /(#\d{3,})\s+\p{Lu}\p{L}+(?:\s+\p{Lu}\p{L}+)*/gu;
+const NOT_NAME_RE = /^(Mapa|Marcador|Rotas|Cliente|Restaurante|Entrega|Coleta|Suporte|Ajuda|Passo|Chamada|Mensagem|Concluir|Detalhes|Central|Bloco|Cheguei|Entregue|Para|Falar|Por|Go|Order|N[uú]mero|Ir|Voz|Texto|Mais|Lida|Limite|Rotat[oó]ria|Mantenha|Vire|Siga|Pedido|Aceitar|Recusar|Google|Waze|Insira|Pe[cç]a|Chegada|Previs[aã]o|Em|Sua|Seu|Voc[eê]|Inclui|Taxa|Outros|Resumo|Painel|Ganhos|Iniciar|Confirmar|Cancelar)\b/i;
+function maskPeople(text) {
+  if (typeof text !== "string" || !DELIVERY_RE.test(text)) return text;
+  const parts = text.split(" | ");
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i].trim(), next = (parts[i + 1] || "").trim(), prev = (parts[i - 1] || "").trim();
+    const beforeAddress = next.startsWith("[endereço]") || next.startsWith("#");
+    const afterHeader = /^entrega$/i.test(prev) || /^marcador do mapa$/i.test(prev);
+    if ((beforeAddress || afterHeader) && PERSON_RE.test(p) && !NOT_NAME_RE.test(p) && p.length <= 40) parts[i] = "[cliente]";
+    parts[i] = parts[i].replace(ORDER_NAME_RE, "$1 [cliente]");
+  }
+  return parts.join(" | ");
+}
+/** Limpa um evento no lugar. Retorna false se ele não deve ser guardado (tela de chat). */
+function protegerTerceiros(e) {
+  for (const k of ["texto", "texto_acessibilidade"]) {
+    if (typeof e[k] !== "string") continue;
+    if (CHAT_RE.test(e[k])) { if (e.tipo === "tela") return false; delete e[k]; continue; }
+    e[k] = maskPeople(e[k]);
+  }
+  if (e.tipo === "pedido") delete e.restaurante;   // nome do restaurante fica só no celular
+  return true;
+}
+
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS events (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,6 +184,8 @@ export default {
       for (let i = eventos.length - 1; i >= 0; i--) if (eventos[i].tipo === "tela" || eventos[i].tipo === "miss") eventos.splice(i, 1);
       if (!eventos.length) return json({ ok: true, gravados: 0 });
     }
+    for (let i = eventos.length - 1; i >= 0; i--) if (!protegerTerceiros(eventos[i])) eventos.splice(i, 1);
+    if (!eventos.length) return json({ ok: true, gravados: 0 });
     const stmts = eventos.map((e) =>
       ins.bind(device, userId, now, s(e.t, 40), s(e.tipo, 20), s(e.modo, 10), s(e.app, 40), versao, JSON.stringify(e)));
     stmts.push(db.prepare("INSERT INTO batches (device, user_id, received_at, n) VALUES (?, ?, ?, ?)").bind(device, userId, now, eventos.length));
@@ -405,6 +450,24 @@ async function authRoutes(req, env, url) {
   if (p === "/v1/admin/limpeza" && req.method === "POST") {
     return json({ ok: true, resultado: await maintenance(env, true), regra: `texto apagado após ${TEXT_DAYS} dias; telas apagadas após ${SCREEN_DAYS} dias` });
   }
+  // Limpa o que já foi guardado: apaga telas de chat e mascara nomes de clientes (regra de terceiros).
+  if (p === "/v1/admin/limpar-terceiros" && req.method === "POST") {
+    let apagados = 0, mascarados = 0, depois = Number(body.depois_de_id) || 0;
+    const rows = (await db.prepare(`SELECT id, data FROM events WHERE id > ? AND tipo IN ('tela','miss','offer','pedido')
+      AND (json_extract(data,'$.texto') IS NOT NULL OR json_extract(data,'$.texto_acessibilidade') IS NOT NULL OR json_extract(data,'$.restaurante') IS NOT NULL)
+      ORDER BY id LIMIT 800`).bind(depois).all()).results || [];
+    const stmts = [];
+    for (const r of rows) {
+      depois = r.id;
+      let e; try { e = JSON.parse(r.data); } catch (_) { continue; }
+      const antes = r.data;
+      if (!protegerTerceiros(e)) { stmts.push(db.prepare("DELETE FROM events WHERE id = ?").bind(r.id)); apagados++; continue; }
+      const novo = JSON.stringify(e);
+      if (novo !== antes) { stmts.push(db.prepare("UPDATE events SET data = ? WHERE id = ?").bind(novo, r.id)); mascarados++; }
+    }
+    for (let i = 0; i < stmts.length; i += 50) await db.batch(stmts.slice(i, i + 50));
+    return json({ ok: true, lidos: rows.length, apagados, mascarados, proximo: rows.length === 800 ? depois : null });
+  }
   if (p === "/v1/admin/reset" && req.method === "POST") {
     const nova = String(body.senha || "");
     if (nova.length < 8) return json({ erro: "a senha precisa ter 8 caracteres" }, 400);
@@ -545,7 +608,7 @@ async function panelApi(req, env, url) {
     const nowMs = Date.now();
     for (const row of rows) {
       let d; try { d = JSON.parse(row.data); } catch (_) { continue; }
-      const ganho = Object.values(d.earnings || {}).reduce((a, v) => a + (Number(v) || 0), 0);
+      const porApp = appEarnings(d), ganho = sumValues(porApp), gastos = dayExpenses(d);
       const km = d.kmStart != null && d.kmEnd != null && d.kmEnd >= d.kmStart ? d.kmEnd - d.kmStart : 0;
       let horas = 0;
       if (d.startAt) {
@@ -554,11 +617,11 @@ async function panelApi(req, env, url) {
         horas = Math.max(0, end - d.startAt - (d.pausedMs || 0) - open) / 3600_000;
       }
       const custo = Number(d._custo_km) || 0;
-      if (!ganho && !km && !horas) continue;
+      if (!ganho && !km && !horas && !gastos) continue;
       // a chave por conta é "u<id>"; um resumo antigo da mesma conta/dia é substituído
       lastByDay.delete(row.user_id + "|" + row.date);   // resumo antigo (evento "dia") da mesma conta e data
       lastByDay.set(row.user_id + "|" + row.modo + "|" + row.date,
-        { data: row.date, ganho_total: ganho, km, horas, liquido: ganho - km * custo, ganhos: d.earnings || {} });
+        { data: row.date, ganho_total: ganho, km, horas, liquido: ganho - km * custo - gastos, gastos, ganhos: porApp });
     }
   }
   const perDate = new Map();   // várias contas no mesmo dia (visão do admin): soma
@@ -659,7 +722,7 @@ async function dayTotals(db, scope, from, to) {
   const nowMs = Date.now(), byDate = {}, byApp = {};
   for (const r of rows) {
     let d; try { d = JSON.parse(r.data); } catch (_) { continue; }
-    const ganho = Object.values(d.earnings || {}).reduce((a, v) => a + (Number(v) || 0), 0);
+    const porApp = appEarnings(d), ganho = sumValues(porApp), gastos = dayExpenses(d);
     const km = d.kmStart != null && d.kmEnd != null && d.kmEnd >= d.kmStart ? d.kmEnd - d.kmStart : 0;
     let horas = 0;
     if (d.startAt) {
@@ -669,8 +732,8 @@ async function dayTotals(db, scope, from, to) {
     }
     const custo = (Number(d._custo_km) || 0) * km;
     const x = (byDate[r.date] ||= { ganho: 0, km: 0, horas: 0, liquido: 0 });
-    x.ganho += ganho; x.km += km; x.horas += horas; x.liquido += ganho - custo;
-    for (const [app, v] of Object.entries(d.earnings || {})) byApp[app] = (byApp[app] || 0) + (Number(v) || 0);
+    x.ganho += ganho; x.km += km; x.horas += horas; x.liquido += ganho - custo - gastos;
+    for (const [app, v] of Object.entries(porApp)) byApp[app] = (byApp[app] || 0) + (Number(v) || 0);
   }
   const tot = Object.values(byDate).reduce((a, x) => ({ ganho: a.ganho + x.ganho, km: a.km + x.km, horas: a.horas + x.horas, liquido: a.liquido + x.liquido }),
     { ganho: 0, km: 0, horas: 0, liquido: 0 });
@@ -1118,7 +1181,7 @@ Quando o controlador se enquadra como agente de tratamento de pequeno porte, a i
 <tr><th>Categoria</th><th>Dados</th><th>Finalidade</th><th>Base legal</th></tr>
 <tr><td>Cadastro</td><td>Nome, e-mail; senha guardada apenas como código irreversível (PBKDF2)</td><td>Criar a conta, autenticar e proteger o acesso</td><td>Execução de contrato (art. 7º, V)</td></tr>
 <tr><td>Sessões</td><td>Código anônimo do aparelho, data de criação e último uso da sessão</td><td>Manter você conectado e permitir encerrar sessões</td><td>Execução de contrato (art. 7º, V)</td></tr>
-<tr><td>Diário</td><td>Turnos (km do painel, horários, pausas), ganhos por app, abastecimentos (km, litros, valor)</td><td>Guardar seu diário na conta, restaurar em outro celular, mostrar no painel</td><td>Execução de contrato (art. 7º, V)</td></tr>
+<tr><td>Diário</td><td>Turnos (km do painel, horários, pausas, folgas), ganhos por app e por entrega concluída (número do pedido e valor), gastos que você lança (categoria, valor, observação), abastecimentos (km, litros, valor)</td><td>Guardar seu diário na conta, restaurar em outro celular, mostrar no painel</td><td>Execução de contrato (art. 7º, V)</td></tr>
 <tr><td>Números das ofertas</td><td>App, preço, km, tempo, R$/km, R$/h, cor do cartão, data e hora</td><td>Estatísticas do seu painel (melhores horários e apps)</td><td>Execução de contrato (art. 7º, V)</td></tr>
 <tr><td>Configurações</td><td>Custos, faixas do semáforo, apps monitorados, versão do app</td><td>Conferir e dar suporte ao funcionamento</td><td>Execução de contrato (art. 7º, V)</td></tr>
 <tr><td>Segurança</td><td>E-mail tentado e endereço IP em tentativas de login malsucedidas</td><td>Bloquear tentativas de adivinhar senha</td><td>Legítimo interesse e segurança do titular (art. 7º, IX)</td></tr>
@@ -1182,7 +1245,7 @@ Você pode ver e alterar os critérios em Ajustes e pedir informações sobre el
 <tr><th>Direito</th><th>Como exercer</th></tr>
 <tr><td>Confirmação e acesso (art. 18, I e II)</td><td>App → Ajustes → Privacidade → <b>Baixar meus dados</b> (arquivo completo, na hora)</td></tr>
 <tr><td>Portabilidade (art. 18, V)</td><td>O mesmo arquivo, em formato aberto (JSON), para levar a outro serviço</td></tr>
-<tr><td>Correção (art. 18, III)</td><td>Edite turnos, ganhos e abastecimentos no app; nome e senha em Ajustes → Conta</td></tr>
+<tr><td>Correção (art. 18, III)</td><td>Edite turnos, ganhos, gastos e abastecimentos no app; nome e senha em Ajustes → Conta</td></tr>
 <tr><td>Eliminação (art. 18, VI) e exclusão da conta</td><td>App → Ajustes → Privacidade → <b>Excluir minha conta</b> (apaga no servidor na hora)</td></tr>
 <tr><td>Revogação do consentimento (art. 18, IX e art. 8º, § 5º)</td><td>Desligue “Compartilhar textos das telas”. Os textos já guardados são apagados</td></tr>
 <tr><td>Informação sobre compartilhamento (art. 18, VII) e sobre não consentir (VIII)</td><td>Seções 7 e 3 deste aviso. Sem o consentimento opcional o app funciona normalmente</td></tr>
@@ -1196,7 +1259,7 @@ Se não ficar satisfeito, você pode peticionar à <b>Autoridade Nacional de Pro
 <li>Toda a comunicação usa HTTPS. A senha é guardada só como código irreversível (PBKDF2 com sal único).</li>
 <li>A conta é bloqueada temporariamente depois de várias senhas erradas, e cada conta só acessa os próprios dados.</li>
 <li>O app é assinado com chave protegida e confere a assinatura e a impressão digital (SHA-256) de cada atualização antes de instalar.</li>
-<li>Os textos são mascarados no aparelho antes do envio (endereços, telefones e CEPs).</li>
+<li>Os textos são mascarados no aparelho antes do envio (endereços, telefones, CEPs e nome do cliente nas telas de entrega). Telas de conversa (chat) com o cliente nunca são enviadas. O nome dos restaurantes usado para estimar a espera fica só no seu celular.</li>
 <li>Seguimos minimização, retenção limitada e acesso administrativo restrito ao controlador.</li>
 </ul>
 <p>Nenhum sistema é 100% invulnerável, mas adotamos medidas técnicas e administrativas aptas a proteger os dados (art. 46).</p>
@@ -1217,7 +1280,7 @@ A comunicação dirá o que aconteceu, quais dados foram afetados, os riscos e a
 
 <h2 id="s16"><span>16.</span>Alterações e histórico de versões</h2>
 <p>Podemos atualizar este aviso. Mudanças relevantes, como nova finalidade, novo dado ou novo operador, serão informadas no app, e seu aceite será pedido de novo antes de continuar.</p>
-<table><tr><th>Versão</th><th>Mudança</th></tr><tr><td>${V}</td><td>Primeira versão: contas, sincronização, consentimento separado para textos, direitos no app, retenção automática</td></tr></table>
+<table><tr><th>Versão</th><th>Mudança</th></tr><tr><td>${V}</td><td>Primeira versão: contas, sincronização, consentimento separado para textos, direitos no app, retenção automática</td></tr><tr><td>14/11/2026</td><td>Esclarecimento, sem mudar finalidades: gastos lançados e ganho por entrega no diário; nome do cliente mascarado e chat nunca enviado; nome de restaurante só no aparelho</td></tr></table>
 <p class="sub">Lei aplicável: legislação brasileira, em especial a LGPD e o Marco Civil da Internet (Lei nº 12.965/2014).</p>
 </main></body></html>`;
 }

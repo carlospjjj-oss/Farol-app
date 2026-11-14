@@ -36,7 +36,7 @@ class FarolWidget : AppWidgetProvider() {
             v.setTextViewText(R.id.w_earn, Fmt.money(day.totalEarnings))
             val goal = s.dailyGoal
             v.setTextViewText(R.id.w_goal, if (goal > 0) {
-                val left = goal - day.totalEarnings
+                val left = goal - com.farol.app.core.GoalMath.dayNet(day, s.profile.costPerKm)
                 if (left <= 0) "🎯 Meta batida!" else "🎯 faltam ${Fmt.money(left)}"
             } else "ganhos de hoje")
             val hhmm = SimpleDateFormat("HH:mm", Locale("pt", "BR"))

@@ -45,14 +45,27 @@ data class OfferResult(
     val rating: Rating,         // o pior dos dois (ou vermelho, se houver alerta)
     val warnings: List<String> = emptyList(),
     val favorites: List<String> = emptyList(),
+    /** Espera média do restaurante somada ao tempo (null = não se aplica / sem dados suficientes). */
+    val waitMin: Double? = null,
+    val waitPlace: String? = null,
+    /** R$/h sem a espera (para mostrar quanto ela custa). */
+    val perHourNoWait: Double? = null,
+    /** Por que a oferta é boa ou ruim (frase curta + até 2 motivos). */
+    val why: OfferExplainer.Why? = null,
 )
 
 object ProfitCalculator {
 
-    fun evaluate(offer: ParsedOffer, p: CostProfile): OfferResult {
+    /**
+     * @param waitMin espera média do restaurante (aprendida das suas coletas); entra no tempo total,
+     * então derruba o R$/h quando o restaurante costuma demorar.
+     */
+    fun evaluate(offer: ParsedOffer, p: CostProfile, waitMin: Double? = null, waitPlace: String? = null): OfferResult {
         val km = offer.totalKm.coerceAtLeast(0.1)
         val estimated = offer.totalMin == null || offer.totalMin <= 0.0
-        val minutes = if (estimated) km / p.avgSpeedKmh.coerceAtLeast(1.0) * 60.0 else offer.totalMin!!
+        val baseMinutes = if (estimated) km / p.avgSpeedKmh.coerceAtLeast(1.0) * 60.0 else offer.totalMin!!
+        val wait = waitMin?.takeIf { it > 0 }
+        val minutes = baseMinutes + (wait ?: 0.0)
         val hours = (minutes / 60.0).coerceAtLeast(1.0 / 60.0)
 
         val perKm = offer.price / km
@@ -86,7 +99,7 @@ object ProfitCalculator {
         val st = offer.passengerRating
         if (st != null && p.greenStars > 0 && st < p.greenStars && base == Rating.GREEN) base = Rating.YELLOW
 
-        return OfferResult(
+        val result = OfferResult(
             offer = offer,
             perKm = perKm,
             perHour = perHour,
@@ -103,7 +116,11 @@ object ProfitCalculator {
                 val hay = fold(offer.rawText)
                 p.favoriteWords.filter { w -> w.length >= 3 && hay.contains(fold(w)) }
             },
+            waitMin = wait,
+            waitPlace = if (wait != null) waitPlace else null,
+            perHourNoWait = if (wait != null) offer.price / (baseMinutes / 60.0).coerceAtLeast(1.0 / 60.0) else null,
         )
+        return result.copy(why = OfferExplainer.explain(result, p))
     }
 
     /** minúsculas e sem acento: "São Bento" == "sao bento" */

@@ -75,7 +75,7 @@ object ShiftNotifier {
         val greens = offers.count { it.optString("rating") == "GREEN" }
         val goal = settings.dailyGoal
         val title = "⏱ $elapsed  ·  💰 ${Fmt.money(day.totalEarnings)}" +
-            if (goal > 0) "  ·  🎯 ${((day.totalEarnings / goal) * 100).toInt().coerceAtMost(999)}%" else ""
+            if (goal > 0) "  ·  🎯 ${((com.farol.app.core.GoalMath.dayNet(day, settings.profile.costPerKm) / goal) * 100).toInt().coerceIn(0, 999)}%" else ""
         val gpsKm = if (GpsService.running) runCatching { com.farol.app.data.GpsStore.today(ctx).km }.getOrNull() else null
         val text = "${offers.size} ofertas hoje (🟢 $greens)" +
             (gpsKm?.let { "  ·  📍 ${Fmt.km(it)}" } ?: "") +

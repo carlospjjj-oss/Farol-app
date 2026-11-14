@@ -3,6 +3,7 @@ package com.farol.app.data
 import android.content.Context
 import com.farol.app.core.DayRecord
 import com.farol.app.core.DeliveryRecord
+import com.farol.app.core.Expense
 import com.farol.app.core.FuelEntry
 import org.json.JSONArray
 import org.json.JSONObject
@@ -113,7 +114,8 @@ class JournalStore(context: Context, private val suffix: String? = null) {
             while (c.moveToNext()) runCatching {
                 val it = JSONObject(c.getString(0))
                 out += DeliveryRecord(it.getString("app"), it.optString("rest").ifEmpty { null }, it.getLong("c"),
-                    it.optLong("d").takeIf { v -> v > 0 }, it.optLong("e").takeIf { v -> v > 0 })
+                    it.optLong("d").takeIf { v -> v > 0 }, it.optLong("e").takeIf { v -> v > 0 },
+                    arriveAt = it.optLong("a").takeIf { v -> v > 0 })
             }
         }
         return out
@@ -125,7 +127,7 @@ class JournalStore(context: Context, private val suffix: String? = null) {
         w.insert("deliveries", null, ContentValues().apply {
             put("collect_at", r.collectAt)
             put("data", JSONObject().put("app", r.app).put("rest", r.restaurant ?: "").put("c", r.collectAt)
-                .put("d", r.deliverAt ?: 0L).put("e", r.endAt ?: 0L).toString())
+                .put("d", r.deliverAt ?: 0L).put("e", r.endAt ?: 0L).put("a", r.arriveAt ?: 0L).toString())
         })
         // guarda só os últimos 2.000 pedidos
         w.execSQL("DELETE FROM deliveries WHERE id NOT IN (SELECT id FROM deliveries ORDER BY collect_at DESC LIMIT 2000)")
@@ -194,12 +196,12 @@ class JournalStore(context: Context, private val suffix: String? = null) {
     /** CSV dos dias (separador ; e vírgula decimal) para planilha. */
     fun daysCsv(costPerKm: Double): String {
         fun n(v: Double?) = v?.let { String.format(Locale("pt", "BR"), "%.2f", it) } ?: ""
-        val apps = days().flatMap { it.earnings.keys }.distinct().sorted()
+        val apps = days().flatMap { it.appEarnings.keys }.distinct().sorted()
         val header = (listOf("data", "km_inicial", "km_final", "km", "horas") + apps.map { "ganho_$it" } +
             listOf("ganho_total", "custo", "liquido")).joinToString(";")
         val rows = days().map { d ->
             val km = d.kmDriven
-            (listOf(d.date, n(d.kmStart), n(d.kmEnd), n(km), n(d.hours)) + apps.map { n(d.earnings[it]) } +
+            (listOf(d.date, n(d.kmStart), n(d.kmEnd), n(km), n(d.hours)) + apps.map { n(d.appEarnings[it]) } +
                 listOf(n(d.totalEarnings), n(km?.times(costPerKm)), n(km?.let { d.totalEarnings - it * costPerKm })))
                 .joinToString(";")
         }
@@ -226,6 +228,13 @@ class JournalStore(context: Context, private val suffix: String? = null) {
             earnings = e?.keys()?.asSequence()?.associateWith { e.getDouble(it) } ?: emptyMap(),
             pausedMs = o.optLong("pausedMs", 0L),
             pauseAt = o.optLongOrNull("pauseAt"),
+            orders = o.optJSONObject("orders")?.let { j -> j.keys().asSequence().associateWith { j.getDouble(it) } } ?: emptyMap(),
+            expenses = o.optJSONArray("expenses")?.let { a ->
+                (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { x ->
+                    Expense(x.optLong("at"), x.optString("cat", "outros"), x.optDouble("v", 0.0), x.optString("nota", ""))
+                } }.filter { it.value > 0 }
+            } ?: emptyList(),
+            dayOff = o.optBoolean("folga", false),
         )
     }
 
@@ -237,6 +246,11 @@ class JournalStore(context: Context, private val suffix: String? = null) {
         if (r.pausedMs > 0) put("pausedMs", r.pausedMs)
         r.pauseAt?.let { put("pauseAt", it) }
         put("earnings", JSONObject().apply { r.earnings.forEach { (k, v) -> put(k, v) } })
+        if (r.orders.isNotEmpty()) put("orders", JSONObject().apply { r.orders.forEach { (k, v) -> put(k, v) } })
+        if (r.expenses.isNotEmpty()) put("expenses", JSONArray().apply {
+            r.expenses.forEach { put(JSONObject().put("at", it.at).put("cat", it.category).put("v", it.value).put("nota", it.note)) }
+        })
+        if (r.dayOff) put("folga", true)
     }
 
     private fun JSONObject.optDoubleOrNull(k: String) = if (has(k) && !isNull(k)) optDouble(k).takeIf { !it.isNaN() } else null

@@ -11,6 +11,8 @@ object PhaseDetector {
 
     private val keetaCollect = Regex("""Chegue na loja|Coletar o pedido|Pedido pronto em cerca|O pedido pode estar pronto|N[aã]o saia da loja""", RegexOption.IGNORE_CASE)
     private val keetaDeliver = Regex("""Entregue at[eé]|Para finalizar a entrega|Cheguei na entrega|c[oó]digo de entrega""", RegexOption.IGNORE_CASE)
+    // Já na loja (depois de tocar "Cheguei"): daqui até começar a entrega é a espera do restaurante
+    private val keetaAtStore = Regex("""Pedido pronto em cerca|esperando h[aá]|Iniciar a coleta do pedido|Pedido marcado como pronto|O pedido pode estar pronto|N[aã]o saia da loja|Pergunte ao restaurante""", RegexOption.IGNORE_CASE)
     private val keetaIdle = Regex("""Procurando pedidos|Pedidos hoje""", RegexOption.IGNORE_CASE)
 
     fun detect(app: String, text: String): Phase? = when (app) {
@@ -21,6 +23,18 @@ object PhaseDetector {
             else -> null
         }
         else -> null
+    }
+
+    /** A tela mostra que você já está no restaurante esperando o pedido. */
+    fun atStore(app: String, text: String) = app == "Keeta" && keetaAtStore.containsMatchIn(text)
+
+    /** Restaurante da OFERTA (antes de aceitar): Keeta mostra "Coleta | <restaurante>". */
+    fun offerRestaurant(app: String, text: String): String? {
+        if (app != "Keeta") return null
+        val parts = text.split(" | ").map { it.trim() }
+        val i = parts.indexOfFirst { it.equals("Coleta", true) }
+        if (i < 0) return null
+        return parts.drop(i + 1).firstOrNull { p -> p.length >= 3 && p.any { it.isLetter() } && !p.startsWith("[") && !p.equals("Coleta", true) }?.take(40)
     }
 
     /** Nome do restaurante na tela de coleta: o primeiro texto "de verdade" depois do mapa. */
@@ -44,7 +58,11 @@ data class DeliveryRecord(
     val deliverAt: Long? = null,
     val endAt: Long? = null,
     val km: Double? = null,          // km da oferta aceita (para aprender a velocidade)
+    val arriveAt: Long? = null,      // chegou no restaurante (tela de espera)
 ) {
+    /** Espera no restaurante: da chegada até começar a entrega (só quando as duas telas foram vistas). */
+    val waitMin: Double? get() = if (arriveAt != null && deliverAt != null && deliverAt >= arriveAt)
+        ((deliverAt - arriveAt) / 60_000.0).takeIf { it <= 90 } else null
     val collectMin: Double? get() = deliverAt?.let { (it - collectAt) / 60_000.0 }
     val deliverMin: Double? get() = if (deliverAt != null && endAt != null) (endAt - deliverAt) / 60_000.0 else null
     val totalMin: Double? get() = endAt?.let { (it - collectAt) / 60_000.0 }
@@ -57,13 +75,15 @@ data class DeliveryRecord(
 class DeliveryTracker(private val onFinished: (DeliveryRecord) -> Unit) {
     private val open = mutableMapOf<String, DeliveryRecord>()
 
-    fun feed(app: String, phase: Phase, restaurant: String?, now: Long, offerKm: Double? = null) {
+    fun feed(app: String, phase: Phase, restaurant: String?, now: Long, offerKm: Double? = null, atStore: Boolean = false) {
         val cur = open[app]
         when (phase) {
             Phase.COLLECT -> when {
-                cur == null -> open[app] = DeliveryRecord(app, restaurant, now, km = offerKm)
+                cur != null && cur.deliverAt == null && atStore && cur.arriveAt == null ->
+                    open[app] = cur.copy(arriveAt = now, restaurant = cur.restaurant ?: restaurant)
+                cur == null -> open[app] = DeliveryRecord(app, restaurant, now, km = offerKm, arriveAt = if (atStore) now else null)
                 cur.deliverAt != null -> {           // já entregava e voltou a coletar: novo pedido
-                    onFinished(cur.copy(endAt = now)); open[app] = DeliveryRecord(app, restaurant, now, km = offerKm)
+                    onFinished(cur.copy(endAt = now)); open[app] = DeliveryRecord(app, restaurant, now, km = offerKm, arriveAt = if (atStore) now else null)
                 }
                 cur.restaurant == null && restaurant != null -> open[app] = cur.copy(restaurant = restaurant)
             }

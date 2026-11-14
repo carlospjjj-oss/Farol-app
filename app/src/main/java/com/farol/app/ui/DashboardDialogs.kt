@@ -67,9 +67,10 @@ internal fun DashboardActivity.fail(msg: String): Boolean { toast(msg); return f
 
 internal fun DashboardActivity.editEarnings() {
     val d = store.day()
-    val fields = apps.associateWith { app -> k.field("0,00", d.earnings[app]?.let { fmtMoney(it) } ?: "") }
+    val cur = d.appEarnings
+    val fields = apps.associateWith { app -> k.field("0,00", cur[app]?.let { fmtMoney(it) } ?: "") }
     val box = k.vbox()
-    box.addView(k.text("O total de 'Ganhos de hoje' de cada app.", 13, Palette.MUTED))
+    box.addView(k.text("O total de 'Ganhos de hoje' de cada app. Mudar um valor aqui vale mais que a soma automática das entregas desse app.", 13, Palette.MUTED))
     apps.forEach { app ->
         box.addView(k.hbox().apply {
             addView(k.dot(Palette.app(app), 10))
@@ -80,7 +81,9 @@ internal fun DashboardActivity.editEarnings() {
     }
     dialog("Ganhos de hoje", ScrollView(this).apply { addView(box) }, "Salvar") {
         val map = fields.mapNotNull { (app, f) -> f.num()?.takeIf { it > 0 }?.let { app to it } }.toMap()
-        store.putDay(d.copy(earnings = map))
+        // App cujo valor você mudou à mão: o seu valor vale (as entregas somadas desse app saem da conta)
+        val changed = apps.filter { a -> Math.abs((map[a] ?: 0.0) - (cur[a] ?: 0.0)) > 0.004 }.toSet()
+        store.putDay(d.copy(earnings = map, orders = d.orders.filterKeys { it.substringBefore('#') !in changed }))
         toast("Ganhos salvos: ${Fmt.money(map.values.sum())}"); true
     }
 }

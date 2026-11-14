@@ -240,7 +240,9 @@ class HistoryActivity : Activity() {
             addView(k.text("${Fmt.dec(o.optDouble("perKm"), 2)}/km", 13, perKmColor, k.bold))
             addView(k.text("${Fmt.dec(o.optDouble("perHour"), 0)}/h", 13, perHColor, k.bold), k.lp(w = -2).apply { marginStart = k.dp(10) })
         }, k.lp(top = 6))
-        o.optJSONArray("warnings")?.let { w ->
+        val why = o.optString("why")
+        if (why.isNotEmpty()) body.addView(k.text(why, 12, c, k.medium), k.lp(top = 6))
+        else o.optJSONArray("warnings")?.let { w ->
             if (w.length() > 0) body.addView(k.text("⚠ " + (0 until w.length()).joinToString(" • ") { w.getString(it) },
                 12, Palette.ACCENT, k.medium), k.lp(top = 6))
         }
@@ -252,6 +254,11 @@ class HistoryActivity : Activity() {
         val lines = buildList {
             add("App: ${o.optString("app")}")
             add("Horário: ${SimpleDateFormat("dd/MM HH:mm", ptBR).format(Date(o.optLong("t")))}")
+            o.optString("why").takeIf { it.isNotEmpty() }?.let { w ->
+                add(w)
+                o.optJSONArray("whyTags")?.let { t -> if (t.length() > 0) add((0 until t.length()).joinToString("   ") { t.getString(it) }) }
+                add("")
+            }
             add("Preço: ${Fmt.money(o.optDouble("price"))}")
             add("Distância: ${Fmt.km(o.optDouble("km"))}" + (if (o.has("pickup")) "  (busca ${Fmt.km(o.optDouble("pickup"))})" else ""))
             add("Tempo: ${if (o.optBoolean("estimated")) "~" else ""}${Fmt.min(o.optDouble("min"))}" +
@@ -260,6 +267,7 @@ class HistoryActivity : Activity() {
             add("")
             add("R$/km: ${Fmt.money(o.optDouble("perKm"))}")
             add("R$/h: ${Fmt.money(o.optDouble("perHour"))}")
+            if (o.has("waitMin")) add("Espera do restaurante: ~${Math.round(o.optDouble("waitMin"))} min (já no tempo)")
             if (o.has("cost")) add("Custo estimado: ${Fmt.money(o.optDouble("cost"))}")
             add("Lucro líquido: ${Fmt.money(o.optDouble("net"))}")
             o.optJSONArray("warnings")?.let { w -> if (w.length() > 0) add("Avisos: " + (0 until w.length()).joinToString(", ") { w.getString(it) }) }

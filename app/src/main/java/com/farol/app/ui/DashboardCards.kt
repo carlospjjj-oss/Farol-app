@@ -114,19 +114,25 @@ internal fun DashboardActivity.hero(day: DayRecord, s: DaySummary) {
         background = k.rounded(Palette.alpha(0xFFFFFFFF.toInt(), 0x55), 999)
     }
     val sub = k.hbox()
-    sub.addView(heroPill("Líquido ${s.net?.let { Fmt.money(it) } ?: "—"}"))
-    val n = day.earnings.count { it.value > 0 }
-    if (n > 0) sub.addView(heroPill("$n ${if (n == 1) "app" else "apps"}"), k.lp(w = -2).apply { marginStart = k.dp(8) })
+    sub.addView(heroPill("Líquido ${Fmt.money(s.netAfterExpenses)}"))
+    if (s.expenses > 0) sub.addView(heroPill("Gastos ${Fmt.money(s.expenses)}"), k.lp(w = -2).apply { marginStart = k.dp(8) })
+    val n = day.appEarnings.count { it.value > 0 }
+    if (n > 0 && s.expenses <= 0) sub.addView(heroPill("$n ${if (n == 1) "app" else "apps"}"), k.lp(w = -2).apply { marginStart = k.dp(8) })
     if (n == 0) sub.addView(heroPill("Toque para lançar"), k.lp(w = -2).apply { marginStart = k.dp(8) })
     card.addView(sub, k.lp(top = 14))
 
     val goal = settings.dailyGoal
-    if (goal > 0) {
-        val frac = (s.earnings / goal).toFloat()
-        val left = goal - s.earnings
+    if (goal > 0 && !day.dayOff) {
+        // Meta em líquido: ganhos − custo do km − gastos
+        val net = s.netAfterExpenses
+        val frac = (net / goal).toFloat()
+        val left = goal - net
         card.addView(k.bar(frac, dark).apply { background = k.rounded(Palette.alpha(0xFFFFFFFF.toInt(), 0x55), 999) },
             k.lp(h = k.dp(8), top = 16))
-        card.addView(k.text(if (left <= 0) "🎯 Meta de ${Fmt.money(goal)} batida!" else "🎯 Meta ${Fmt.money(goal)} · faltam ${Fmt.money(left)}",
+        val workedH = day.workedMs()?.let { it / 3_600_000.0 }?.takeIf { it >= 0.5 }
+        val pace = workedH?.let { net / it }?.takeIf { it > 1 }
+        val eta = if (left > 0 && pace != null) " · ~${Fmt.min(left / pace * 60)} no seu ritmo" else ""
+        card.addView(k.text(if (left <= 0) "🎯 Meta de ${Fmt.money(goal)} batida!" else "🎯 Meta ${Fmt.money(goal)} · faltam ${Fmt.money(left)}$eta",
             13, dark, k.bold), k.lp(top = 8))
     }
     card.isClickable = true
@@ -164,17 +170,22 @@ internal fun DashboardActivity.earningsCard(day: DayRecord) {
         addView(t, weighted(t))
         addView(k.text(Fmt.money(day.totalEarnings), 15, Palette.TEXT, k.bold))
     })
-    val max = (day.earnings.values.maxOrNull() ?: 0.0).coerceAtLeast(0.01)
-    val shown = apps.filter { (day.earnings[it] ?: 0.0) > 0 }.sortedByDescending { day.earnings[it] }
-    if (shown.isEmpty()) card.addView(k.text("Nenhum ganho ainda. Abra a tela inicial de cada app que o Farol lê o \"ganhos de hoje\" sozinho, ou lance à mão.", 13, Palette.MUTED), k.lp(top = 12))
+    val byApp = day.appEarnings
+    val max = (byApp.values.maxOrNull() ?: 0.0).coerceAtLeast(0.01)
+    val shown = (apps + byApp.keys).distinct().filter { (byApp[it] ?: 0.0) > 0 }.sortedByDescending { byApp[it] }
+    if (shown.isEmpty()) card.addView(k.text("Nenhum ganho ainda. O Farol soma cada entrega concluída da Keeta e da 99 sozinho; nos outros apps, abra a tela inicial ou lance à mão.", 13, Palette.MUTED), k.lp(top = 12))
     shown.forEach { app ->
-        val v = day.earnings[app] ?: 0.0
+        val v = byApp[app] ?: 0.0
+        val nOrders = day.ordersOf(app).size
         card.addView(k.hbox().apply {
             addView(k.dot(Palette.app(app), 10))
             val name = k.text(app, 15, Palette.TEXT, k.medium)
             addView(name, k.lp(w = -2).apply { marginStart = k.dp(10) })
             val autoAt = settings.autoAt(day.date, app)
             if (autoAt > 0) addView(k.chip("auto ${hhmm.format(Date(autoAt))}", Palette.GREEN).apply {
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f)
+            }, k.lp(w = -2).apply { marginStart = k.dp(8) })
+            if (nOrders > 0) addView(k.chip("$nOrders ${if (nOrders == 1) "entrega" else "entregas"}", Palette.ACCENT).apply {
                 setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f)
             }, k.lp(w = -2).apply { marginStart = k.dp(8) })
             addView(View(self), LinearLayout.LayoutParams(0, 1, 1f))

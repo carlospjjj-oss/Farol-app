@@ -198,9 +198,40 @@ class OverlayCard(private val svc: AccessibilityService, private val settings: S
             ), k.lp(w = -2, top = d(8f)))
         }
 
-        // linhas extras: avisos, favoritos, recusas, meta
-        if (r.warnings.isNotEmpty()) body.addView(t("⚠ " + r.warnings.joinToString(" • "), 13f, DarkPalette.ACCENT), k.lp(w = -2, top = d(8f)))
-        if (r.favorites.isNotEmpty()) body.addView(t("⭐ " + r.favorites.joinToString(" • "), 13f, Palette.GREEN), k.lp(w = -2, top = d(6f)))
+        // Espera do restaurante (só quando há média de 3+ coletas suas lá)
+        val w = r.waitMin
+        if (w != null && !compact) {
+            body.addView(k.vbox().apply {
+                background = k.rounded(Palette.alpha(Palette.YELLOW, 0x26), 10 * sc)
+                setPadding(d(10f), d(6f), d(10f), d(6f))
+                addView(t("⏱ ${r.waitPlace?.let { "$it costuma" } ?: "Costuma"} demorar ~${w.roundToInt()} min", 13f, 0xFFFFD98A.toInt()).apply {
+                    maxWidth = d(250f)
+                })
+                r.perHourNoWait?.let { addView(t("Já conta no R\$/h. Sem a espera seria R\$ ${it.roundToInt()}/h", 11f, 0xFFD9CBA8.toInt(), k.medium), k.lp(w = -2, top = 2)) }
+            }, k.lp(w = -2, top = d(8f)))
+        }
+
+        // Por que é boa ou ruim: uma frase + até 2 motivos (no compacto, só a frase)
+        val why = r.why
+        if (why != null) {
+            body.addView(t(why.headline, if (compact) 12f else 14f, main).apply {
+                maxWidth = d(if (compact) 190f else 250f)
+                if (compact) { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
+            }, k.lp(w = -2, top = d(if (compact) 4f else 8f)))
+            val small = settings.cardSize == 0
+            if (!compact && !small && (why.plus.isNotEmpty() || why.minus.isNotEmpty())) {
+                body.addView(k.hbox().apply {
+                    why.plus.forEach { addView(t("+ $it", 12f, 0xFFD8F5A0.toInt(), k.medium).apply {
+                        background = k.rounded(0xFF22261F.toInt(), 8 * sc); setPadding(d(7f), d(3f), d(7f), d(3f))
+                    }, k.lp(w = -2).apply { marginEnd = d(6f) }) }
+                    why.minus.forEach { addView(t("− $it", 12f, 0xFFFFB4A8.toInt(), k.medium).apply {
+                        background = k.rounded(0xFF2B1E1C.toInt(), 8 * sc); setPadding(d(7f), d(3f), d(7f), d(3f))
+                    }, k.lp(w = -2).apply { marginEnd = d(6f) }) }
+                }, k.lp(w = -2, top = d(6f)))
+            }
+        } else if (r.warnings.isNotEmpty()) body.addView(t("⚠ " + r.warnings.joinToString(" • "), 13f, DarkPalette.ACCENT), k.lp(w = -2, top = d(8f)))
+        if (r.favorites.isNotEmpty() && why?.plus?.none { it.startsWith("⭐") } != false)
+            body.addView(t("⭐ " + r.favorites.joinToString(" • "), 13f, Palette.GREEN), k.lp(w = -2, top = d(6f)))
         extras.forEach { body.addView(t(it.text, 12f, it.color, k.medium), k.lp(w = -2, top = d(6f))) }
     }
 

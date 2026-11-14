@@ -156,4 +156,18 @@ class DataLayerTest {
         st.putDay(DayRecord(yesterday, kmStart = 1.0, startAt = now - 21 * 3_600_000L))
         assertEquals(today, st.workDate(now))
     }
+
+    @Test fun entregasGastosEFolgaSobrevivemAoBanco() {
+        val st = JournalStore(ctx, "_eg" + System.nanoTime())
+        val d = DayRecord("2026-11-13", earnings = mapOf("Keeta" to 25.19),
+            orders = mapOf("Keeta#7553" to 13.47, "99#149031" to 15.65),
+            expenses = listOf(com.farol.app.core.Expense(5L, "alimentacao", 22.0, "Marmita")), dayOff = false)
+        st.putDay(d)
+        val back = st.day("2026-11-13")
+        assertEquals(d.orders, back.orders)
+        assertEquals(d.expenses, back.expenses)
+        assertEquals(25.19 + 15.65, back.totalEarnings, 0.001)
+        st.putDay(DayRecord("2026-11-11", dayOff = true))
+        assertTrue(st.day("2026-11-11").dayOff)
+    }
 }

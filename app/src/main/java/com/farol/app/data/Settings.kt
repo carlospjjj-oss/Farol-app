@@ -176,6 +176,11 @@ class Settings(context: Context, private val modeOverride: String? = null) {
         set(v) = vprefs.edit().putString("favoriteWords", v).apply()
 
     /** Meta de ganhos do dia em R$ (0 = sem meta). */
+    /** Dias de trabalho por semana (meta da semana = meta do dia × isto; o mês sai proporcional). */
+    var workDaysPerWeek: Int
+        get() = vprefs.getInt("workDaysPerWeek", 6)
+        set(v) = vprefs.edit().putInt("workDaysPerWeek", v.coerceIn(1, 7)).apply()
+
     var dailyGoal: Double
         get() = vprefs.getString("dailyGoal", null)?.toDoubleOrNull() ?: 0.0
         set(v) = vprefs.edit().putString("dailyGoal", v.toString()).apply()
