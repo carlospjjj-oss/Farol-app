@@ -190,6 +190,14 @@ class Settings(context: Context, private val modeOverride: String? = null) {
         get() = vprefs.getBoolean("goalGross", false)
         set(v) = vprefs.edit().putBoolean("goalGross", v).apply()
 
+    /** Caixinhas: metas ({"manutencao":1000,...}) e movimentos da caixinha de emergência, em JSON. */
+    var boxGoalsJson: String
+        get() = vprefs.getString("boxGoals", "") ?: ""
+        set(v) = vprefs.edit().putString("boxGoals", v).apply()
+    var emergencyJson: String
+        get() = vprefs.getString("emergency", "") ?: ""
+        set(v) = vprefs.edit().putString("emergency", v).apply()
+
     /** Itens de manutenção (intervalo e última troca), em JSON. Vazio = sugestões do modo. */
     var maintenanceJson: String
         get() = vprefs.getString("maintenance", "") ?: ""

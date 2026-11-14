@@ -210,6 +210,16 @@ class VisualPreviewTest {
                 "analises" to "23-aba-analises", "mais" to "24-aba-mais")) {
             setTab(key); open(DashboardActivity::class.java, name)
         }
+        // 6.10: caixinhas (com meta e um valor guardado) e regiões
+        com.farol.app.data.BoxesStore.setGoal(st, "emergencia", 500.0)
+        com.farol.app.data.BoxesStore.setGoal(st, "manutencao", 300.0)
+        com.farol.app.data.BoxesStore.addMove(st, com.farol.app.core.Boxes.Move(now, 80.0))
+        setTab("mais")
+        scrolled(DashboardActivity::class.java, "Caixinhas", "26-mais-caixinhas")
+        setTab("analises")
+        scrolled(DashboardActivity::class.java, "Regiões", "27-analises-regioes")
+        setTab("corridas")
+        scrolled(DashboardActivity::class.java, "Lançar corrida", "28-corridas-lancar")
         setTab("inicio")
         st.fuelType = "etanol"
         scrolled(SettingsActivity::class.java, "Seus custos", "16-ajustes-aba-etanol")

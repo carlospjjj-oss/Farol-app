@@ -58,11 +58,14 @@ internal fun DashboardActivity.renderTab(day: DayRecord) {
             footer()
         }
         Tab.ANALISES -> {
+            chartsCard()
             indicatorsCard()
+            regionsCard()
             hoursCard()
         }
         Tab.MAIS -> {
             goalsCard(day)
+            boxesCard()
             maintenanceCard()
             moreMenu()
         }
@@ -174,20 +177,23 @@ internal fun DashboardActivity.ridesCard() {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(k.dp(12), k.dp(10), k.dp(12), k.dp(10))
                 background = k.rounded(Palette.SURFACE2, 14)
+                val manual = key.substringAfter('#').startsWith("m")
+                if (manual) { isClickable = true; setOnClickListener { askDeleteRide(d.date, key, v) } }
                 addView(k.text(app.take(2), 13, Palette.ON_ACCENT, k.bold).apply {
                     gravity = Gravity.CENTER
                     background = k.rounded(Palette.app(app), 10)
                 }, LinearLayout.LayoutParams(k.dp(36), k.dp(36)))
                 val mid = k.vbox().apply {
-                    addView(k.text(app, 14, Palette.TEXT, k.medium))
+                    addView(k.text(app + if (manual) "  ✍️ à mão" else "", 14, Palette.TEXT, k.medium))
                     addView(k.text((at?.let { (if (ridesPeriod == 0) "" else ddmm.format(Date(it)) + " ") + hhmm.format(Date(it)) } ?: d.date.substring(8) + "/" + d.date.substring(5, 7)) +
-                        "  ·  #" + key.substringAfter('#').takeLast(4), 12, Palette.MUTED), k.lp(top = 2))
+                        (if (manual) "" else "  ·  #" + key.substringAfter('#').takeLast(4)), 12, Palette.MUTED), k.lp(top = 2))
                 }
                 addView(mid, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = k.dp(12) })
                 addView(k.text(Fmt.money(v), 15, Palette.TEXT, k.bold))
             }, k.lp(top = 8))
         }
     }
+    card.addView(k.ghost("＋  Lançar corrida à mão") { askManualRide() }, k.lp(top = 14))
     add(card)
 }
 

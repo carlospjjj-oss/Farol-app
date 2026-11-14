@@ -323,3 +323,31 @@ class AreaChartView(ctx: Context) : View(ctx) {
         txt.textAlign = Paint.Align.RIGHT; canvas.drawText(xLabel(x1), right, height - 4 * density, txt)
     }
 }
+
+/** Rosca com a fatia de cada app (desenhada à mão). Cores: as de cada app. */
+class DonutView(ctx: Context) : View(ctx) {
+    var slices: List<Pair<Int, Float>> = emptyList()   // (cor, valor)
+    var center: String = ""
+    private val density = ctx.resources.displayMetrics.density
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 18 * density }
+    private val t = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Palette.TEXT; textSize = 14 * density; textAlign = Paint.Align.CENTER
+        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD) }
+    private val r = RectF()
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val s = (128 * density).toInt(); setMeasuredDimension(s, s)
+    }
+    override fun onDraw(canvas: Canvas) {
+        val total = slices.sumOf { it.second.toDouble() }.toFloat()
+        if (total <= 0f) return
+        val pad = p.strokeWidth / 2 + 2 * density
+        r.set(pad, pad, width - pad, height - pad)
+        var a = -90f
+        slices.forEach { (c, v) ->
+            val sweep = v / total * 360f
+            p.color = c
+            canvas.drawArc(r, a, (sweep - 1.5f).coerceAtLeast(0.5f), false, p)
+            a += sweep
+        }
+        canvas.drawText(center, width / 2f, height / 2f + 5 * density, t)
+    }
+}
