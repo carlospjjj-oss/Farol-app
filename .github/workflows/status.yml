@@ -12,9 +12,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
-          echo "== versao e ultimo sinal por conta =="
-          q "SELECT user_id, versao, max(t) ultimo, count(*) n FROM events WHERE t >= '2026-11-14T00:00' GROUP BY user_id, versao ORDER BY user_id, ultimo"
-          echo "== u2 ultimos ajustes =="
-          q "SELECT t, versao, json_extract(data,'$.ajustes.etanol') et, json_extract(data,'$.ajustes.gasolina') ga, json_extract(data,'$.ajustes.outros_km') o, json_extract(data,'$.ajustes.custo_km') c, json_extract(data,'$.ajustes.verde_km') vk, json_extract(data,'$.ajustes.amarelo_km') ak, json_extract(data,'$.ajustes.verde_h') vh, json_extract(data,'$.ajustes.amarelo_h') ah, json_extract(data,'$.ajustes.meta_dia') meta FROM events WHERE user_id=2 AND tipo='ajustes' ORDER BY id DESC LIMIT 1"
-          echo "== u2 dia 13 =="
-          q "SELECT datetime(updated_at/1000,'unixepoch','-3 hours') upd, data FROM user_days WHERE user_id=2 AND date='2026-11-13'"
+          echo "== u1 eventos 13/11 23:00 a 14/11 00:40 (sem textos) =="
+          q "SELECT id, t, tipo, app, versao, json_remove(data,'$.texto','$.texto_acessibilidade','$.pacotes_vistos') d FROM events WHERE user_id=1 AND t >= '2026-11-13T23:00' AND t < '2026-11-14T00:40' AND tipo NOT IN ('saude','ajustes') ORDER BY id"
+          echo "== u1 tipos nesse intervalo =="
+          q "SELECT tipo, app, count(*) n FROM events WHERE user_id=1 AND t >= '2026-11-13T23:00' AND t < '2026-11-14T00:40' GROUP BY tipo, app"
