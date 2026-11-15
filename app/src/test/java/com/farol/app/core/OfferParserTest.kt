@@ -264,4 +264,11 @@ class OfferParserTest {
         assertEquals(0.56, o.pickupKm!!, 0.02)
         assertEquals(4.82, o.passengerRating!!, 0.01)
     }
+
+    /** Uber com a estrela como ícone (sem "★" no texto): "4,96 (375)" ainda é a nota do passageiro. */
+    @Test fun uberRatingWithoutStarSymbol() {
+        val o = p("UberX | R$ 74,36 | R$ 1,56/km aprox. | 4,96 (375) | +10% de ganhos Uber Pro | 9 min (2.3 km) | Rua Espigao, Lagoa Santa | 1 h e 8 min (45.4 km) | Rua Timbo, 230, Pindorama | Viagem longa (mais de 30 min) | Selecionar", "Uber")!!
+        assertEquals(4.96, o.passengerRating!!, 0.001)
+        assertEquals(74.36, o.price, 0.001)
+    }
 }

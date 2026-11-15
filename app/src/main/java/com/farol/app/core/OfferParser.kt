@@ -59,7 +59,7 @@ object OfferParser {
 
     /** Palavras que indicam que existe uma oferta aberta (botão de aceitar etc.). */
     val OFFER_HINTS = Regex(
-        """\baceitar\b(?!\s+(?:corridas|automaticamente))|n[aã]o afeta a ta|\baccept\b|\brecusar\b|\bpegar\b|oferecer|toque para|pedido de viagem|pre[çc]o justo|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
+        """\baceitar\b(?!\s+(?:corridas|automaticamente))|n[aã]o afeta a ta|\baccept\b|\brecusar\b|\bselecionar\b|\bpegar\b|oferecer|toque para|pedido de viagem|pre[çc]o justo|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -78,7 +78,7 @@ object OfferParser {
     private const val TOTAL_LOOKBEHIND = 22
 
     private val RATING = Regex(
-        """(?<![\d.,])([1-5][.,]\d{1,2})\s*(?:★|⭐|estrelas?)|[★⭐]\s*([1-5][.,]\d{1,2})(?![\d.,])|(?<![\d.,])([1-5][.,]\d{1,2})\s*\|?\s*\+?\d+\s*corridas|(?<![\d.,])([1-5][.,]\d)\s*\(\d+\)""",
+        """(?<![\d.,])([1-5][.,]\d{1,2})\s*(?:★|⭐|estrelas?)|[★⭐]\s*([1-5][.,]\d{1,2})(?![\d.,])|(?<![\d.,])([1-5][.,]\d{1,2})\s*\|?\s*\+?\d+\s*corridas|(?<![\d.,])([1-5][.,]\d{1,2})\s*\(\d+\)""",
         RegexOption.IGNORE_CASE
     )
 
