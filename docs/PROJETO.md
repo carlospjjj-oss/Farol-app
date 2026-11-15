@@ -175,6 +175,9 @@ Nada chega ao celular sem passar por testes no computador e no emulador.
 
 ## Estado atual e roteiro
 
+> **Congelamento até dezembro/2026:** só correção de bugs, nada de função nova (decisão de 14/11/2026). O
+> [roadmap e análise a fundo](https://claude.ai/artifact/TNNmE3furDGK1t5AbZFCT2) fica como mapeamento e será revisto em dezembro.
+
 A 6.5 fechou a parte de dinheiro, a 6.6 a confiabilidade (Fase 3) e o destino com chance de volta, a 6.7 levou os
 avisos das outras contas para um bot do Telegram da administração, a 6.8 trouxe o manual de gestão
 (manutenção, caixinha, consumo real e indicadores), a 6.9 dividiu o painel em abas e a 6.10
