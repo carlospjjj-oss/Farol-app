@@ -135,7 +135,7 @@ consentimento do usuário, e dados de clientes nunca saem.
   padrão, exportar e excluir dados no app. Documentos de DPO em [`docs/lgpd/`](lgpd/) (registro, RIPD, incidentes,
   atendimento).
 - **Retenção:** textos apagados em 90 dias, telas em 1 ano, erros do app em 180 dias (rotina diária no servidor).
-- **Dados de terceiros:** chat com cliente nunca sai do celular; nome do cliente vira "[cliente]" no app e de novo no Em 16/11 (6.10.7): endereço lido pela imagem com o ícone do mapa colado ("O Rua…", "OR.…"), CEP com "O" ou cortado e o nome e o código de verificação do cliente na "Retirada concluída" da 99 passaram a ser mascarados no celular e no servidor; o que tinha sido guardado foi limpo.
+- **Dados de terceiros:** chat com cliente nunca sai do celular; nome do cliente vira "[cliente]" no app e de novo no Em 16/11 (6.10.7): endereço lido pela imagem com o ícone do mapa colado ("O Rua…", "OR.…"), CEP com "O" ou cortado e o nome e o código de verificação do cliente na "Retirada concluída" da 99 passaram a ser mascarados no celular e no servidor; o que tinha sido guardado foi limpo (banco e cópia no GitHub, com o histórico reescrito).
   servidor (protege versões antigas); endereço mascarado; nome de restaurante só no celular. Em 14/11 o que já estava
   guardado foi limpo e o histórico da cópia no GitHub foi reescrito.
 - **Pendência:** trocar `CONTATO_PRIVACIDADE` (hoje um e-mail de teste) por um e-mail real antes de outras pessoas usarem.
