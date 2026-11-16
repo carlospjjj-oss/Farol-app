@@ -121,6 +121,9 @@ consentimento do usuário, e dados de clientes nunca saem.
   As duas ficam só nos segredos do GitHub (`FAROL_OLD_*`, `FAROL_NEW_*`).
 - **Administrador:** o cadastro comum nunca cria admin (nem a primeira conta). O primeiro admin é ativado com o
   segredo `ADMIN_SETUP_KEY` (Cloudflare) em `/v1/auth/ativar-admin`, que só funciona enquanto não existe admin (desde 16/11/2026).
+- **Envios só com login (16/11/2026):** o servidor recusa envio sem conta (a transição acabou; havia 0 envios sem conta) e o login
+  não reivindica mais dados antigos pelo id do celular. Limite de envios por celular e por conta. Hora dos eventos validada.
+- **Páginas do painel e da privacidade:** não abrem dentro de outro site (`X-Frame-Options`, `frame-ancestors`), `nosniff`, sem referer.
 - **Bot do Telegram:** token só no segredo `TELEGRAM_TOKEN` da Cloudflare; o segredo do webhook é gerado pelo servidor e
   fica no banco; só chats vinculados com o código do painel recebem algo.
 - **Atualizador:** confere SHA-256 do arquivo, pacote, versão maior e certificado da chave antes de instalar.

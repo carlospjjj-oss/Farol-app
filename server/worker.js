@@ -14,7 +14,6 @@
 //   Secrets   → ADMIN_SETUP_KEY = uma senha longa  (só para ativar o 1º admin: POST /v1/auth/ativar-admin com o
 //                cabeçalho x-farol-setup e {"email"}; funciona só enquanto não existe admin. O cadastro comum
 //                nunca cria admin — nem a primeira conta.)
-//   Variables → REQUIRE_LOGIN = 1                   (recusa envios sem login; ligue depois que todos atualizarem)
 //   Secrets   → ADMIN_KEY = uma senha sua           (opcional: acesso de emergência ao painel)
 //
 // Privacidade: o texto lido das telas é apagado do banco depois de 90 dias (ver "Retenção").
@@ -28,6 +27,9 @@ const MAX_BODY = 512 * 1024;      // 512 KB por lote
 const MAX_EVENTS = 500;           // eventos por lote
 const MAX_BATCHES_PER_HOUR = 120; // por celular
 const DEVICE_RE = /^[A-Za-z0-9_-]{6,64}$/;
+// Páginas (painel e privacidade): não abrem dentro de outro site (clique enganado), sem "adivinhar" tipo, sem referer.
+const PAGE_HEADERS = { "x-frame-options": "DENY", "content-security-policy": "frame-ancestors 'none'",
+  "x-content-type-options": "nosniff", "referrer-policy": "no-referrer" };
 
 // Ganho de cada app no dia: o maior entre o valor lançado/lido da tela inicial e a soma das entregas
 // concluídas ("orders": {"Keeta#7553": 13.47}). Igual ao app (DayRecord.appEarnings): nunca soma os dois.
@@ -148,10 +150,10 @@ export default {
       return json({ ok: true, servico: "farol-logs", banco: !!env.DB, copia_github: !!env.GH_TOKEN });
     }
     if (req.method === "GET" && (url.pathname === "/privacidade" || url.pathname === "/privacy")) {
-      return new Response(privacyHtml(env), { headers: { "content-type": "text/html; charset=utf-8" } });
+      return new Response(privacyHtml(env), { headers: { "content-type": "text/html; charset=utf-8", ...PAGE_HEADERS } });
     }
     if (req.method === "GET" && url.pathname === "/painel") {
-      return new Response(PANEL_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+      return new Response(PANEL_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", ...PAGE_HEADERS } });
     }
     if (!env.DB) return json({ erro: "banco D1 não ligado (Bindings → DB)" }, 500);
     await ensureSchema(env.DB);
@@ -161,13 +163,14 @@ export default {
     if (req.method === "GET" && url.pathname === "/api/painel") return panelApi(req, env, url);
     if (req.method !== "POST" || url.pathname !== "/v1/logs") return json({ erro: "rota inválida" }, 404);
 
-    // Sessão: token inválido → 401 (o app pede login de novo). Sem token → aceito só no período de transição.
+    // Sessão obrigatória: sem login nada é gravado (antes, sem token era aceito na transição e ainda guardava os
+    // textos sem consentimento). O período de transição acabou: em 16/11/2026 não havia nenhum envio sem conta.
     const sess = await sessionFrom(req, env);
     if (sess === "invalid") return json({ erro: "sessão expirada, entre de novo" }, 401);
-    if (!sess && env.REQUIRE_LOGIN === "1") return json({ erro: "faça login no app" }, 401);
-    const userId = sess ? sess.user_id : null;
+    if (!sess) return json({ erro: "faça login no app" }, 401);
+    const userId = sess.user_id;
     // LGPD: sem o consentimento opcional, o texto das telas não é guardado (só os números).
-    const share = !sess || sess.compartilhar === 1;
+    const share = sess.compartilhar === 1;
 
     const len = Number(req.headers.get("content-length") || 0);
     if (len > MAX_BODY) return json({ erro: "lote grande demais" }, 413);
@@ -190,6 +193,9 @@ export default {
       .prepare("SELECT COUNT(*) AS n FROM batches WHERE device = ? AND received_at > ?")
       .bind(device, now - 3600_000).first();
     if ((recent?.n || 0) >= MAX_BATCHES_PER_HOUR) return json({ erro: "muitos envios, tente mais tarde" }, 429);
+    // mesmo limite por conta (trocar o "device" não fura o limite)
+    const recentU = await db.prepare("SELECT COUNT(*) AS n FROM batches WHERE user_id = ? AND received_at > ?").bind(userId, now - 3600_000).first();
+    if ((recentU?.n || 0) >= MAX_BATCHES_PER_HOUR * 2) return json({ erro: "muitos envios, tente mais tarde" }, 429);
 
     const s = (v, n) => (v == null ? null : String(v).slice(0, n));
     const ins = db.prepare(
@@ -201,12 +207,15 @@ export default {
     }
     for (let i = eventos.length - 1; i >= 0; i--) if (!protegerTerceiros(eventos[i])) eventos.splice(i, 1);
     if (!eventos.length) return json({ ok: true, gravados: 0 });
+    // "t" vem do celular: só aceita data/hora no formato ISO (o painel recorta pedaços dele); senão, usa a hora do servidor
+    const T_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?([+-]\d{2}:\d{2}|Z)?$/;
+    for (const e of eventos) if (typeof e.t !== "string" || !T_RE.test(e.t)) e.t = new Date(now - 3 * 3600_000).toISOString().slice(0, 19) + "-03:00";
     const stmts = eventos.map((e) =>
       ins.bind(device, userId, now, s(e.t, 40), s(e.tipo, 20), s(e.modo, 10), s(e.app, 40), versao, JSON.stringify(e)));
     stmts.push(db.prepare("INSERT INTO batches (device, user_id, received_at, n) VALUES (?, ?, ?, ?)").bind(device, userId, now, eventos.length));
     await db.batch(stmts);
 
-    if (share && env.GH_TOKEN && env.GH_REPO) ctx.waitUntil(mirrorToGitHub(env, userId ? "u" + userId : device, eventos).catch(() => {}));
+    if (share && env.GH_TOKEN && env.GH_REPO) ctx.waitUntil(mirrorToGitHub(env, "u" + userId, eventos).catch(() => {}));
 
     ctx.waitUntil(maintenance(env).catch(() => {}));
     return json({ ok: true, gravados: eventos.length });
@@ -337,11 +346,8 @@ async function novaSessao(env, user, device, origem) {
   const db = env.DB;
   const stmts = [db.prepare("INSERT INTO sessions (token_hash, user_id, criado, visto, device, origem) VALUES (?, ?, ?, ?, ?, ?)")
     .bind(await sha256hex(token), user.id, now, now, device || null, origem || "app")];
-  // O que este celular mandou antes de ter conta passa a ser desta conta.
-  if (device && DEVICE_RE.test(device)) {
-    stmts.push(db.prepare("UPDATE events SET user_id = ? WHERE device = ? AND user_id IS NULL").bind(user.id, device));
-    stmts.push(db.prepare("UPDATE batches SET user_id = ? WHERE device = ? AND user_id IS NULL").bind(user.id, device));
-  }
+  // (Antes: o que o celular mandou sem conta passava para a conta no login, pelo id do celular. Saiu em 16/11/2026:
+  //  quem soubesse o id de outro celular levaria os dados dele, e não existe mais envio sem conta.)
   stmts.push(db.prepare("DELETE FROM attempts WHERE ts < ?").bind(now - 86400_000));
   await db.batch(stmts);
   return { token, politica: POLICY_VERSION, usuario: { id: user.id, email: user.email, nome: user.nome, papel: user.papel,
@@ -563,27 +569,33 @@ async function syncRoute(req, env) {
   const fuel = Array.isArray(b.fuel) ? b.fuel.slice(0, SYNC_MAX) : [];
   const db = env.DB, uid = sess.user_id, now = Date.now();
   const stmts = [];
+  const clampUpd = (v) => Math.min(Number(v) || 0, now + 86400_000);   // celular com relógio adiantado não "tranca" o dia
   for (const d of days) {
-    const data = JSON.stringify(d.data ?? {}), upd = Number(d.updated_at) || 0;
+    const data = JSON.stringify(d.data ?? {}), upd = clampUpd(d.updated_at);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d.date)) || data.length > SYNC_ITEM_MAX || !upd) continue;
     stmts.push(db.prepare(`INSERT INTO user_days (user_id, modo, date, data, updated_at, srv_at) VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(user_id, modo, date) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at, srv_at = excluded.srv_at
       WHERE excluded.updated_at > user_days.updated_at`).bind(uid, modo, d.date, data, upd, now));
   }
   for (const f of fuel) {
-    const data = JSON.stringify(f.data ?? {}), upd = Number(f.updated_at) || 0, at = Number(f.at) || 0;
+    const data = JSON.stringify(f.data ?? {}), upd = clampUpd(f.updated_at), at = Number(f.at) || 0;
     if (!at || !upd || data.length > SYNC_ITEM_MAX) continue;
     stmts.push(db.prepare(`INSERT INTO user_fuel (user_id, modo, at, data, deleted, updated_at, srv_at) VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(user_id, modo, at) DO UPDATE SET data = excluded.data, deleted = excluded.deleted, updated_at = excluded.updated_at, srv_at = excluded.srv_at
       WHERE excluded.updated_at > user_fuel.updated_at`).bind(uid, modo, at, data, f.deleted ? 1 : 0, upd, now));
   }
   if (stmts.length) await db.batch(stmts);
-  const outDays = (await db.prepare("SELECT date, data, updated_at FROM user_days WHERE user_id = ? AND modo = ? AND srv_at > ? ORDER BY srv_at LIMIT 2000")
+  const LIM = 2000;
+  const outDays = (await db.prepare(`SELECT date, data, updated_at, srv_at FROM user_days WHERE user_id = ? AND modo = ? AND srv_at > ? ORDER BY srv_at LIMIT ${LIM}`)
     .bind(uid, modo, since).all()).results || [];
-  const outFuel = (await db.prepare("SELECT at, data, deleted, updated_at FROM user_fuel WHERE user_id = ? AND modo = ? AND srv_at > ? ORDER BY srv_at LIMIT 2000")
+  const outFuel = (await db.prepare(`SELECT at, data, deleted, updated_at, srv_at FROM user_fuel WHERE user_id = ? AND modo = ? AND srv_at > ? ORDER BY srv_at LIMIT ${LIM}`)
     .bind(uid, modo, since).all()).results || [];
+  // Bateu o limite: o cursor para logo antes do último horário entregue (o resto vem no próximo envio;
+  // repetir alguma linha não faz mal). Antes ia direto para "agora" e pulava o que sobrou.
+  const cuts = [outDays, outFuel].filter((l) => l.length === LIM).map((l) => l[l.length - 1].srv_at - 1);
+  const cursor = cuts.length ? Math.max(since, Math.min(...cuts)) : now;
   return json({
-    ok: true, cursor: now, recebidos: stmts.length,
+    ok: true, cursor, recebidos: stmts.length,
     days: outDays.map((r) => ({ date: r.date, data: JSON.parse(r.data), updated_at: r.updated_at })),
     fuel: outFuel.map((r) => ({ at: r.at, data: JSON.parse(r.data), deleted: !!r.deleted, updated_at: r.updated_at })),
   });
@@ -862,7 +874,8 @@ async function telegramAdmin(env, url, body) {
 
 async function telegramWebhook(req, env) {
   const secret = await metaGet(env.DB, "tg_segredo");
-  if (!env.TELEGRAM_TOKEN || !secret || req.headers.get("x-telegram-bot-api-secret-token") !== secret) return json({ erro: "não autorizado" }, 401);
+  const got = String(req.headers.get("x-telegram-bot-api-secret-token") || "");
+  if (!env.TELEGRAM_TOKEN || !secret || got.length !== secret.length || !sameBytes(enc.encode(got), enc.encode(secret))) return json({ erro: "não autorizado" }, 401);
   const up = await req.json().catch(() => ({}));
   const msg = up.message;
   if (!msg || !msg.chat || msg.chat.type !== "private" || typeof msg.text !== "string") return json({ ok: true });
@@ -1299,7 +1312,7 @@ const brl=v=>v==null||isNaN(v)?"—":"R$ "+fmt(v);
 const num=(v,d=1)=>v==null||isNaN(v)?"—":fmt(v,d);
 const hm=h=>h==null||!h?"—":Math.floor(h)+"h"+String(Math.round((h%1)*60)).padStart(2,"0");
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const dm=s=>s.slice(8,10)+"/"+s.slice(5,7);
+const dm=s=>esc(String(s||"").slice(8,10)+"/"+String(s||"").slice(5,7));
 let tok=null,dias=7,modo="",usuario="",showAll=false,last=null;
 try{tok=localStorage.getItem("farolTok");localStorage.removeItem("farolKey")}catch(e){}
 const H=()=>({"authorization":"Bearer "+tok,"content-type":"application/json"});
