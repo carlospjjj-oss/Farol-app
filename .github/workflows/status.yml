@@ -13,7 +13,9 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
-          echo "== K1 sync do diario de hoje (so horario) =="
-          q "SELECT date, updated_at, datetime(updated_at/1000,'unixepoch','-3 hours') hora FROM user_days WHERE user_id=1 AND date='2026-11-16'"
-          q "SELECT max(t) ultimo_evento FROM events WHERE user_id=1"
+          echo "== L1 Carlos desde 13:50 (tecnico) =="
+          q "SELECT t, tipo, app, versao, json_extract(data,'$.motivo') motivo, json_extract(data,'$.fonte') fonte FROM events WHERE user_id=1 AND t >= '2026-11-16T13:50' AND tipo<>'tela' ORDER BY id"
+          q "SELECT app, count(*) n, max(t) ultimo, max(versao) v FROM events WHERE user_id=1 AND tipo='tela' AND t >= '2026-11-16T13:50' GROUP BY app"
+          q "SELECT datetime(updated_at/1000,'unixepoch','-3 hours') sync, json_extract(data,'$.earnings') ganhos FROM user_days WHERE user_id=1 AND date='2026-11-16'"
+          q "SELECT datetime(max(received_at)/1000,'unixepoch','-3 hours') ultimo_lote FROM batches WHERE user_id=1"
           echo "== fimH =="
