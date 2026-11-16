@@ -22,6 +22,10 @@ ok(mirrored.length===0,"sem consentimento: nada vai para a cópia do GitHub");
 await call("POST","/v1/me/consent",{aceite:true,compartilhar:true},a.token);
 await call("POST","/v1/logs",{device:"devana01",eventos:[{tipo:"tela",texto:"Coletar pedido"}]},a.token); await Promise.all(waits); waits.length=0;
 ok(sq.prepare("SELECT COUNT(*) n FROM events WHERE tipo='tela'").get().n===1 && mirrored.length===1,"com consentimento: tela guardada e copiada");
+// 16/11: OCR da 99 com ícone do mapa colado na rua, CEP com "O" e tela de retirada com nome e código
+await call("POST","/v1/logs",{device:"devana01",eventos:[{tipo:"tela",texto:"Histórico de corridas | O Rua Arroio Grande, 517 | OR.Itamarati Brasileiro, 223 | O Avenida Jabaquara, 842 - Mirandópolis, | São Paulo - SP, O4046-400, Brasil | Cidade Jardim, São Paulo - SP, 05502..."},{tipo:"tela",texto:"Retirada concluída | Nome do cliente | Código de verificação | Iniciar entrega | Isadora | < | 9308"}]},a.token); await Promise.all(waits); waits.length=0;
+{ const d=sq.prepare("SELECT data FROM events WHERE tipo='tela' ORDER BY id DESC LIMIT 2").all().map(r=>r.data).join(" ");
+  ok(!/Arroio|Itamarati|Jabaquara|4046|05502|517|Isadora|9308/.test(d) && d.includes("Mirandópolis"),"OCR com ícone do mapa: rua, CEP, nome e código do cliente não ficam no servidor"); }
 // revoga: apaga textos
 await call("POST","/v1/me/consent",{aceite:true,compartilhar:false},a.token);
 ok(sq.prepare("SELECT COUNT(*) n FROM events WHERE tipo='tela'").get().n===0,"revogar o consentimento apaga as telas já guardadas");

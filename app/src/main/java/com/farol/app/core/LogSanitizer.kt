@@ -9,18 +9,22 @@ package com.farol.app.core
  */
 object LogSanitizer {
 
+    // OCR lê o ícone do mapa como "O" colado no começo ("O Rua X, 10", "OR.Itamarati, 223"): aceita esse prefixo.
+    // Abreviação com ponto pode vir sem espaço ("R.Itamarati").
     private val STREET = Regex(
-        """^(r\.?|rua|av\.?|avenida|al\.?|alameda|tv\.?|trav\.?|travessa|estr\.?|estrada|rod\.?|rodovia|pra[cç]a|p[cç]a\.?|largo|lgo\.?|via|viela|beco|servid[aã]o)\s""",
+        """^(?:[O0o©@•●]\s?)?(?:(?:r|av|al|tv|trav|estr|rod|p[cç]a|lgo)\.\s*|(?:r|rua|av|avenida|al|alameda|tv|trav|travessa|estr|estrada|rod|rodovia|pra[cç]a|p[cç]a|largo|lgo|via|viela|beco|servid[aã]o)\s)""",
         RegexOption.IGNORE_CASE
     )
     private val LEADING_NUMBER = Regex("""^\s*(n[º°o.]?\s*)?\d+[a-zA-Z]?\s*(-\s*)?""")
     private val LONG_DIGITS = Regex("""\(?\d[\d .\-/()]{7,}\d""")
-    private val CEP = Regex("""\b\d{5}-?\d{3}\b""")
+    private val CEP = Regex("""\b[\dO]\d{4}-?\d{3}\b""")
+    // CEP cortado no fim da linha ("São Paulo - SP, 05502..."): também sai
+    private val CEP_PART = Regex("""(?<=\b[A-Z]{2},\s?)[\dO]\d{4}\S*""")
 
     fun mask(text: String): String = text.split(" | ").joinToString(" | ") { maskSegment(it) }
 
     private fun maskSegment(seg0: String): String {
-        var seg = seg0.replace(CEP, "[cep]").replace(LONG_DIGITS, "[num]")
+        var seg = seg0.replace(CEP, "[cep]").replace(CEP_PART, "[cep]").replace(LONG_DIGITS, "[num]")
         val trimmed = seg.trim()
         if (STREET.containsMatchIn(trimmed)) {
             val rest = when {
@@ -48,6 +52,8 @@ object LogSanitizer {
         """\bCliente\b|Entregue at[eé]|Para finalizar a entrega|Cheguei na entrega|Entregar em at[eé]|c[oó]digo de (verifica[cç][aã]o|entrega)|Entrega em m[aã]os|Venha retirar|\bEntrega\s*\|""",
         RegexOption.IGNORE_CASE)
     // 1 a 4 palavras com inicial maiúscula, só letras (ex.: "Emanoel", "Franciely Gomes", "Laura Maria")
+    private val NAME_SCREEN = Regex("""Nome do cliente|c[oó]digo de verifica[cç][aã]o""", RegexOption.IGNORE_CASE)
+    private val SHORT_CODE = Regex("""^\d{3,6}$""")
     private val PERSON = Regex("""^\p{Lu}[\p{L}'´`]+(?:\s+(?:d[aeo]s?\s+)?\p{Lu}[\p{L}'´`]*\.?){0,3}$""")
     private val ORDER_NAME = Regex("""(#\d{3,}|C[oó]digo de coleta\s+\d+)\s+\p{Lu}[\p{L}]+(?:\s+\p{Lu}[\p{L}]+)*""")
     private val NOT_NAME = Regex(
@@ -63,6 +69,13 @@ object LogSanitizer {
         val text = text0.replace(ORDER_NAME) { it.groupValues[1] + " [cliente]" }
         if (!DELIVERY.containsMatchIn(text)) return text
         val parts = text.split(" | ").toMutableList()
+        // 99 › "Retirada concluída": "Nome do cliente | ... | Iniciar entrega | Isadora | < | 9308" (16/11).
+        // Nessa tela qualquer nome solto é do cliente, e o número curto é o código de verificação.
+        if (NAME_SCREEN.containsMatchIn(text)) for (i in parts.indices) {
+            val p = parts[i].trim()
+            if (PERSON.matches(p) && !NOT_NAME.containsMatchIn(p) && p.length <= 40) parts[i] = "[cliente]"
+            else if (SHORT_CODE.matches(p)) parts[i] = "[código]"
+        }
         for (i in parts.indices) {
             val p = parts[i].trim()
             val next = parts.getOrNull(i + 1)?.trim() ?: ""

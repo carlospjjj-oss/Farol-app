@@ -68,16 +68,22 @@ object HistoryReader {
     /**
      * 99 › Histórico de corridas (16/11): cada lançamento com data e hora ("16/11/2026 13:34 | Ganhos pagos no app |
      * Entrega Food | ... | 16/11/2026 15:57 | Ganhos pagos no app | Bônus | ... | R$7,50 > | R$5,00 > | R$5,00 >").
-     * O OCR lê as datas e depois os valores, em coluna: só junta se a quantidade bater.
+     * O OCR lê as datas e depois os valores, em coluna: junta na ordem (sobra de no máximo 1 linha cortada na borda).
      * Família própria ("99$hist"): vale a maior entre ela, o Saldo e as entregas, nunca a soma.
      */
     fun ninetyNineHistorico(text: String, today: String): List<Entry> {
         if (!text.contains("Histórico de corridas", true) && !text.contains("Ganhos pagos no app", true)) return emptyList()
         if (text.contains("Aceitar", true)) return emptyList()
         val parts = text.split("|").map { it.trim().replace(Regex("(?<=R\\$)\\s*O|(?<=\\d)O|O(?=,\\d)"), "0") }.filter { it.isNotEmpty() }
-        val whens = parts.withIndex().mapNotNull { (i, p) -> HIST_WHEN.find(p)?.let { i to it } }
-        val moneys = parts.filter { MONEY.matches(it) }
-        if (whens.isEmpty() || whens.size != moneys.size) return emptyList()
+        val allWhens = parts.withIndex().mapNotNull { (i, p) -> HIST_WHEN.find(p)?.let { i to it } }
+        val allMoneys = parts.filter { MONEY.matches(it) }
+        if (allWhens.isEmpty() || allMoneys.isEmpty()) return emptyList()
+        // Lista cortada pela borda da tela: embaixo sobra a data sem o valor (fica de fora a última linha);
+        // em cima sobra o valor sem a data (fica de fora o primeiro valor). Nunca junta além disso.
+        val n = minOf(allWhens.size, allMoneys.size)
+        if (maxOf(allWhens.size, allMoneys.size) - n > 1) return emptyList()
+        val whens = allWhens.take(n)
+        val moneys = allMoneys.takeLast(n)
         val out = mutableListOf<Entry>(); val seen = mutableMapOf<String, Int>()
         whens.forEachIndexed { k, (idx, w) ->
             val until = whens.getOrNull(k + 1)?.first ?: parts.size

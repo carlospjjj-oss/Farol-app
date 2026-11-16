@@ -75,12 +75,33 @@ function maskPeople(text) {
 }
 // Rua que sobrou depois do "[endereço]" (versões antigas do app): "[endereço], Estrada X, 2282, Cidade"
 const LEFTOVER_STREET_RE = /\[endereço\],\s*(?:r\.?|rua|av\.?|avenida|al\.?|alameda|tv\.?|trav\.?|travessa|estr\.?|estrada|rod\.?|rodovia|pra[cç]a|largo|via|viela|beco)\s[^,|]*(?:,\s*\d+[a-zA-Z]?)?/gi;
+// Mesma regra do app (LogSanitizer, 6.10.6): rua lida pela imagem com o ícone do mapa colado ("O Rua X, 10",
+// "OR.Itamarati, 223"), CEP com "O" no lugar do 0 ou cortado, e a tela "Retirada concluída" da 99 (nome e código).
+const STREET_SEG_RE = /^(?:[O0o©@•●]\s?)?(?:(?:r|av|al|tv|trav|estr|rod|p[cç]a|lgo)\.\s*|(?:r|rua|av|avenida|al|alameda|tv|trav|travessa|estr|estrada|rod|rodovia|pra[cç]a|p[cç]a|largo|lgo|via|viela|beco|servid[aã]o)\s)/i;
+const CEP_RE = /\b[\dO]\d{4}-?\d{3}\b/g, CEP_PART_RE = /(\b[A-Z]{2},\s?)[\dO]\d{4}\S*/g;
+const NAME_SCREEN_RE = /Nome do cliente|c[oó]digo de verifica[cç][aã]o/i;
+function maskOcr(text) {
+  const parts = text.split(" | ");
+  const nameScreen = NAME_SCREEN_RE.test(text);
+  return parts.map((seg0) => {
+    let seg = seg0.replace(CEP_RE, "[cep]").replace(CEP_PART_RE, "$1[cep]");
+    const t = seg.trim();
+    if (nameScreen && PERSON_RE.test(t) && !NOT_NAME_RE.test(t) && t.length <= 40) return "[cliente]";
+    if (nameScreen && /^\d{3,6}$/.test(t)) return "[código]";
+    if (STREET_SEG_RE.test(t)) {
+      const rest = (t.includes(",") ? t.slice(t.indexOf(",") + 1) : t.includes(" - ") ? t.slice(t.indexOf(" - ") + 3) : "")
+        .replace(/^\s*(n[º°o.]?\s*)?\d+[a-zA-Z]?\s*(-\s*)?/i, "").trim().replace(/^[,\-\s]+/, "");
+      return rest && !STREET_SEG_RE.test(rest) ? "[endereço], " + rest : "[endereço]";
+    }
+    return seg;
+  }).join(" | ");
+}
 /** Limpa um evento no lugar. Retorna false se ele não deve ser guardado (tela de chat). */
 function protegerTerceiros(e) {
   for (const k of ["texto", "texto_acessibilidade"]) {
     if (typeof e[k] !== "string") continue;
     if (CHAT_RE.test(e[k])) { if (e.tipo === "tela") return false; delete e[k]; continue; }
-    e[k] = maskPeople(e[k]).replace(LEFTOVER_STREET_RE, "[endereço]");
+    e[k] = maskOcr(maskPeople(e[k]).replace(LEFTOVER_STREET_RE, "[endereço]"));
   }
   if (e.tipo === "pedido") delete e.restaurante;   // nome do restaurante fica só no celular
   return true;

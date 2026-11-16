@@ -7,7 +7,7 @@
 Lê a oferta do **iFood, 99, Keeta, Uber e inDrive** e mostra na hora se a corrida compensa,<br>
 com **R$/km, R$/h e lucro líquido** calculados com os **seus** custos.
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-6.10.6-C8F23C?style=for-the-badge&labelColor=17191C)
+![versão](https://img.shields.io/badge/vers%C3%A3o-6.10.7-C8F23C?style=for-the-badge&labelColor=17191C)
 ![android](https://img.shields.io/badge/Android-8%2B-C8F23C?style=for-the-badge&logo=android&logoColor=white&labelColor=17191C)
 ![kotlin](https://img.shields.io/badge/Kotlin-100%25-C8F23C?style=for-the-badge&logo=kotlin&logoColor=white&labelColor=17191C)
 ![testes](https://img.shields.io/badge/testes-104%20%2B%20102%20reais%20%2B%2012%20emulador-C8F23C?style=for-the-badge&labelColor=17191C)
@@ -242,6 +242,7 @@ docs/lgpd/            registro das operações, RIPD, incidentes, atendimento
 
 | Versão | Principais mudanças |
 |---|---|
+| 6.10.7 | Correção: Histórico de corridas da 99 lido mesmo com a lista cortada na borda da tela; privacidade: endereço lido pela imagem com o ícone do mapa colado ("O Rua…", "OR.…"), CEP com "O" ou cortado e nome/código do cliente na "Retirada concluída" da 99 passam a ser mascarados no celular e no servidor |
 | 6.10.6 | Correção: ganhos da 99 também pelo "Histórico de corridas" (cada entrega e bônus com data e hora; a tela inicial nem sempre mostra o valor); janela de oferta de outro app por cima da 99 não vira oferta falsa da 99 |
 | 6.10.5 | Correção: na tela inicial nova da 99 a leitura pela imagem não rodava, então o "ganhos de hoje" da 6.10.4 não chegava a ser lido; agora o Farol lê a tela inicial da 99 pela imagem no máximo a cada 30 s |
 | 6.10.4 | Correção: a 99 mudou a tela inicial e o "ganhos de hoje" do topo deixou de ser lido; o Farol volta a ler (entregas da 99 Food sem número de pedido voltam a entrar no diário) |

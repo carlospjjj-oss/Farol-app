@@ -30,8 +30,23 @@ class Release6106Test {
         assertTrue(HistoryReader.ninetyNineHistorico(t, "2026-11-16").isEmpty())
     }
 
-    @Test fun quantidadeNaoBateNaoChuta() =
-        assertTrue(HistoryReader.ninetyNineHistorico("Histórico de corridas | 16/11/2026 13:34 | Entrega Food | 16/11/2026 15:00 | Bônus | R$7,50 >", "2026-11-16").isEmpty())
+    @Test fun quantidadeMuitoDiferenteNaoChuta() =
+        assertTrue(HistoryReader.ninetyNineHistorico("Histórico de corridas | 16/11/2026 13:34 | Entrega Food | 16/11/2026 15:00 | Bônus | 16/11/2026 15:57 | Bônus | R$7,50 >", "2026-11-16").isEmpty())
+
+    // 17h48: a última linha (13:34) ficou cortada embaixo, sem o valor
+    @Test fun listaCortadaEmbaixo() {
+        val e = HistoryReader.ninetyNineHistorico("Histórico de corridas | Corridas | 916/11 v | Entregas | 16/11/2026 17:33 | Taxas | Ganhos pagos no app | Entrega Food | Pago | O Rua Arroio Grande, 517 | O Avenida Jabaquara, 842 - Mirandópolis, | São Paulo - SP, O4046-400, Brasil | 16/11/2026 17:22 | Ganhos pagos no app | Entrega Food | Pago | OR.Itamarati Brasileiro, 223 | O Avenida Jabaquara, 305 - Vila Mariana, | São Paulo - SP, 04014-000, Brasil | 16/11/2026 13:34 | R$11,00 > | Ganhos pagos no app | R$10,70 > | <", "2026-11-16")
+        assertEquals(2, e.size)
+        assertEquals(17 * 60 + 33, e[0].minuteOfDay); assertEquals(11.0, e[0].value, 0.001)
+        assertEquals(10.70, e[1].value, 0.001)
+    }
+
+    @Test fun diaInteiroDaNoventaENove() {
+        // as duas telas do dia: entregas novas + entrega e bônus da tarde; cada lançamento uma vez
+        val a = HistoryReader.ninetyNineHistorico(hist, "2026-11-16")
+        val b = HistoryReader.ninetyNineHistorico("Histórico de corridas | 16/11/2026 17:33 | Entrega Food | 16/11/2026 17:22 | Entrega Food | 16/11/2026 13:34 | R$11,00 > | R$10,70 >", "2026-11-16")
+        assertEquals(39.20, (a + b).associateBy { it.key }.values.sumOf { it.value }, 0.001)
+    }
 
     @Test fun pagoEmDinheiroFica() {
         val e = HistoryReader.ninetyNineHistorico("Histórico de corridas | 16/11/2026 13:34 | Ganhos pagos em dinheiro | Entrega Food | 16/11/2026 15:00 | Ganhos pagos no app | Bônus | R$54,69 > | R$5,00 >", "2026-11-16")
@@ -55,5 +70,26 @@ class Release6106Test {
         assertEquals(17.50, mem.dayAt("2026-11-16").appEarnings["99"]!!, 0.001)
         assertEquals(78.39, mem.dayAt("2026-11-16").appEarnings["Keeta"]!!, 0.001)
         assertEquals(0, mem.dayAt("2026-11-16").deliveries)   // lançamento do histórico não conta como entrega lida
+    }
+}
+
+/** 16/11: textos da 99 pela imagem que saíram com endereço e nome do cliente. */
+class SanitizerOcr6106Test {
+    @Test fun enderecoComIconeDoMapa() {
+        val t = LogSanitizer.forServer("Histórico de corridas | O Rua Arroio Grande, 517 | O Avenida Jabaquara, 842 - Mirandópolis, | São Paulo - SP, O4046-400, Brasil | OR.Itamarati Brasileiro, 223 | O Av. Magalhães de Castro, 4800 | Cidade Jardim, São Paulo - SP, 05502... | O Vantagens >")!!
+        assertTrue(t, !t.contains("Arroio") && !t.contains("Jabaquara") && !t.contains("Itamarati") && !t.contains("Magalhães"))
+        assertTrue(t, !t.contains("4046") && !t.contains("05502") && !t.contains("517") && !t.contains("842"))
+        assertTrue(t, t.contains("Mirandópolis") && t.contains("O Vantagens >"))
+    }
+
+    @Test fun nomeECodigoNaRetirada() {
+        val t = LogSanitizer.forServer("Eldorado | Retirada concluída | #866031 | Informeo nome do cliente ou código solicitado | por Eldorado Restaurante & Marmitas | Nome do cliente | Restaurante | & Burger's | Código de verificação | Iniciar entrega | Isadora | < | 9308")!!
+        assertTrue(t, !t.contains("Isadora") && !t.contains("9308"))
+        assertTrue(t, t.contains("Retirada concluída") && t.contains("Iniciar entrega"))
+    }
+
+    @Test fun textoComumNaoMuda() {
+        val s = "Pedidos na rota | R$21,70 | Distância total 9 km | Aceitar (2) | O Coletar R$54,69 em dinheiro do"
+        assertEquals(s, LogSanitizer.forServer(s))
     }
 }
