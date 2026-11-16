@@ -12,10 +12,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
-          echo "== envios sem conta (user_id nulo) por dia, 30 dias =="
-          q "SELECT substr(datetime(received_at/1000,'unixepoch','-3 hours'),1,10) d, count(*) n, count(DISTINCT device) dev, max(versao) v FROM events WHERE user_id IS NULL AND received_at > (strftime('%s','now')-30*86400)*1000 GROUP BY d ORDER BY d"
-          echo "== total sem conta =="
-          q "SELECT count(*) n, min(t) primeiro, max(t) ultimo FROM events WHERE user_id IS NULL"
-          echo "== sessoes por conta (so contagem) =="
-          q "SELECT user_id, count(*) n FROM sessions GROUP BY user_id"
+          echo "== bot telegram (sem ids) =="
+          q "SELECT k, CASE WHEN k='tg_chats' THEN json_array_length(v) WHEN k='tg_codigo' THEN 'pendente' WHEN k='tg_segredo' THEN 'definido' ELSE v END AS v FROM meta WHERE k LIKE 'tg_%'"
           echo "== fim =="
