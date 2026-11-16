@@ -152,7 +152,8 @@ Nada chega ao celular sem passar por testes no computador e no emulador.
 5. Juntar em `main` (fast-forward). O "Build APK" assina e publica a release como **prévia** (`versionCode`,
    `versionName`, `sha256`). Quem está no **canal de teste** (padrão do admin) recebe na hora; o workflow
    "Promover versão" a torna estável para todos depois de 24 h (ou na hora, rodando com `promover_agora=sim`).
-6. Se `server/worker.js` mudou, o servidor é publicado na Cloudflare no mesmo push.
+6. Se `server/worker.js` mudou, o servidor é publicado na Cloudflare no mesmo push. O build do app só cria release quando o
+   `versionCode` é novo (push sem mudar a versão não repete a release).
 7. Atualizar o README (selo da versão e histórico) e as três cópias deste documento.
 
 - **Consultas ao servidor:** o ramo `status` tem um workflow só de leitura que consulta o banco D1 (sem e-mails nem
