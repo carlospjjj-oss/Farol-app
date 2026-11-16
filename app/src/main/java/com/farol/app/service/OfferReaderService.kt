@@ -284,6 +284,12 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         val looksLikeOffer = hasHint || snap.text.length < 40
         if (settings.ocrFallback && ocr.supported && looksLikeOffer && snap.pkg !in accessibleApps) {
             runOcr(snap, label, hasHint)
+        } else if (label == "99" && snap.onTop && !hasHint && settings.ocrFallback && ocr.supported && settings.autoEarnings &&
+            SystemClock.elapsedRealtime() - lastHomeOcrAt > 30_000) {
+            // 99 › tela inicial nova (16/11): o "ganhos de hoje" só aparece na imagem e a acessibilidade
+            // traz texto comprido (navegação, demanda), então o OCR acima não rodava. Lê no máximo a cada 30 s.
+            lastHomeOcrAt = SystemClock.elapsedRealtime()
+            runOcr(snap, label, false)
         } else {
             if (hasHint && snap.pkg !in accessibleApps) {
                 remote.miss(snap.pkg, "acessibilidade", snap.text)
@@ -337,6 +343,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
 
     @Volatile private var lastHistoryLogAt = 0L
     @Volatile private var lastSaldoOcrAt = 0L
+    @Volatile private var lastHomeOcrAt = 0L
 
 
     private fun minutesSinceOffer(): Int? {
