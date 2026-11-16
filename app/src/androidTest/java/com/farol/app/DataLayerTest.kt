@@ -170,4 +170,19 @@ class DataLayerTest {
         st.putDay(DayRecord("2026-11-11", dayOff = true))
         assertTrue(st.day("2026-11-11").dayOff)
     }
+
+    /** 6.10.3: outra conta no mesmo celular não vê o diário de quem usava antes; o mesmo dono mantém tudo. */
+    @Test fun trocaDeContaApagaODiarioDoDonoAnterior() {
+        val st = JournalStore(ctx, "_tc" + System.nanoTime())
+        st.putDay(DayRecord("2026-11-13", earnings = mapOf("99" to 27.54)))
+        st.addFuel(FuelEntry(1L, 58100.0, 4.0, 23.2, true, "gasolina"))
+        st.setMeta("sync_user", "1")
+        st.wipeForNewAccount()
+        assertEquals(0.0, st.day("2026-11-13").totalEarnings, 0.001)
+        assertTrue(st.fuel().isEmpty())
+        // os dados de manutenção (expense com item/km) também sobrevivem ao banco
+        st.putDay(DayRecord("2026-11-14", expenses = listOf(com.farol.app.core.Expense(2L, "manutencao", 45.0, "Óleo", item = "oleo_motor", km = 58200.0))))
+        val e = st.day("2026-11-14").expenses.single()
+        assertEquals("oleo_motor", e.item); assertEquals(58200.0, e.km!!, 0.01)
+    }
 }

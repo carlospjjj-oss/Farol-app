@@ -69,7 +69,7 @@ internal fun SettingsActivity.buildAccountSections() {
         "Sair da conta" to {
             android.app.AlertDialog.Builder(this, com.farol.app.ui.Palette.dialogTheme)
                 .setTitle("Sair da conta?")
-                .setMessage("Seus dados continuam no celular. Para usar o Farol de novo, entre com e-mail e senha.")
+                .setMessage("Antes de sair, o Farol manda para a sua conta o que ainda não foi sincronizado. Se você entrar de novo, está tudo aqui; se outra pessoa entrar com a conta dela, o seu diário sai deste celular (continua na sua conta).")
                 .setPositiveButton("Sair") { _, _ ->
                     Thread {
                         com.farol.app.data.Account.logout(this)

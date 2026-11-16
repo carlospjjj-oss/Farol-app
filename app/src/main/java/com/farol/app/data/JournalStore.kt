@@ -160,7 +160,16 @@ class JournalStore(context: Context, private val suffix: String? = null) : com.f
     fun meta(k: String) = db.meta(k)
     fun setMeta(k: String, v: String) = db.setMeta(k, v)
 
-    /** Outra conta entrou neste celular: o que já está aqui não vai para ela (fica só local). */
+    /**
+     * Outra conta entrou neste celular: o diário de quem usava antes sai daqui (ele está na conta dele e volta
+     * quando ele entrar de novo). Antes ficava aparecendo para a conta nova e se misturava com os dias dela.
+     */
+    fun wipeForNewAccount() {
+        val w = db.writableDatabase
+        w.execSQL("DELETE FROM days")
+        w.execSQL("DELETE FROM fuel")
+    }
+
     fun markAllSynced() {
         val w = db.writableDatabase
         w.execSQL("UPDATE days SET synced_at = updated_at")

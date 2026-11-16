@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 14/11/2026 · versão **6.10.2** (versionCode 57)
+Atualizado em 14/11/2026 · versão **6.10.3** (versionCode 58)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -55,6 +55,8 @@ atualiza sozinho.
   `/painel`, `/privacidade`. De hora em hora (cron do Worker) roda a passada do bot do Telegram.
 - **Painel do app em abas (6.9):** Início, Corridas, Financeiro, Análises e Mais, com barra fixa embaixo; a última aba
   aberta é lembrada (`DashboardTabs`).
+- **Troca de conta no celular (6.10.3):** outra conta entrando apaga do aparelho o diário e a reserva de emergência
+  do dono anterior (estão na conta dele); sair da conta sincroniza antes.
 - **Banco D1:** contas, sessões, eventos, dias do diário, abastecimentos, erros do app.
 
 ## Regras de negócio

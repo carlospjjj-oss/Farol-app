@@ -32,7 +32,11 @@ object SyncClient {
         // Outra conta entrou depois: começa do zero com ela e NÃO manda os dados de quem usava antes.
         val owner = store.meta("sync_user")
         if (owner != userId.toString()) {
-            if (owner != null) store.markAllSynced()
+            if (owner != null) {
+                // outra conta: some com o diário e a reserva de emergência de quem usava antes (estão na conta dele)
+                store.wipeForNewAccount()
+                runCatching { Settings(ctx, modo).emergencyJson = "" }
+            }
             store.setMeta("sync_cursor", "0")
             store.setMeta("sync_user", userId.toString())
         }

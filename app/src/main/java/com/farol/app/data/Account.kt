@@ -138,6 +138,8 @@ object Account {
 
     /** Sai da conta (avisa o servidor se der; apaga o token de qualquer jeito). */
     fun logout(ctx: Context) {
+        // antes de sair, manda o que ainda não subiu (se outra conta entrar depois, o diário daqui é apagado)
+        runCatching { SyncClient.syncAll(ctx) }
         val t = token(ctx)
         if (t != null) runCatching { post(server(ctx) + "/v1/auth/logout", JSONObject(), t) }
         clear(ctx)
