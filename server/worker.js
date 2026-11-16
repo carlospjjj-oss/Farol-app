@@ -11,7 +11,9 @@
 //   Bindings  → D1 database, nome da variável: DB
 //   Variables → GH_REPO = carlospjjj-oss/Farol   (texto)
 //   Secrets   → GH_TOKEN = github_pat_...        (segredo, opcional)
-//   Variables → ADMIN_EMAIL = seu e-mail            (essa conta vira administradora)
+//   Secrets   → ADMIN_SETUP_KEY = uma senha longa  (só para ativar o 1º admin: POST /v1/auth/ativar-admin com o
+//                cabeçalho x-farol-setup e {"email"}; funciona só enquanto não existe admin. O cadastro comum
+//                nunca cria admin — nem a primeira conta.)
 //   Variables → REQUIRE_LOGIN = 1                   (recusa envios sem login; ligue depois que todos atualizarem)
 //   Secrets   → ADMIN_KEY = uma senha sua           (opcional: acesso de emergência ao painel)
 //
@@ -364,12 +366,29 @@ async function authRoutes(req, env, url) {
     if (await tooMany(db, "reg:" + ip, 5, 3600_000)) return json({ erro: "muitas contas criadas daqui, tente mais tarde" }, 429);
     await marca(db, "reg:" + ip);
     if (await db.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first()) return json({ erro: "já existe conta com esse e-mail" }, 409);
-    const primeiro = !(await db.prepare("SELECT 1 FROM users LIMIT 1").first());
-    const papel = primeiro || (env.ADMIN_EMAIL && email === env.ADMIN_EMAIL.toLowerCase()) ? "admin" : "user";
+    // Cadastro comum NUNCA cria administrador (nem a primeira conta, nem um e-mail "especial": e-mail não é confirmado).
+    // O primeiro admin é ativado à parte, com o segredo ADMIN_SETUP_KEY (rota /v1/auth/ativar-admin).
+    const papel = "user";
     const now = Date.now(), compartilhar = body.compartilhar === true ? 1 : 0;
     const r = await db.prepare("INSERT INTO users (email, nome, senha, papel, criado, consent_versao, consent_em, compartilhar) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id")
       .bind(email, nome, await hashSenha(senha), papel, now, POLICY_VERSION, now, compartilhar).first();
     return json(await novaSessao(env, { id: r.id, email, nome, papel, consent_versao: POLICY_VERSION, compartilhar }, body.device, body.origem));
+  }
+
+  // Ativação controlada do administrador: só com o segredo ADMIN_SETUP_KEY (Cloudflare) e só enquanto NÃO existir
+  // nenhum admin. Depois disso a rota fica fechada para sempre; novos admins não nascem pelo cadastro.
+  if (p === "/v1/auth/ativar-admin" && req.method === "POST") {
+    const k = String(req.headers.get("x-farol-setup") || "");
+    if (await tooMany(db, "setup:" + ip, 5, 3600_000)) return json({ erro: "muitas tentativas, tente mais tarde" }, 429);
+    const okKey = env.ADMIN_SETUP_KEY && k.length === env.ADMIN_SETUP_KEY.length && sameBytes(enc.encode(k), enc.encode(env.ADMIN_SETUP_KEY));
+    if (!okKey) { await marca(db, "setup:" + ip); return json({ erro: "não autorizado" }, 403); }
+    if (await db.prepare("SELECT 1 FROM users WHERE papel = 'admin' LIMIT 1").first()) return json({ erro: "já existe administrador; a ativação está fechada" }, 409);
+    const email = String(body.email || "").trim().toLowerCase();
+    const u = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+    if (!u) return json({ erro: "crie a conta pelo cadastro normal antes de ativar" }, 404);
+    await db.prepare("UPDATE users SET papel = 'admin' WHERE id = ?").bind(u.id).run();
+    await db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(u.id).run().catch(() => {});   // entra de novo já como admin
+    return json({ ok: true, admin: email });
   }
 
   if (p === "/v1/auth/login" && req.method === "POST") {

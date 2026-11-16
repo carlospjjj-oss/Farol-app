@@ -119,6 +119,8 @@ consentimento do usuário, e dados de clientes nunca saem.
   celular, o token fica no cofre do Android (Keystore AES-GCM). Há limite de tentativas.
 - **Assinatura do app:** rotação de chave APK v3. A chave antiga assina v2 e a nova (`farol2`, RSA 4096) assina v3.
   As duas ficam só nos segredos do GitHub (`FAROL_OLD_*`, `FAROL_NEW_*`).
+- **Administrador:** o cadastro comum nunca cria admin (nem a primeira conta). O primeiro admin é ativado com o
+  segredo `ADMIN_SETUP_KEY` (Cloudflare) em `/v1/auth/ativar-admin`, que só funciona enquanto não existe admin (desde 16/11/2026).
 - **Bot do Telegram:** token só no segredo `TELEGRAM_TOKEN` da Cloudflare; o segredo do webhook é gerado pelo servidor e
   fica no banco; só chats vinculados com o código do painel recebem algo.
 - **Atualizador:** confere SHA-256 do arquivo, pacote, versão maior e certificado da chave antes de instalar.
