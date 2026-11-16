@@ -10,6 +10,7 @@ on:
       - ".github/workflows/deploy-server.yml"
       - ".github/workflows/android-tests.yml"
       - ".github/workflows/promote.yml"
+      - ".github/workflows/server-tests.yml"
       - "**.md"
       - "docs/**"
   workflow_dispatch:
@@ -67,9 +68,19 @@ jobs:
           name: farol-apk
           path: Farol.apk
 
+      # Mesma versão já publicada (push que não mudou o versionCode): não cria release repetida
+      - name: Esta versão já foi publicada?
+        if: github.ref == 'refs/heads/main'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          if gh api "repos/${{ github.repository }}/releases?per_page=30" --jq '.[].body' | tr -d '\r' | grep -qx "versionCode=${VCODE}"; then
+            echo "SKIP=1" >> $GITHUB_ENV
+            echo "::notice::versionCode ${VCODE} já publicado: nada a publicar (só o APK de teste fica no artefato)."
+          fi
+
       # Link fixo para baixar no celular: github.com/<você>/Farol-app/releases/latest
       - name: Publicar na Release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.SKIP != '1'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.${{ github.run_number }}
