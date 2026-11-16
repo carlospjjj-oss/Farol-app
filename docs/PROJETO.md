@@ -215,7 +215,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 
 | Conta | Modo e apps | Situação em 16/11 |
 | --- | --- | --- |
-| Carlos | moto: Keeta, 99, iFood (e Uber, inDrive) | canal de teste (recebe primeiro), admin, bot do Telegram ligado, compartilhamento desligado |
+| Carlos | moto: Keeta, 99, iFood (e Uber, inDrive) | canal de teste (recebe primeiro), admin, bot do Telegram ligado, compartilhamento ligado |
 | Marcelo | carro: só 99 | ainda na 6.3.1 (o bot avisa); custos zerados (R$ 0,05/km), faixas baixas, km do turno de 13/11 errado; compartilhamento ligado |
 
 - [x] Bot do Telegram criado, token renovado e vinculado (16/11)
@@ -223,5 +223,5 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
 - [x] Conectar o Notion e criar a cópia deste documento
 - [x] Leitura do Saldo da 99 pela imagem confirmada (13/11: entregas das 23h48 e 23h57 e bônus)
-- [ ] Mandar print do pedido adicional da 99 (auditoria da leitura OCR)
+- [ ] Abrir a lista "Solicitações de Pedidos" da 99 por uns 20 s ou mandar print (auditoria da leitura OCR)
 - [ ] Opcional: apagar a release duplicada "Farol 6.10.3" (v1.108) no GitHub
