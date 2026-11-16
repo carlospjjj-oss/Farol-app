@@ -12,6 +12,11 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
+          echo "== u1 (Carlos): 99 por familia, ultimos dias =="
+          q "SELECT d.date, j.key k, j.value v FROM user_days d, json_each(json_extract(d.data,'$.orders')) j WHERE d.user_id=1 AND d.modo='moto' AND d.date >= '2026-11-10' AND j.key LIKE '99%' ORDER BY d.date, j.key"
+          echo "== u1 painel 99 =="
+          q "SELECT date, json_extract(data,'$.earnings.\"99\"') painel FROM user_days WHERE user_id=1 AND modo='moto' AND date >= '2026-11-10' ORDER BY date"
+          echo "== fim2 =="
           echo "== bot telegram (sem ids) =="
           q "SELECT k, CASE WHEN k='tg_chats' THEN json_array_length(v) WHEN k='tg_codigo' THEN 'pendente' WHEN k='tg_segredo' THEN 'definido' ELSE v END AS v FROM meta WHERE k LIKE 'tg_%'"
           echo "== fim =="
