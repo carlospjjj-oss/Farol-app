@@ -689,12 +689,7 @@ async function panelApi(req, env, url) {
   const ganhos = sum("ganho_total"), km = sum("km"), horas = sum("horas"), liquido = sum("liquido");
 
   const scope = { scopeUser, modo };
-  // Avisos técnicos (sem valores de ganho): o admin recebe os de todas as contas; os outros, só os seus
-  const alertIds = isAdmin
-    ? ((await db.prepare("SELECT id FROM users WHERE ativo = 1").all()).results || []).map((x) => x.id)
-    : (me ? [me.id] : []);
-  const [saude, semana, alertas] = await Promise.all([readerHealth(db, scope), weeklySummary(db, scope),
-    accountAlerts(db, env, alertIds).catch(() => [])]);
+  const [saude, semana] = await Promise.all([readerHealth(db, scope), weeklySummary(db, scope)]);
 
   return json({
     eu: me, admin: isAdmin, escopo: scopeUser,
@@ -710,7 +705,7 @@ async function panelApi(req, env, url) {
     horas: porHora,
     ultimas: ultimas.map((o) => ({ ...o, app: name(o.app) })),
     pedidos: pedidos.map((p) => ({ ...p, app: name(p.app) })),
-    saude, semana, alertas,
+    saude, semana,
   });
 }
 
@@ -1277,7 +1272,6 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
     <div class="card hero" id="hero"></div>
     <div class="card" id="cores"></div>
   </div>
-  <div id="alertas"></div>
   <div id="healthAlert"></div>
   <div class="card week" style="margin-top:14px" id="semana"></div>
   <div class="grid k4" style="margin-top:14px" id="kpis"></div>
@@ -1444,7 +1438,7 @@ function render(d){
       '<div class="big">'+brl(a.r_km)+' <small>/km</small></div><div class="meter"><i style="width:'+pct+'%"></i></div><div class="sub">'+pct+'% verdes</div>'+
       '<div class="ft"><span>Preço <b>'+brl(a.preco)+'</b></span><span>Km <b>'+num(a.km)+'</b></span><span><b>'+brl(a.r_h)+'</b>/h</span></div></div>';}).join(""):'<div class="empty">Sem ofertas no período.</div>';
   renderOffers();
-  renderAlerts(d.alertas,d.admin);renderWeek(d.semana);renderHealth(d.saude||[]);
+  renderWeek(d.semana);   // "Precisa de atenção" saiu do painel: o admin recebe no Telegram e cada um vê os seus no apprenderHealth(d.saude||[]);
   $("#pedidos").innerHTML=d.pedidos.length?d.pedidos.map(x=>'<div class="card app"><div class="hd"><div class="badge" style="background:'+appc(x.app)+'">'+esc(x.app.slice(0,2))+'</div><div><div class="nm">'+esc(x.app)+'</div><div class="cnt">'+x.n+' pedidos</div></div></div>'+
     '<div class="ft" style="margin-top:0"><span>Até coletar <b>'+num(x.coleta,0)+' min</b></span><span>Até entregar <b>'+num(x.entrega,0)+' min</b></span></div></div>').join(""):'<div class="empty">Nenhum pedido medido no período.</div>';
 }
