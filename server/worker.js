@@ -569,7 +569,9 @@ async function syncRoute(req, env) {
   const fuel = Array.isArray(b.fuel) ? b.fuel.slice(0, SYNC_MAX) : [];
   const db = env.DB, uid = sess.user_id, now = Date.now();
   const stmts = [];
-  const clampUpd = (v) => Math.min(Number(v) || 0, now + 86400_000);   // celular com relógio adiantado não "tranca" o dia
+  // Celular com relógio adiantado: a data nunca passa da hora do servidor, senão o dia ficaria "trancado"
+  // (só aceitaria mudanças com data ainda maior) e nenhuma correção feita com o relógio certo entraria.
+  const clampUpd = (v) => Math.min(Number(v) || 0, now);
   for (const d of days) {
     const data = JSON.stringify(d.data ?? {}), upd = clampUpd(d.updated_at);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d.date)) || data.length > SYNC_ITEM_MAX || !upd) continue;

@@ -37,7 +37,8 @@ ok(pC2.resumo.eventos===1&&!pC2.apps.some(a=>a.app==="Uber"),"admin pedindo a co
 // sincronização: relógio adiantado não tranca o dia
 {const far=Date.now()+400*86400_000;
  await call("POST","/v1/sync",{modo:"moto",since:0,days:[{date:"2026-11-10",updated_at:far,data:{earnings:{Keeta:10}}}]},tC);
- await call("POST","/v1/sync",{modo:"moto",since:0,days:[{date:"2026-11-10",updated_at:Date.now()+2*86400_000,data:{earnings:{Keeta:20}}}]},tC);
+ await new Promise(r=>setTimeout(r,5));
+ await call("POST","/v1/sync",{modo:"moto",since:0,days:[{date:"2026-11-10",updated_at:Date.now(),data:{earnings:{Keeta:20}}}]},tC);   // correção com o relógio certo
  const [,sy]=await call("POST","/v1/sync",{modo:"moto",since:0,days:[]},tC);
  ok(sy.days.find(d=>d.date==="2026-11-10")?.data.earnings.Keeta===20,"dia gravado com relógio adiantado ainda aceita a correção");}
 ok((await call("GET","/api/painel?dias=30&usuario="+r1.usuario.id,null,tJ))[1].resumo.eventos===1,"usuário comum não consegue ver outra conta");
