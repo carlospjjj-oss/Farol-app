@@ -30,4 +30,14 @@ class EarningsReaderTest {
 
     @Test fun telaDeEntrega_naoEPainel() = assertNull(EarningsReader.read("Keeta",
         "Mapa do Google | Tempero e Doçura | Rotas | Restaurante | Pedido pronto em cerca de 5–10 min. | #7801 | Chegue na loja até 10:56"))
+
+    // 16/11: a 99 mudou a tela inicial; a entrega de R$ 7,50 das 13h34 não entrou no diário
+    @Test fun noventaENove_telaInicialNova() = assertEquals(7.50, EarningsReader.read("99",
+        "NHEIROS | 13 | min | Berrini Un | M | M | R$7,50 | 99 Abastece | M | Solicitações (3) Nova | BR Auto Posto R11 | Av, Professor | R$3.49 R$3,89 | Santo | Av. | 3 | M | MOEMA | CAMPO BELO | Mais > | Mais > | o Destino definido")!!, 0.001)
+
+    @Test fun noventaENove_telaInicialNova_zerada() = assertEquals(0.0, EarningsReader.read("99",
+        "H | 14 | min | BUTANT | Hospital Luz | Butantā | R$0,00 | 99 Abastece | SP-015 | Participe já | 15 abastecimentos | = R$200 na sua | carteira 99 | Destino definido")!!, 0.001)
+
+    @Test fun noventaENove_ofertaNaoEPainel() = assertNull(EarningsReader.read("99",
+        "Pedidos na rota | R$14,05 | Distância total 10,9 km | 99 Abastece | Aceitar (2)"))
 }

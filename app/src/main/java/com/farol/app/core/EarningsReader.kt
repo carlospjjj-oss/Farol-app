@@ -7,6 +7,7 @@ package com.farol.app.core
  * Exemplos reais (12/11):
  *   Keeta: "Painel | R$ 42,60 | 5 | Entregando (1) | ... | R$ 42,60 | Ganhos | 5 | Pedidos hoje"
  *   99:    "Painel Editar | R$17,85 | R$17,85 | / (solicitação) dia Solicitações >"   (OCR)
+ *   99 (tela nova, 16/11): "... | R$7,50 | 99 Abastece | Solicitações (3) Nova | ..."   (OCR; o valor do topo sobe animado)
  *   iFood: "... Rotas pra entregar agora | SOS | R | $ | 0 | , | 0"                 (valor letra por letra)
  */
 object EarningsReader {
@@ -21,6 +22,8 @@ object EarningsReader {
         "99" to listOf(
             Regex("""Painel(?:\s*\|?\s*Editar)?\s*\|\s*$MONEY""", RegexOption.IGNORE_CASE),
             Regex("""$MONEY\s*\|\s*$MONEY\s*\|\s*/?\s*\(?solicita""", RegexOption.IGNORE_CASE),
+            // Tela inicial nova: o "ganhos de hoje" fica no topo, logo antes do cartão "99 Abastece"
+            Regex("""$MONEY\s*\|\s*99\s*Abastece""", RegexOption.IGNORE_CASE),
         ),
         "iFood" to listOf(
             Regex("""(?:SOS|Rotas pra entregar agora)\s*\|\s*$MONEY\s*$""", RegexOption.IGNORE_CASE),
