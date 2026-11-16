@@ -13,9 +13,17 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
-          echo "== L1 Carlos desde 13:50 (tecnico) =="
-          q "SELECT t, tipo, app, versao, json_extract(data,'$.motivo') motivo, json_extract(data,'$.fonte') fonte FROM events WHERE user_id=1 AND t >= '2026-11-16T13:50' AND tipo<>'tela' ORDER BY id"
-          q "SELECT app, count(*) n, max(t) ultimo, max(versao) v FROM events WHERE user_id=1 AND tipo='tela' AND t >= '2026-11-16T13:50' GROUP BY app"
-          q "SELECT datetime(updated_at/1000,'unixepoch','-3 hours') sync, json_extract(data,'$.earnings') ganhos FROM user_days WHERE user_id=1 AND date='2026-11-16'"
+          echo "== M1 Carlos desde 15:30 (tecnico) =="
+          q "SELECT t, tipo, app, versao, json_extract(data,'$.motivo') motivo, json_extract(data,'$.fonte') fonte, json_extract(data,'$.cor') cor FROM events WHERE user_id=1 AND t >= '2026-11-16T15:30' AND tipo<>'tela' ORDER BY id"
+          q "SELECT app, json_extract(data,'$.fonte') fonte, count(*) n, max(t) ultimo, max(versao) v FROM events WHERE user_id=1 AND tipo='tela' AND t >= '2026-11-16T15:30' GROUP BY app, fonte"
+          q "SELECT datetime(updated_at/1000,'unixepoch','-3 hours') sync FROM user_days WHERE user_id=1 AND date='2026-11-16'"
           q "SELECT datetime(max(received_at)/1000,'unixepoch','-3 hours') ultimo_lote FROM batches WHERE user_id=1"
+          echo "== M2 cifrado =="
+          { q "SELECT json_extract(data,'$.earnings') ganhos, json_extract(data,'$.orders') pedidos FROM user_days WHERE user_id=1 AND date='2026-11-16'"; q "SELECT t, tipo, json_extract(data,'$.fonte') fonte, json_extract(data,'$.texto') texto FROM events WHERE user_id=1 AND app='com.app99.driver' AND t >= '2026-11-16T15:30' ORDER BY id"; } > out.txt
+          k=$(openssl rand -hex 32)
+          openssl enc -aes-256-cbc -pbkdf2 -salt -pass pass:$k -in out.txt | base64 -w0 > c.b64
+          echo -n "$k" | openssl pkeyutl -encrypt -pubin -inkey status_pub.pem | base64 -w0 > k.b64
+          echo "KEY:$(cat k.b64)"
+          echo "DATA:$(cat c.b64)"
+          rm -f out.txt
           echo "== fimH =="
