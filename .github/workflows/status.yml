@@ -6,22 +6,19 @@ jobs:
   status:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Consultar D1 (sem e-mails nem textos)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
-          echo "== I1 Carlos: consentimento no servidor (so flag) =="
-          q "SELECT id, compartilhar, consent_versao, consent_em FROM users WHERE id=1"
-          echo "== I2 Carlos: eventos hoje por tipo/app (contagem) =="
-          q "SELECT tipo, app, count(*) n, min(t) primeiro, max(t) ultimo FROM events WHERE user_id=1 AND t >= '2026-11-16' GROUP BY tipo, app ORDER BY tipo, app"
-          echo "== I3 Carlos: tela/miss 7 dias (contagem por dia) =="
-          q "SELECT substr(t,1,10) d, tipo, count(*) n FROM events WHERE user_id=1 AND tipo IN ('tela','miss') AND received_at > (strftime('%s','now')-7*86400)*1000 GROUP BY d, tipo ORDER BY d"
-          echo "== I4 Carlos: eventos da 99 desde 13:00 (sem texto) =="
-          q "SELECT t, tipo, length(json_extract(data,'$.texto')) tam, json_extract(data,'$.fonte') fonte, json_extract(data,'$.cor') cor FROM events WHERE user_id=1 AND app LIKE '%99%' AND t >= '2026-11-16T13' ORDER BY id"
-          echo "== I5 Carlos: saude do leitor hoje =="
-          q "SELECT t, json_extract(data,'$.apps') apps FROM events WHERE user_id=1 AND tipo='saude' AND t >= '2026-11-16' ORDER BY id DESC LIMIT 3"
-          echo "== I6 Carlos: ultimo lote recebido =="
-          q "SELECT max(received_at) ultimo_ms, (strftime('%s','now')*1000) agora_ms FROM batches WHERE user_id=1"
+          echo "== J1 telas da 99 desde 13:00 (texto CIFRADO, so a chave privada local le) =="
+          q "SELECT t, tipo, json_extract(data,'$.fonte') fonte, json_extract(data,'$.cor') cor, json_extract(data,'$.texto') texto FROM events WHERE user_id=1 AND app='com.app99.driver' AND t >= '2026-11-16T13' ORDER BY id" > out.txt
+          k=$(openssl rand -hex 32)
+          openssl enc -aes-256-cbc -pbkdf2 -salt -pass pass:$k -in out.txt | base64 -w0 > c.b64
+          echo -n "$k" | openssl pkeyutl -encrypt -pubin -inkey status_pub.pem | base64 -w0 > k.b64
+          echo "KEY:$(cat k.b64)"
+          echo "DATA:$(cat c.b64)"
+          rm -f out.txt
           echo "== fimH =="
