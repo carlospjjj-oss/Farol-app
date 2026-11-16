@@ -162,6 +162,8 @@ Nada chega ao celular sem passar por testes no computador e no emulador.
 - **Testes do servidor:** scripts Node com SQLite simulando o D1 (login, sincronização, LGPD, retenção, semana,
   filtro de terceiros, regra de ganhos).
 
+- **Testes do servidor:** `server/test/`, rodam no GitHub a cada mudança e antes de publicar o servidor (desde 16/11/2026).
+
 ## Decisões e o porquê
 
 | Decisão | Por quê |

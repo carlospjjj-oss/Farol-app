@@ -1,0 +1,16 @@
+name: Testes do servidor
+# Roda a cada mudança no servidor no ramo de desenvolvimento (no main, os testes rodam antes de publicar).
+on:
+  push:
+    branches: [fase1]
+    paths: ["server/**", ".github/workflows/server-tests.yml"]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: node --check server/worker.js
+      - run: bash server/test/run.sh

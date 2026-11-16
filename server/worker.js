@@ -1276,7 +1276,6 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
     <div class="ctrls">
       <div class="seg" id="segDias"><button data-v="1">Hoje</button><button data-v="7" class="on">7 dias</button><button data-v="30">30 dias</button></div>
       <div class="seg" id="segModo"><button data-v="" class="on">Todos</button><button data-v="moto">🛵 Moto</button><button data-v="carro">🚗 Carro</button></div>
-      <select id="selUser" class="seg sel" hidden></select>
       <span class="live"><i></i><span id="upd">ao vivo</span></span>
       <button class="live acct" id="acct" title="Sair">👤 <span id="who"></span> · Sair</button>
     </div>
@@ -1289,7 +1288,7 @@ footer{margin-top:34px;text-align:center;color:var(--dim);font-size:12px}
   <div class="card week" style="margin-top:14px" id="semana"></div>
   <div class="grid k4" style="margin-top:14px" id="kpis"></div>
   <div class="grid row2" style="margin-top:14px">
-    <div class="card"><div class="ov">Ganhos por dia <span class="tag">turnos encerrados</span></div><div id="chartDias"></div></div>
+    <div class="card"><div class="ov">Ganhos por dia <span class="tag">inclui o dia em andamento</span></div><div id="chartDias"></div></div>
     <div class="card"><div class="ov">Horários <span class="tag">% de ofertas verdes</span></div><div id="chartHoras"></div></div>
   </div>
   <section><h2>Saúde do leitor <span>quanto o Farol consegue ler das ofertas de cada app</span></h2><div class="grid apps" id="saude"></div></section>
@@ -1313,7 +1312,7 @@ const num=(v,d=1)=>v==null||isNaN(v)?"—":fmt(v,d);
 const hm=h=>h==null||!h?"—":Math.floor(h)+"h"+String(Math.round((h%1)*60)).padStart(2,"0");
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const dm=s=>esc(String(s||"").slice(8,10)+"/"+String(s||"").slice(5,7));
-let tok=null,dias=7,modo="",usuario="",showAll=false,last=null;
+let tok=null,dias=7,modo="",showAll=false,last=null;
 try{tok=localStorage.getItem("farolTok");localStorage.removeItem("farolKey")}catch(e){}
 const H=()=>({"authorization":"Bearer "+tok,"content-type":"application/json"});
 function seg(id,cb){$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
@@ -1329,7 +1328,6 @@ $("#go").onclick=async()=>{
 $("#pw").onkeydown=e=>{if(e.key==="Enter")$("#go").click();};
 $("#acct").onclick=async()=>{if(!confirm("Sair do painel?"))return;try{await fetch("/v1/auth/logout",{method:"POST",headers:H()})}catch(e){}
   tok=null;try{localStorage.removeItem("farolTok")}catch(e){};showLogin();};
-$("#selUser").onchange=e=>{usuario=e.target.value;load();};
 function showLogin(msg){$("#app").hidden=true;$("#login").hidden=false;$("#err").textContent=msg||"";}
 async function load(){
   if(!tok)return showLogin();
@@ -1422,20 +1420,14 @@ function renderHealth(list){
       '<div class="big">'+pct+' <small>lidas hoje</small></div><div class="sub">'+h.hoje.ok+' lidas · '+h.hoje.falhas+' não lidas'+(h.taxa_7d!=null?' · 7 dias: '+Math.round(h.taxa_7d*100)+'%':'')+'</div></div>';
   }).join(""):'<div class="empty">Ainda sem dados. Eles aparecem quando você rodar com o Farol 6.2 ou mais novo.</div>';
 }
-function renderAlerts(list,admin){
-  if(!list||!list.length){$("#alertas").innerHTML="";return;}
-  $("#alertas").innerHTML='<div class="card alerts"><div class="ov">🔔 Precisa de atenção <span class="tag">'+list.length+' alerta(s)</span></div>'+
-    list.map(a=>'<div class="al '+a.nivel+'"><div>'+(a.nivel==="problema"?"🔴":"🟡")+'</div><div><b>'+(admin?esc(a.nome)+': ':'')+esc(a.texto)+'</b><div class="ac">O que fazer: '+esc(a.acao||"")+'</div></div></div>').join("")+'</div>';
-}
 function render(d){
   const s=d.resumo,p=d.periodo,days=d.dias;
   $("#who").textContent=d.eu?(d.eu.nome||d.eu.email).split(" ")[0]:"admin";
-  $("#selUser").hidden=true;   // cada um vê só os próprios números (admin também)
   $("#info").textContent=(p.dias===1?"Hoje, "+dm(p.ate):dm(p.desde)+" a "+dm(p.ate))+" · "+s.eventos+" eventos";
   $("#upd").textContent=s.ultimo_evento?"último dado "+s.ultimo_evento.slice(11,16):"ao vivo";
   const liq=s.liquido;
   $("#hero").innerHTML='<div class="lbl">💰 Ganhos no período</div><div class="val"><small>R$</small>'+fmt(s.ganhos||0)+'</div>'+
-    '<div class="sub">'+s.dias_trabalhados+' turno(s) encerrado(s)'+(days.length?' · média '+brl(s.ganhos/days.length)+'/dia':'')+'</div>'+
+    '<div class="sub">'+s.dias_trabalhados+(s.dias_trabalhados===1?' dia trabalhado':' dias trabalhados')+(days.length?' · média '+brl(s.ganhos/days.length)+'/dia':'')+'</div>'+
     '<div class="chips"><span class="chip"><span>Líquido</span><b class="'+(liq>=0?"pos":"neg")+'">'+brl(liq)+'</b></span><span class="chip">🛣️ '+num(s.km)+' <span>km</span></span><span class="chip">⏱️ '+hm(s.horas)+'</span></div>';
   $("#cores").innerHTML=donut(d.cores);
   const tile=(ic,bg,l,v,sm,sp,col)=>'<div class="card kpi">'+sp+'<div class="ic" style="background:'+bg+'">'+ic+'</div><div class="s">'+l+'</div><div class="v">'+v+'</div><div class="s">'+sm+'</div></div>';

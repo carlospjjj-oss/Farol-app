@@ -2,7 +2,7 @@ name: Publicar servidor (Cloudflare)
 on:
   push:
     branches: [main]
-    paths: ["server/worker.js", "wrangler.toml", ".github/workflows/deploy-server.yml"]
+    paths: ["server/worker.js", "server/test/**", "wrangler.toml", ".github/workflows/deploy-server.yml"]
   workflow_dispatch:
 jobs:
   deploy:
@@ -13,6 +13,8 @@ jobs:
         with: { node-version: "22" }
       - name: Conferir sintaxe
         run: node --check server/worker.js
+      - name: Testes do servidor (sem testes verdes, não publica)
+        run: bash server/test/run.sh
       - name: Conferir chave da Cloudflare
         env: { T: "${{ secrets.CLOUDFLARE_API_TOKEN }}" }
         run: |
