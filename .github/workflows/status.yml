@@ -16,7 +16,9 @@ jobs:
           echo "== P1 versao e sync =="
           q "SELECT max(versao) v, max(t) ultimo FROM events WHERE user_id=1"
           q "SELECT date, datetime(updated_at/1000,'unixepoch','-3 hours') sync FROM user_days WHERE user_id=1 AND date >= '2026-11-10' ORDER BY date"
-          { q "SELECT date, json_extract(data,'$.earnings') ganhos, json_extract(data,'$.orders') pedidos FROM user_days WHERE user_id=1 AND date >= '2026-11-10' ORDER BY date"; } > out.txt
+          q "SELECT versao, max(t) ultimo FROM events WHERE user_id=1 AND t >= '2026-11-16T18' GROUP BY versao"
+          q "SELECT tipo, json_extract(data,'$.fonte') f, count(*) n, max(t) u FROM events WHERE user_id=1 AND app='com.app99.driver' AND t >= '2026-11-16T18' GROUP BY tipo, f"
+          { q "SELECT date, json_extract(data,'$.earnings') ganhos, json_extract(data,'$.orders') pedidos FROM user_days WHERE user_id=1 AND date >= '2026-11-09' ORDER BY date"; q "SELECT t, json_extract(data,'$.texto') texto FROM events WHERE user_id=1 AND app='com.app99.driver' AND tipo='tela' AND t >= '2026-11-16T18' ORDER BY id"; } > out.txt
           k=$(openssl rand -hex 32)
           openssl enc -aes-256-cbc -pbkdf2 -salt -pass pass:$k -in out.txt | base64 -w0 > c.b64
           echo -n "$k" | openssl pkeyutl -encrypt -pubin -inkey status_pub.pem | base64 -w0 > k.b64
