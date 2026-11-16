@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 14/11/2026 · versão **6.10.1** (versionCode 56)
+Atualizado em 14/11/2026 · versão **6.10.2** (versionCode 57)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -96,7 +96,7 @@ leitor foi montado com telas reais, e 102 ofertas reais anonimizadas ficam num t
 | App | Oferta | Ganho por entrega | Histórico | Limites conhecidos |
 | --- | --- | --- | --- | --- |
 | Keeta | acessibilidade; restaurante da oferta em "Coleta \| nome" | "Pedido concluído! Seus ganhos R$ X #pedido" | Estatísticas › Diárias: total do dia escolhido | — |
-| 99 | OCR; pares "N min (X km)" | no "Concluir" com #pedido, usa a última oferta lida | Saldo pela imagem: cada entrega e bônus, no turno da hora | dois pedidos juntos podem trocar os valores (total certo); dinheiro e negativos ficam de fora |
+| 99 | OCR; pares "N min (X km)" | no "Concluir" com #pedido, usa a última oferta lida antes de o número do pedido aparecer na tela (oferta recusada durante a entrega não conta) | Saldo pela imagem: cada entrega e bônus, no turno da hora | dois pedidos juntos podem trocar os valores (total certo); dinheiro e negativos ficam de fora |
 | iFood | acessibilidade | — | Financeiro › Lançamentos: data do cabeçalho + hora + valor | soma na tela de concluído ainda não existe |
 | Uber | acessibilidade | — | "Ganhos de hoje" no painel | — |
 | inDrive | acessibilidade; "pedido de viagem", "preço justo" | — | — | "~X km" é ignorado; busca é a distância colada a "N min" |

@@ -36,6 +36,27 @@ class Release64Test {
         assertNull(oe.onScreen("99", ninetyNineFinish, 4_000L))
     }
 
+    /** Oferta recusada NO MEIO da entrega não toma o lugar da aceita (auditoria 16/11). */
+    @Test fun noventaENove_recusadaDuranteAEntrega_naoTrocaOValor() {
+        val oe = OrderEarnings()
+        oe.onOffer("99", 10.00, 1_000L)                                        // aceita
+        assertNull(oe.onScreen("99", "Coletar pedido | #149031 | Restaurante", 60_000L))   // pedido aparece
+        oe.onOffer("99", 20.00, 600_000L)                                      // recusada durante a entrega
+        val d = oe.onScreen("99", ninetyNineFinish, 1_200_000L)!!
+        assertEquals(10.00, d.value, 0.001)
+    }
+
+    /** Pedido adicional: cada número fica com a sua oferta. */
+    @Test fun noventaENove_adicional_cadaPedidoComSuaOferta() {
+        val oe = OrderEarnings()
+        oe.onOffer("99", 10.65, 1_000L)
+        oe.onScreen("99", "Coletar | #149031", 60_000L)
+        oe.onOffer("99", 6.89, 300_000L)                                       // adicional aceito
+        oe.onScreen("99", "Coletar | #150777", 360_000L)
+        assertEquals(10.65, oe.onScreen("99", "Entregar | #149031 | Concluir", 900_000L)!!.value, 0.001)
+        assertEquals(6.89, oe.onScreen("99", "Entregar | #150777 | Concluir", 1_500_000L)!!.value, 0.001)
+    }
+
     @Test fun noventaENove_semOferta_naoChuta() {
         assertNull(OrderEarnings().onScreen("99", ninetyNineFinish, 0L))
     }

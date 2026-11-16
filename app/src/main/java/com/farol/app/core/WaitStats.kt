@@ -40,7 +40,10 @@ class WaitStats(val samples: MutableMap<String, MutableList<Double>> = mutableMa
  * Ganho por entrega concluída, somado no dia do turno (sem depender da tela inicial do app).
  *  - Keeta: "Pedido concluído! Seus ganhos | R$ 13,47 | #7553" (valor e número na própria tela).
  *  - 99: a tela de conclusão não mostra o valor. Quando aparece "Concluir" com o número do pedido,
- *    usa o valor da oferta aceita (a última oferta da 99 lida antes, ainda não usada).
+ *    usa o valor da oferta aceita: a última oferta lida ANTES da primeira vez que esse número de pedido
+ *    apareceu numa tela da 99 (coleta, entrega…). Assim uma oferta recusada no meio da entrega não toma o
+ *    lugar da aceita, e num pedido adicional cada número fica com a sua oferta. As ofertas anteriores à
+ *    escolhida (recusadas antes de aceitar) são descartadas; as posteriores ficam para o próximo pedido.
  * Cada pedido é identificado por "app#número": a mesma tela vista de novo não soma duas vezes.
  */
 class OrderEarnings {
@@ -50,6 +53,7 @@ class OrderEarnings {
     private data class Offer(val price: Double, val at: Long)
     private val offers = mutableMapOf<String, MutableList<Offer>>()
     private val used = LinkedHashSet<String>()   // pedidos já contados (a tela de concluir aparece várias vezes)
+    private val firstSeen = LinkedHashMap<String, Long>()   // número do pedido da 99 → primeira vez que apareceu na tela
 
     fun onOffer(app: String, price: Double, now: Long) {
         if (price <= 0) return
@@ -65,12 +69,28 @@ class OrderEarnings {
             val id = KEETA_ID.find(text.substring(m.range.last))?.groupValues?.get(1) ?: return null
             if (v in 0.5..500.0) Done(app, id, v) else null
         }
-        "99" -> if (NINETY_NINE_FINISH.containsMatchIn(text)) {
-            val id = NINETY_NINE_ID.find(text)?.groupValues?.get(1)
-            val l = offers[app]
-            if (id == null || "$app#$id" in used || l.isNullOrEmpty()) null
-            else { l.removeAll { now - it.at > OFFER_TTL }; l.removeLastOrNull()?.let { used += "$app#$id"; trimUsed(); Done(app, id, it.price) } }
-        } else null
+        "99" -> {
+            // anota quando cada número de pedido aparece pela primeira vez (telas de coleta e entrega mostram "#149031")
+            NINETY_NINE_ID.findAll(text).forEach { m -> firstSeen.putIfAbsent(m.groupValues[1], now) }
+            while (firstSeen.size > 50) firstSeen.remove(firstSeen.keys.first())
+            if (NINETY_NINE_FINISH.containsMatchIn(text)) {
+                val id = NINETY_NINE_ID.find(text)?.groupValues?.get(1)
+                val l = offers[app]
+                if (id == null || "$app#$id" in used || l.isNullOrEmpty()) null
+                else {
+                    l.removeAll { now - it.at > OFFER_TTL }
+                    val seen = firstSeen[id] ?: now
+                    val i = l.indexOfLast { it.at <= seen }   // a aceita: a última lida antes do pedido aparecer
+                    if (i < 0) null
+                    else {
+                        val chosen = l[i]
+                        repeat(i + 1) { l.removeAt(0) }       // ela e as recusadas antes dela saem; as depois ficam
+                        used += "$app#$id"; trimUsed()
+                        Done(app, id, chosen.price)
+                    }
+                }
+            } else null
+        }
         else -> null
     }
 

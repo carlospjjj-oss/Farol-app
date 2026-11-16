@@ -7,7 +7,7 @@
 Lê a oferta do **iFood, 99, Keeta, Uber e inDrive** e mostra na hora se a corrida compensa,<br>
 com **R$/km, R$/h e lucro líquido** calculados com os **seus** custos.
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-6.10.1-C8F23C?style=for-the-badge&labelColor=17191C)
+![versão](https://img.shields.io/badge/vers%C3%A3o-6.10.2-C8F23C?style=for-the-badge&labelColor=17191C)
 ![android](https://img.shields.io/badge/Android-8%2B-C8F23C?style=for-the-badge&logo=android&logoColor=white&labelColor=17191C)
 ![kotlin](https://img.shields.io/badge/Kotlin-100%25-C8F23C?style=for-the-badge&logo=kotlin&logoColor=white&labelColor=17191C)
 ![testes](https://img.shields.io/badge/testes-104%20%2B%20102%20reais%20%2B%2012%20emulador-C8F23C?style=for-the-badge&labelColor=17191C)
@@ -242,6 +242,7 @@ docs/lgpd/            registro das operações, RIPD, incidentes, atendimento
 
 | Versão | Principais mudanças |
 |---|---|
+| 6.10.2 | Correção: entrega da 99 fica com o valor da oferta aceita mesmo quando outra oferta é recusada no meio da entrega; no pedido adicional, cada número de pedido fica com a sua oferta |
 | 6.10.1 | Correção: oferta da Uber com botão "Selecionar" passa a ser lida; nota do passageiro lida também quando a estrela é só um ícone ("4,96 (375)") |
 | 6.10 | Caixinhas (manutenção e combustível automáticas, emergência manual) com meta; Análises com faturamento por dia (7/30 dias, tendência), fatia de cada app e regiões de coleta (lista, só no celular); lançar corrida à mão (e apagar) |
 | 6.9 | Painel em abas com a barra embaixo: Início (turno, ganhos, meta, evolução do dia), Corridas (entregas de hoje/7 dias/mês, ofertas, tempo por pedido), Financeiro (resumo, gastos, combustível), Análises (indicadores, horários) e Mais (metas, manutenção e caixinha, atalhos); pontinho vermelho quando há manutenção vencida |
