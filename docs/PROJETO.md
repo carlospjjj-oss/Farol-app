@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 14/11/2026 · versão **6.10.3** (versionCode 58)
+Atualizado em 16/11/2026 · versão **6.10.3** (versionCode 58)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -78,7 +78,7 @@ contado duas vezes.
 | Metas | meta do dia em líquido (ou em bruto, se ligado em Ajustes › Metas). Semana = meta × dias de trabalho; mês proporcional. Folga não conta contra; o que falta é dividido pelos dias que restam | `GoalMath` |
 | Folga | marcada só em dia sem turno nem ganho. Iniciar turno desmarca | `DayRecord.dayOff` |
 | Pausa | notificação fixa enquanto pausado, lembrete se um app de corrida abrir, iniciar turno religa | `PauseControl` |
-| Ajustes fora do normal | consumo, preço, custo por km e faixas fora das faixas típicas: salvar pede confirmação e o painel mostra "Precisa de atenção" | `SettingsSanity` (app) e `settingsProblems` (servidor) |
+| Ajustes fora do normal | consumo, preço, custo por km e faixas fora das faixas típicas: salvar pede confirmação; o aviso aparece no app e no bot do Telegram do admin | `SettingsSanity` (app) e `settingsProblems` (servidor) |
 | Destino e chance de volta | região de coleta e destino lida do endereço (Keeta, iFood, 99 corrida). Chance de volta = ofertas com coleta naquela região no mesmo horário (±1 h) nos últimos 30 dias: 6+ boa, 2–5 alguma, 0–1 pouca. Precisa de 30 ofertas com região; destino só com a cidade de casa não mostra nada. Só no celular | `RegionReader`, `ReturnChance` |
 | Painel web: quem vê o quê | cada conta vê só os próprios números (ganhos, ofertas, diário), o administrador também. Das outras contas o admin vê só o técnico: versão, último sinal, leitura de hoje por app, avisos e travamentos (desde 16/11/2026) | `panelApi`, `/v1/admin/users` |
 | Alertas das contas | desatualizado, pausado, ajustes fora do normal, turno aberto > 20 h, leitura caindo, sem sinal 3+ dias. No app: uma linha curta só com os avisos da própria conta (detalhe ao tocar). No painel web: não aparecem (o admin recebe no bot do Telegram, desde 16/11/2026) | `accountAlerts`, `/v1/me/alertas`, `AlertsClient`, `DashboardAlerts` |
@@ -145,7 +145,7 @@ consentimento do usuário, e dados de clientes nunca saem.
 Nada chega ao celular sem passar por testes no computador e no emulador.
 
 1. Desenvolver no ramo `fase1`.
-2. Testes no computador: 147 testes de regras e leitores, incluindo 102 ofertas reais (`OfertasReaisTest`), o banco de telas reais (`golden/telas_reais.tsv`, `TelasReaisTest`) e o dia inteiro de ganhos (`EarningsRecorderTest`).
+2. Testes no computador: 162 testes de regras e leitores, incluindo 102 ofertas reais (`OfertasReaisTest`), o banco de telas reais (`golden/telas_reais.tsv`, `TelasReaisTest`) e o dia inteiro de ganhos (`EarningsRecorderTest`).
 3. Push em `fase1` roda o build e o emulador Android (API 34): testes de banco, telas e prints. Os prints vão para o
    ramo `prints`.
 4. Conferir os prints.
@@ -197,7 +197,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 
 | Quando | O quê |
 | --- | --- |
-| Agora | ligar o bot do Telegram; validar a 6.6/6.7 rodando: chance de volta, alertas, explicação no card, soma das entregas, leitura do histórico |
+| Agora (até dezembro) | congelamento: só correções. Validar a 6.6 a 6.10.3 na rua. Auditoria técnica de 16/11: 7 de 8 módulos feitos (backend 12 correções, cálculo 6.10.2, sincronização 6.10.3, Android sem defeitos, painel, testes e publicação); falta a leitura OCR (espera o print do adicional da 99) |
 | Fase 3 (confiabilidade) | concluída: alertas e checagem dos ajustes (6.5.5); leitor de ganhos separado e testado, banco de telas reais, canal de teste (6.6) |
 | Com as telas do Marcelo | etapas e ganho da corrida da 99 Motorista (carro) |
 | ~3 semanas de dados (início de dez/2026) | previsão de ganho por horário, faixas que se ajustam sozinhas, "Pergunte ao Farol" no painel |
@@ -206,20 +206,22 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 **Limites conhecidos**
 
 - 99 com dois pedidos ao mesmo tempo: valores podem ser atribuídos trocados (o total fica certo).
-- Leitura do Saldo da 99 pela imagem ainda não foi confirmada com o texto real do celular.
+- Pedido adicional da 99 (23h48 de 13/11) não gerou card: tela diferente, falta o print para ajustar o leitor (o Saldo registrou a entrega).
 - Caminhos dos menus por marca podem variar entre modelos.
 - Chance de volta só usa a região de COLETA das ofertas recebidas; o iFood esconde o bairro da loja em parte das
   ofertas e a 99 Entrega (imagem) não tem região. Destino só com a cidade (Keeta) dá resposta só por cidade.
 
 ## Usuários e pendências
 
-| Conta | Modo e apps | Situação em 14/11 |
+| Conta | Modo e apps | Situação em 16/11 |
 | --- | --- | --- |
-| Carlos | moto: Keeta, 99, iFood (e Uber, inDrive) | 6.5.x, compartilhamento desligado, dias 11 a 13 completos |
-| Marcelo | carro: só 99 | ainda na 6.3.1; custos zerados (R$ 0,05/km), faixas baixas, km do turno de 13/11 errado; compartilhamento ligado |
+| Carlos | moto: Keeta, 99, iFood (e Uber, inDrive) | canal de teste (recebe primeiro), admin, bot do Telegram ligado, compartilhamento desligado |
+| Marcelo | carro: só 99 | ainda na 6.3.1 (o bot avisa); custos zerados (R$ 0,05/km), faixas baixas, km do turno de 13/11 errado; compartilhamento ligado |
 
-- [ ] Criar o bot no @BotFather, guardar o token no segredo `TELEGRAM_TOKEN` da Cloudflare e ligar pelo painel (Contas › Ligar bot do Telegram)
-- [ ] Marcelo: atualizar para a 6.7 (vai pedir para aceitar o aviso de privacidade de novo: novo operador, Telegram), corrigir custos e faixas, corrigir o km do turno de 13/11
+- [x] Bot do Telegram criado, token renovado e vinculado (16/11)
+- [ ] Marcelo: atualizar para a 6.10.3 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
 - [x] Conectar o Notion e criar a cópia deste documento
-- [ ] Conferir a leitura do Saldo da 99 pela imagem no próximo fechamento de dia
+- [x] Leitura do Saldo da 99 pela imagem confirmada (13/11: entregas das 23h48 e 23h57 e bônus)
+- [ ] Mandar print do pedido adicional da 99 (auditoria da leitura OCR)
+- [ ] Opcional: apagar a release duplicada "Farol 6.10.3" (v1.108) no GitHub
