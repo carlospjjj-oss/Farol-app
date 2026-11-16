@@ -13,12 +13,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
-          echo "== J2 diario + telas 99 desde 13:36 (texto CIFRADO, so a chave privada local le) =="
-          { q "SELECT date, json_extract(data,'$.earnings') ganhos, json_extract(data,'$.orders') pedidos, json_extract(data,'$.orderAt') orderAt, json_extract(data,'$.endAt') fim FROM user_days WHERE user_id=1 AND date='2026-11-16'"; q "SELECT t, tipo, json_extract(data,'$.fonte') fonte, json_extract(data,'$.cor') cor, json_extract(data,'$.texto') texto FROM events WHERE user_id=1 AND app='com.app99.driver' AND t >= '2026-11-16T13:36' ORDER BY id"; q "SELECT t, tipo, app, json_remove(data,'$.texto','$.texto_acessibilidade','$.pacotes_vistos') d FROM events WHERE user_id=1 AND t >= '2026-11-16T13:00' AND tipo NOT IN ('tela','saude','offer') ORDER BY id"; } > out.txt
-          k=$(openssl rand -hex 32)
-          openssl enc -aes-256-cbc -pbkdf2 -salt -pass pass:$k -in out.txt | base64 -w0 > c.b64
-          echo -n "$k" | openssl pkeyutl -encrypt -pubin -inkey status_pub.pem | base64 -w0 > k.b64
-          echo "KEY:$(cat k.b64)"
-          echo "DATA:$(cat c.b64)"
-          rm -f out.txt
+          echo "== K1 sync do diario de hoje (so horario) =="
+          q "SELECT date, updated_at, datetime(updated_at/1000,'unixepoch','-3 hours') hora FROM user_days WHERE user_id=1 AND date='2026-11-16'"
+          q "SELECT max(t) ultimo_evento FROM events WHERE user_id=1"
           echo "== fimH =="
