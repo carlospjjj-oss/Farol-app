@@ -59,7 +59,13 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     private lateinit var journal: JournalStore
     private val recorder by lazy {
         com.farol.app.core.EarningsRecorder(journal).apply {
-            onRecorded = { date, app -> settings.markAuto(date, app); runCatching { ShiftNotifier.refresh(this@OfferReaderService) } }
+            onRecorded = { date, app ->
+                settings.markAuto(date, app); runCatching { ShiftNotifier.refresh(this@OfferReaderService) }
+                // Ganho lido: manda o diário logo (o agendador de 15 min do Android às vezes segura por horas).
+                // No máximo 1 pedido a cada 2 min, para não ficar adiando o envio.
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastEarningsSyncAt > 120_000) { lastEarningsSyncAt = now; runCatching { com.farol.app.service.FarolJobs.syncSoon(this@OfferReaderService) } }
+            }
         }
     }
     private val waits by lazy { com.farol.app.data.WaitStore(this) }
@@ -344,6 +350,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     @Volatile private var lastHistoryLogAt = 0L
     @Volatile private var lastSaldoOcrAt = 0L
     @Volatile private var lastHomeOcrAt = 0L
+    @Volatile private var lastEarningsSyncAt = 0L
 
 
     private fun minutesSinceOffer(): Int? {
