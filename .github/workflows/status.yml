@@ -13,10 +13,14 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
-          echo "== limpeza 6.10.7 =="
-          npx -y wrangler@3 d1 execute farol --remote --json --command "SELECT id, data FROM events WHERE tipo IN ('tela','miss','offer') AND (json_extract(data,'$.texto') IS NOT NULL OR json_extract(data,'$.texto_acessibilidade') IS NOT NULL)" > rows.json
-          node limpar2.mjs rows.json
-          if [ -s limpar.sql ]; then npx -y wrangler@3 d1 execute farol --remote --file limpar.sql --yes > /dev/null && echo aplicado; fi
-          echo "== conferencia (contagens) =="
-          q "SELECT count(*) n FROM events WHERE data LIKE '%Arroio Grande%' OR data LIKE '%Itamarati%' OR data LIKE '%Isadora%' OR data LIKE '%Magalhães de Castro, 4800%' OR data LIKE '%O4046%'"
+          echo "== P1 versao e sync =="
+          q "SELECT max(versao) v, max(t) ultimo FROM events WHERE user_id=1"
+          q "SELECT date, datetime(updated_at/1000,'unixepoch','-3 hours') sync FROM user_days WHERE user_id=1 AND date >= '2026-11-10' ORDER BY date"
+          { q "SELECT date, json_extract(data,'$.earnings') ganhos, json_extract(data,'$.orders') pedidos FROM user_days WHERE user_id=1 AND date >= '2026-11-10' ORDER BY date"; } > out.txt
+          k=$(openssl rand -hex 32)
+          openssl enc -aes-256-cbc -pbkdf2 -salt -pass pass:$k -in out.txt | base64 -w0 > c.b64
+          echo -n "$k" | openssl pkeyutl -encrypt -pubin -inkey status_pub.pem | base64 -w0 > k.b64
+          echo "KEY:$(cat k.b64)"
+          echo "DATA:$(cat c.b64)"
+          rm -f out.txt
           echo "== fimH =="
