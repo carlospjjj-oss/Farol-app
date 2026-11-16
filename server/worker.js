@@ -463,7 +463,16 @@ async function authRoutes(req, env, url) {
          (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id) AS eventos
        FROM users u ORDER BY u.id`).all();
     const exc = (await db.prepare("SELECT k, v FROM meta WHERE k LIKE 'exclusao:%' ORDER BY v DESC").all()).results || [];
-    return json({ usuarios: r.results || [], politica: POLICY_VERSION,
+    // Só o técnico de cada conta: versão, se está desatualizada e como está a leitura hoje (sem valores)
+    const latest = await latestRelease(db, env).catch(() => null);
+    for (const u of r.results || []) {
+      const last = await db.prepare("SELECT versao FROM events WHERE user_id = ? AND versao IS NOT NULL ORDER BY id DESC LIMIT 1").bind(u.id).first();
+      u.versao = last?.versao || null;
+      u.desatualizado = !!(latest && u.versao && cmpVersion(u.versao, latest) < 0);
+      const health = await readerHealth(db, { scopeUser: u.id, modo: null }).catch(() => []);
+      u.leitura = health.filter((h) => h.status !== "SEM_DADOS").map((h) => ({ app: APP_NAMES[h.app] || h.app, status: h.status }));
+    }
+    return json({ usuarios: r.results || [], politica: POLICY_VERSION, versao_publicada: latest,
       exclusoes: exc.map((x) => ({ conta: "u" + x.k.split(":")[1], em: Number(x.v) })) });
   }
   if (p === "/v1/admin/crashes") {
@@ -573,21 +582,19 @@ function brtDate(offsetDays = 0) {
 }
 
 async function panelApi(req, env, url) {
-  // Quem pode ver: sessão de login (cada um vê o seu; admin vê todos) ou ADMIN_KEY de emergência.
+  // Cada conta vê SÓ os próprios números (ganhos, ofertas, diário) — o administrador também.
+  // O admin vê das outras contas apenas o técnico (versão, sinal, leitura, avisos, travamentos), em "Contas".
+  // ADMIN_KEY de emergência não abre números de ninguém (escopo vazio).
   let scopeUser = null, isAdmin = false, me = null;
   const key = req.headers.get("x-farol-key");
   if (key && env.ADMIN_KEY && key.length === env.ADMIN_KEY.length && sameBytes(enc.encode(key), enc.encode(env.ADMIN_KEY))) {
-    isAdmin = true;
+    isAdmin = true; scopeUser = -1;
   } else {
     const sess = await sessionFrom(req, env);
     if (!sess || sess === "invalid") return json({ erro: "faça login" }, 401);
     me = { id: sess.user_id, nome: sess.nome, email: sess.email, papel: sess.papel };
     isAdmin = sess.papel === "admin";
-    if (!isAdmin) scopeUser = sess.user_id;
-  }
-  if (isAdmin) {
-    const u = url.searchParams.get("usuario");
-    if (u === "anon") scopeUser = "anon"; else if (u && /^\d+$/.test(u)) scopeUser = Number(u);
+    scopeUser = sess.user_id;
   }
 
   const dias = Math.min(Math.max(parseInt(url.searchParams.get("dias") || "7", 10) || 7, 1), 365);
@@ -662,18 +669,16 @@ async function panelApi(req, env, url) {
   const sum = (k) => days.reduce((a, d) => a + (Number(d[k]) || 0), 0);
   const ganhos = sum("ganho_total"), km = sum("km"), horas = sum("horas"), liquido = sum("liquido");
 
-  let usuarios;
-  if (isAdmin) usuarios = (await db.prepare("SELECT id, nome, email FROM users ORDER BY nome").all()).results || [];
-
   const scope = { scopeUser, modo };
+  // Avisos técnicos (sem valores de ganho): o admin recebe os de todas as contas; os outros, só os seus
   const alertIds = isAdmin
-    ? (typeof scopeUser === "number" ? [scopeUser] : (usuarios || []).map((x) => x.id))
+    ? ((await db.prepare("SELECT id FROM users WHERE ativo = 1").all()).results || []).map((x) => x.id)
     : (me ? [me.id] : []);
   const [saude, semana, alertas] = await Promise.all([readerHealth(db, scope), weeklySummary(db, scope),
     accountAlerts(db, env, alertIds).catch(() => [])]);
 
   return json({
-    eu: me, admin: isAdmin, usuarios, escopo: scopeUser,
+    eu: me, admin: isAdmin, escopo: scopeUser,
     periodo: { dias, desde: since, ate: brtDate(0), modo: modo || "todos" },
     resumo: {
       ganhos, km, horas, liquido, dias_trabalhados: days.length,
@@ -1302,7 +1307,7 @@ $("#selUser").onchange=e=>{usuario=e.target.value;load();};
 function showLogin(msg){$("#app").hidden=true;$("#login").hidden=false;$("#err").textContent=msg||"";}
 async function load(){
   if(!tok)return showLogin();
-  let r;try{r=await fetch("/api/painel?dias="+dias+"&modo="+modo+"&usuario="+usuario,{headers:H()});}catch(e){return showLogin("Sem conexão");}
+  let r;try{r=await fetch("/api/painel?dias="+dias+"&modo="+modo,{headers:H()});}catch(e){return showLogin("Sem conexão");}
   const d=await r.json().catch(()=>({erro:"resposta inválida"}));
   if(!r.ok){if(r.status===401){try{localStorage.removeItem("farolTok")}catch(e){}tok=null;}return showLogin(d.erro);}
   $("#login").hidden=true;$("#app").hidden=false;last=d;render(d);
@@ -1399,8 +1404,7 @@ function renderAlerts(list,admin){
 function render(d){
   const s=d.resumo,p=d.periodo,days=d.dias;
   $("#who").textContent=d.eu?(d.eu.nome||d.eu.email).split(" ")[0]:"admin";
-  const sel=$("#selUser");sel.hidden=!d.admin;
-  if(d.admin){sel.innerHTML='<option value="">👥 Todas as contas</option>'+(d.usuarios||[]).map(u=>'<option value="'+u.id+'">'+esc(u.nome||u.email)+'</option>').join("")+'<option value="anon">Sem conta (antigos)</option>';sel.value=usuario;}
+  $("#selUser").hidden=true;   // cada um vê só os próprios números (admin também)
   $("#info").textContent=(p.dias===1?"Hoje, "+dm(p.ate):dm(p.desde)+" a "+dm(p.ate))+" · "+s.eventos+" eventos";
   $("#upd").textContent=s.ultimo_evento?"último dado "+s.ultimo_evento.slice(11,16):"ao vivo";
   const liq=s.liquido;
@@ -1436,7 +1440,8 @@ async function loadUsers(){
   const r=await fetch("/v1/admin/users",{headers:H()}).catch(()=>null);if(!r||!r.ok)return;
   const d=await r.json();$("#secUsers").hidden=false;
   $("#users").innerHTML=d.usuarios.map(u=>'<div class="u"><div class="'+(u.ativo?"":"off")+'"><b>'+esc(u.nome||"—")+'</b>'+(u.papel==="admin"?'<span class="tagA">admin</span>':'')+
-    '<div class="sub">'+esc(u.email)+' · '+u.eventos+' eventos'+(u.ultimo?' · último '+dm(u.ultimo)+' '+u.ultimo.slice(11,16):'')+(u.ativo?'':' · desativada')+
+    '<div class="sub">'+esc(u.email)+(u.versao?' · v'+esc(u.versao)+(u.desatualizado?' ⚠️ desatualizado':' ✅'):'')+(u.ultimo?' · último sinal '+dm(u.ultimo)+' '+u.ultimo.slice(11,16):' · sem sinal')+(u.ativo?'':' · desativada')+
+    ((u.leitura||[]).length?'<br>Leitura hoje: '+u.leitura.map(h=>esc(h.app)+' '+(h.status==="OK"?"✅":h.status==="ATENCAO"?"🟡":"🔴")).join(" · "):'')+
     ' · '+(u.consent_versao===d.politica?'✅ política aceita':'⚠️ falta aceitar a política')+(u.compartilhar?' · compartilha textos':' · sem textos')+'</div></div>'+
     '<div class="b"><button data-a="reset" data-id="'+u.id+'">Nova senha</button>'+(u.papel==="admin"?'':'<button data-a="toggle" data-id="'+u.id+'">'+(u.ativo?"Desativar":"Ativar")+'</button>')+'</div></div>').join("")+
     (d.exclusoes&&d.exclusoes.length?'<div class="sub" style="margin-top:8px">🗑 Contas excluídas pelo titular (apagar as cópias de análise com esses nomes): '+d.exclusoes.map(x=>esc(x.conta)+' em '+new Date(x.em).toLocaleDateString("pt-BR")).join(", ")+'</div>':'');
@@ -1594,7 +1599,7 @@ Se não ficar satisfeito, você pode peticionar à <b>Autoridade Nacional de Pro
 <li>A conta é bloqueada temporariamente depois de várias senhas erradas, e cada conta só acessa os próprios dados.</li>
 <li>O app é assinado com chave protegida e confere a assinatura e a impressão digital (SHA-256) de cada atualização antes de instalar.</li>
 <li>Os textos são mascarados no aparelho antes do envio (endereços, telefones, CEPs e nome do cliente nas telas de entrega). Telas de conversa (chat) com o cliente nunca são enviadas. O nome dos restaurantes usado para estimar a espera e o bairro de coleta e de destino das ofertas (usado para a chance de volta) ficam só no seu celular.</li>
-<li>Seguimos minimização, retenção limitada e acesso administrativo restrito ao controlador.</li>
+<li>Seguimos minimização, retenção limitada e acesso administrativo restrito ao controlador. O painel do administrador <b>não mostra ganhos, ofertas nem o diário de outras contas</b>: só o funcionamento do app (versão, último sinal, leitura, avisos técnicos e travamentos).</li>
 </ul>
 <p>Nenhum sistema é 100% invulnerável, mas adotamos medidas técnicas e administrativas aptas a proteger os dados (art. 46).</p>
 
@@ -1614,7 +1619,7 @@ A comunicação dirá o que aconteceu, quais dados foram afetados, os riscos e a
 
 <h2 id="s16"><span>16.</span>Alterações e histórico de versões</h2>
 <p>Podemos atualizar este aviso. Mudanças relevantes, como nova finalidade, novo dado ou novo operador, serão informadas no app, e seu aceite será pedido de novo antes de continuar.</p>
-<table><tr><th>Versão</th><th>Mudança</th></tr><tr><td>${V}</td><td>Primeira versão: contas, sincronização, consentimento separado para textos, direitos no app, retenção automática</td></tr><tr><td>14/11/2026</td><td>Esclarecimento, sem mudar finalidades: gastos lançados e ganho por entrega no diário; nome do cliente mascarado e chat nunca enviado; nome de restaurante só no aparelho</td></tr><tr><td>14/11/2026</td><td>Novo operador: Telegram, para avisar o administrador sobre problemas técnicos do app (seção 7). Sem ganhos nem conteúdo das telas</td></tr></table>
+<table><tr><th>Versão</th><th>Mudança</th></tr><tr><td>${V}</td><td>Primeira versão: contas, sincronização, consentimento separado para textos, direitos no app, retenção automática</td></tr><tr><td>14/11/2026</td><td>Esclarecimento, sem mudar finalidades: gastos lançados e ganho por entrega no diário; nome do cliente mascarado e chat nunca enviado; nome de restaurante só no aparelho</td></tr><tr><td>14/11/2026</td><td>Novo operador: Telegram, para avisar o administrador sobre problemas técnicos do app (seção 7). Sem ganhos nem conteúdo das telas</td></tr><tr><td>16/11/2026</td><td>Esclarecimento, sem mudar finalidade: o painel do administrador deixa de mostrar números (ganhos, ofertas, diário) de outras contas; fica só o funcionamento do app</td></tr></table>
 <p class="sub">Lei aplicável: legislação brasileira, em especial a LGPD e o Marco Civil da Internet (Lei nº 12.965/2014).</p>
 </main></body></html>`;
 }
