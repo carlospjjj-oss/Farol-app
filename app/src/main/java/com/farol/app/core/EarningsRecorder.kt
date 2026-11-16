@@ -69,7 +69,7 @@ class EarningsRecorder(private val store: DayStore, private val clock: () -> Lon
             }
         }
         val entries = when (app) {
-            "99" -> HistoryReader.ninetyNineSaldo(text)
+            "99" -> HistoryReader.ninetyNineHistorico(text, store.today()).ifEmpty { HistoryReader.ninetyNineSaldo(text) }
             "iFood" -> HistoryReader.ifoodEntries(text, store.today())
             else -> emptyList()
         }

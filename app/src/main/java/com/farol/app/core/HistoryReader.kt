@@ -27,7 +27,8 @@ object HistoryReader {
 
     fun isHistory(app: String, text: String): Boolean = when (app) {
         "Keeta" -> text.contains("Ganhos totais", true) && text.contains("Estat", true)
-        "99" -> Regex("""(^|\|\s*)Saldo\s*\|""").containsMatchIn(text) && (text.contains("Transfer", true) || text.contains("Configura", true))
+        "99" -> (Regex("""(^|\|\s*)Saldo\s*\|""").containsMatchIn(text) && (text.contains("Transfer", true) || text.contains("Configura", true))) ||
+            ((text.contains("Histórico de corridas", true) || text.contains("Ganhos pagos no app", true)) && !text.contains("Aceitar", true))
         "iFood" -> Regex("""Lan[cç]amentos|Extrato|Hist[oó]rico de ganhos|Meus ganhos|Repasses""", RegexOption.IGNORE_CASE).containsMatchIn(text) &&
             !text.contains("Aceitar", true)
         else -> false
@@ -59,6 +60,42 @@ object HistoryReader {
         val paired = pairedEntries(parts)
         if (paired.isNotEmpty()) return paired
         return columnEntries(parts)
+    }
+
+    private val HIST_WHEN = Regex("""(\d{1,2})/(\d{1,2})/(\d{4})\s*(\d{1,2}):(\d{2})""")
+    private val HIST_LABEL = Regex("""entrega|b[oô]nus|corrida|gorjeta|promo|incentivo|desafio|ajuste""", RegexOption.IGNORE_CASE)
+
+    /**
+     * 99 › Histórico de corridas (16/11): cada lançamento com data e hora ("16/11/2026 13:34 | Ganhos pagos no app |
+     * Entrega Food | ... | 16/11/2026 15:57 | Ganhos pagos no app | Bônus | ... | R$7,50 > | R$5,00 > | R$5,00 >").
+     * O OCR lê as datas e depois os valores, em coluna: só junta se a quantidade bater.
+     * Família própria ("99$hist"): vale a maior entre ela, o Saldo e as entregas, nunca a soma.
+     */
+    fun ninetyNineHistorico(text: String, today: String): List<Entry> {
+        if (!text.contains("Histórico de corridas", true) && !text.contains("Ganhos pagos no app", true)) return emptyList()
+        if (text.contains("Aceitar", true)) return emptyList()
+        val parts = text.split("|").map { it.trim().replace(Regex("(?<=R\\$)\\s*O|(?<=\\d)O|O(?=,\\d)"), "0") }.filter { it.isNotEmpty() }
+        val whens = parts.withIndex().mapNotNull { (i, p) -> HIST_WHEN.find(p)?.let { i to it } }
+        val moneys = parts.filter { MONEY.matches(it) }
+        if (whens.isEmpty() || whens.size != moneys.size) return emptyList()
+        val out = mutableListOf<Entry>(); val seen = mutableMapOf<String, Int>()
+        whens.forEachIndexed { k, (idx, w) ->
+            val until = whens.getOrNull(k + 1)?.first ?: parts.size
+            val between = parts.subList(idx + 1, until).filter { MONEY.find(it) == null }
+            if (between.any { it.contains("dinheiro", true) }) return@forEachIndexed   // pago em dinheiro: fora (igual ao Saldo)
+            val label = between.firstOrNull { HIST_LABEL.containsMatchIn(it) && !it.equals("Entregas", true) } ?: "Lançamento"
+            val dd = w.groupValues[1].toInt(); val mm = w.groupValues[2].toInt(); val yy = w.groupValues[3].toInt()
+            val h = w.groupValues[4].toInt(); val mi = w.groupValues[5].toInt()
+            val date = "%04d-%02d-%02d".format(yy, mm, dd)
+            val mSeg = moneys[k]
+            val v = OfferParser.parseMoney(MONEY.find(mSeg)!!.groupValues[1])
+            if (v != null && v > 0 && v < 1000 && !mSeg.contains("-") && h < 24 && mi < 60 && dd in 1..31 && mm in 1..12 && date <= today) {
+                val base = "$date:${"%02d%02d".format(h, mi)}:${Math.round(v * 100)}:${fold(label)}"
+                val n = (seen[base] ?: 0) + 1; seen[base] = n
+                out += Entry("99", label, v, h * 60 + mi, "99\$hist:$base:$n", date)
+            }
+        }
+        return out
     }
 
     /**

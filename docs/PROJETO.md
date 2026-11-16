@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 16/11/2026 · versão **6.10.5** (versionCode 60)
+Atualizado em 16/11/2026 · versão **6.10.6** (versionCode 61)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -98,7 +98,7 @@ leitor foi montado com telas reais, e 102 ofertas reais anonimizadas ficam num t
 | App | Oferta | Ganho por entrega | Histórico | Limites conhecidos |
 | --- | --- | --- | --- | --- |
 | Keeta | acessibilidade; restaurante da oferta em "Coleta \| nome" | "Pedido concluído! Seus ganhos R$ X #pedido" | Estatísticas › Diárias: total do dia escolhido | — |
-| 99 | OCR; pares "N min (X km)" | no "Concluir" com #pedido, usa a última oferta lida antes de o número do pedido aparecer na tela (oferta recusada durante a entrega não conta) | Saldo pela imagem: cada entrega e bônus, no turno da hora; "ganhos de hoje" no painel antigo ("Painel \| R$") e na tela inicial nova ("R$ X \| 99 Abastece", 6.10.4; lida pela imagem a cada 30 s no máximo, 6.10.5) | dois pedidos juntos podem trocar os valores (total certo); dinheiro e negativos ficam de fora; entrega da 99 Food sem #pedido só entra pelo "ganhos de hoje"; a lista "Solicitações de Pedidos" não gera card |
+| 99 | OCR; pares "N min (X km)" | no "Concluir" com #pedido, usa a última oferta lida antes de o número do pedido aparecer na tela (oferta recusada durante a entrega não conta) | Saldo pela imagem: cada entrega e bônus, no turno da hora; Histórico de corridas pela imagem: cada entrega e bônus com data e hora (família "99$hist", 6.10.6); "ganhos de hoje" no painel antigo ("Painel \| R$") e na tela inicial nova ("R$ X \| 99 Abastece", 6.10.4; lida pela imagem a cada 30 s no máximo, 6.10.5) | dois pedidos juntos podem trocar os valores (total certo); dinheiro e negativos ficam de fora; entrega da 99 Food sem #pedido só entra pelo "ganhos de hoje"; a lista "Solicitações de Pedidos" não gera card |
 | iFood | acessibilidade | — | Financeiro › Lançamentos: data do cabeçalho + hora + valor | soma na tela de concluído ainda não existe |
 | Uber | acessibilidade | — | "Ganhos de hoje" no painel | — |
 | inDrive | acessibilidade; "pedido de viagem", "preço justo" | — | — | "~X km" é ignorado; busca é a distância colada a "N min" |
@@ -197,7 +197,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 
 | Quando | O quê |
 | --- | --- |
-| Agora (até dezembro) | congelamento: só correções. Validar a 6.6 a 6.10.5 na rua. Auditoria técnica de 16/11: 7 de 8 módulos feitos (backend 12 correções, cálculo 6.10.2, sincronização 6.10.3, Android sem defeitos, painel, testes e publicação); falta a leitura OCR: em 16/11 a 99 mudou a tela inicial (corrigido na 6.10.4 e 6.10.5) e passou a mostrar ofertas na lista "Solicitações de Pedidos", que ainda não gera card (espera o texto/print da lista) |
+| Agora (até dezembro) | congelamento: só correções. Validar a 6.6 a 6.10.6 na rua. Auditoria técnica de 16/11: 7 de 8 módulos feitos (backend 12 correções, cálculo 6.10.2, sincronização 6.10.3, Android sem defeitos, painel, testes e publicação); falta a leitura OCR: em 16/11 a 99 mudou a tela inicial (corrigido de 6.10.4 a 6.10.6) e passou a mostrar ofertas na lista "Solicitações de Pedidos", que ainda não gera card (espera o texto/print da lista) |
 | Fase 3 (confiabilidade) | concluída: alertas e checagem dos ajustes (6.5.5); leitor de ganhos separado e testado, banco de telas reais, canal de teste (6.6) |
 | Com as telas do Marcelo | etapas e ganho da corrida da 99 Motorista (carro) |
 | ~3 semanas de dados (início de dez/2026) | previsão de ganho por horário, faixas que se ajustam sozinhas, "Pergunte ao Farol" no painel |
@@ -206,6 +206,8 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 **Limites conhecidos**
 
 - 99 com dois pedidos ao mesmo tempo: valores podem ser atribuídos trocados (o total fica certo).
+- O print do OCR pega a tela inteira: janela de oferta de outro app por cima da 99 é ignorada quando outro app leu a mesma oferta nos últimos 15 s (6.10.6).
+- 99 avisou "Conta pausada por excesso de rejeições" em 16/11 (15h37): nesse estado a tela inicial não mostra o "ganhos de hoje"; o Histórico de corridas cobre.
 - Pedido adicional da 99 (23h48 de 13/11) não gerou card: tela diferente, falta o print para ajustar o leitor (o Saldo registrou a entrega).
 - Caminhos dos menus por marca podem variar entre modelos.
 - Chance de volta só usa a região de COLETA das ofertas recebidas; o iFood esconde o bairro da loja em parte das
@@ -219,7 +221,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 | Marcelo | carro: só 99 | ainda na 6.3.1 (o bot avisa); custos zerados (R$ 0,05/km), faixas baixas, km do turno de 13/11 errado; compartilhamento ligado |
 
 - [x] Bot do Telegram criado, token renovado e vinculado (16/11)
-- [ ] Marcelo: atualizar para a 6.10.5 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
+- [ ] Marcelo: atualizar para a 6.10.6 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
 - [x] Conectar o Notion e criar a cópia deste documento
 - [x] Leitura do Saldo da 99 pela imagem confirmada (13/11: entregas das 23h48 e 23h57 e bônus)

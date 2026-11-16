@@ -396,8 +396,16 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         }
     }
 
+    // Última oferta lida de outro app (app, centavos, hora): o print do OCR pega a tela inteira, e a janela de
+    // oferta de um app por cima (ex.: Keeta sobre a 99) virava uma oferta falsa da 99 (16/11).
+    private var lastOtherOffer: Triple<String, Long, Long>? = null
+
     private fun handleOffer(offer: ParsedOffer, pkg: String, source: String, raw: String) {
         val now = SystemClock.elapsedRealtime()
+        val cents = Math.round(offer.price * 100)
+        val prev = lastOtherOffer
+        if (source == "ocr" && prev != null && prev.first != offer.app && prev.second == cents && now - prev.third < 15_000) return
+        if (source != "ocr") lastOtherOffer = Triple(offer.app, cents, now)
         lastOfferSeenAt = now
         lastAnyOfferAt = now
         if (offer.signature == lastSig && now - lastSigAt < 60_000 && overlay.isShowing) {
