@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 16/11/2026 · versão **6.10.8** (versionCode 63)
+Atualizado em 16/11/2026 · versão **6.10.9** (versionCode 64)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -54,7 +54,8 @@ atualiza sozinho.
   excluir, alertas), `/v1/admin/*` (inclui ligar o bot do Telegram), `/v1/telegram` (webhook do bot), `/api/painel`,
   `/painel`, `/privacidade`. De hora em hora (cron do Worker) roda a passada do bot do Telegram.
 - **Painel do app em abas (6.9):** Início, Corridas, Financeiro, Análises e Mais, com barra fixa embaixo; a última aba
-  aberta é lembrada (`DashboardTabs`).
+  aberta é lembrada (`DashboardTabs`). No Financeiro dá para escolher o dia (‹ › ou calendário) e corrigir turno, ganhos
+  e gastos daquele dia (6.10.9, `DashboardDay`).
 - **Troca de conta no celular (6.10.3):** outra conta entrando apaga do aparelho o diário e a reserva de emergência
   do dono anterior (estão na conta dele); sair da conta sincroniza antes.
 - **Banco D1:** contas, sessões, eventos, dias do diário, abastecimentos, erros do app.
@@ -197,7 +198,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 
 | Quando | O quê |
 | --- | --- |
-| Agora (até dezembro) | congelamento: só correções. Validar a 6.6 a 6.10.8 na rua. Auditoria técnica de 16/11: 7 de 8 módulos feitos (backend 12 correções, cálculo 6.10.2, sincronização 6.10.3, Android sem defeitos, painel, testes e publicação); falta a leitura OCR: em 16/11 a 99 mudou a tela inicial (corrigido de 6.10.4 a 6.10.6) e passou a mostrar ofertas na lista "Solicitações de Pedidos", que ainda não gera card (espera o texto/print da lista) |
+| Agora (até dezembro) | congelamento: só correções (exceção pedida em 16/11: escolher o dia no Financeiro, 6.10.9). Validar a 6.6 a 6.10.9 na rua. Auditoria técnica de 16/11: 7 de 8 módulos feitos (backend 12 correções, cálculo 6.10.2, sincronização 6.10.3, Android sem defeitos, painel, testes e publicação); falta a leitura OCR: em 16/11 a 99 mudou a tela inicial (corrigido de 6.10.4 a 6.10.6) e passou a mostrar ofertas na lista "Solicitações de Pedidos", que ainda não gera card (espera o texto/print da lista) |
 | Fase 3 (confiabilidade) | concluída: alertas e checagem dos ajustes (6.5.5); leitor de ganhos separado e testado, banco de telas reais, canal de teste (6.6) |
 | Com as telas do Marcelo | etapas e ganho da corrida da 99 Motorista (carro) |
 | ~3 semanas de dados (início de dez/2026) | previsão de ganho por horário, faixas que se ajustam sozinhas, "Pergunte ao Farol" no painel |
@@ -221,7 +222,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 | Marcelo | carro: só 99 | ainda na 6.3.1 (o bot avisa); custos zerados (R$ 0,05/km), faixas baixas, km do turno de 13/11 errado; compartilhamento ligado |
 
 - [x] Bot do Telegram criado, token renovado e vinculado (16/11)
-- [ ] Marcelo: atualizar para a 6.10.8 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
+- [ ] Marcelo: atualizar para a 6.10.9 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
 - [x] Conectar o Notion e criar a cópia deste documento
 - [x] Leitura do Saldo da 99 pela imagem confirmada (13/11: entregas das 23h48 e 23h57 e bônus)

@@ -55,6 +55,7 @@ class DashboardActivity : Activity() {
     internal val hhmm = SimpleDateFormat("HH:mm", ptBR)
     internal val ddmm = SimpleDateFormat("dd/MM", ptBR)
     internal var periodMonth = false
+    internal var finDay: String? = null   // Financeiro › dia escolhido (null = hoje)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

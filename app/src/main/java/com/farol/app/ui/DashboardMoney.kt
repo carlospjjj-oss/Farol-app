@@ -22,7 +22,7 @@ internal fun DashboardActivity.goals(): GoalMath.Goals? {
 internal fun DashboardActivity.expensesCard(day: DayRecord) {
     val card = k.card()
     card.addView(k.hbox().apply {
-        val t = k.overline("Gastos do dia")
+        val t = k.overline(if (day.date == store.day().date) "Gastos do dia" else "Gastos de ${day.date.substring(8)}/${day.date.substring(5, 7)}")
         addView(t, weighted(t))
         if (day.expenses.isNotEmpty()) addView(k.text(Fmt.money(day.totalExpenses), 15, Palette.TEXT, k.bold))
     })
@@ -54,11 +54,11 @@ internal fun DashboardActivity.expensesCard(day: DayRecord) {
             })
         }, k.lp(top = 10))
     }
-    card.addView(k.pill("＋  Lançar gasto") { askExpense() }, k.lp(top = 14))
+    card.addView(k.pill("＋  Lançar gasto") { askExpense(day.date) }, k.lp(top = 14))
     add(card)
 }
 
-internal fun DashboardActivity.askExpense() {
+internal fun DashboardActivity.askExpense(date: String = store.day().date) {
     var cat = "alimentacao"
     val seg = k.hbox()
     fun renderSeg() {
@@ -82,7 +82,7 @@ internal fun DashboardActivity.askExpense() {
     val value = k.field("R$ 0,00").apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL }
     val note = k.field("Ex.: marmita, óleo, estacionamento")
     note.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES   // texto, não só número
-    val day = store.day()
+    val day = store.day(date)
     val box = k.vbox().apply {
         addView(seg)
         addView(labeled("Valor", value), k.lp(top = 14))
@@ -90,9 +90,9 @@ internal fun DashboardActivity.askExpense() {
         val s = com.farol.app.core.JournalMath.summarize(day, settings.profile.costPerKm)
         addView(k.text("Líquido do dia agora: ${Fmt.money(s.netAfterExpenses)}. Manutenção não sai do líquido: sai da caixinha (para trocas de peça, use Manutenção › Registrar troca).", 12, Palette.MUTED), k.lp(top = 10))
     }
-    dialog("Novo gasto", box, "Salvar") {
+    dialog(if (date == store.day().date) "Novo gasto" else "Novo gasto · ${date.substring(8)}/${date.substring(5, 7)}", box, "Salvar") {
         val v = value.num()?.takeIf { it > 0 && it < 10_000 } ?: return@dialog fail("Digite o valor")
-        val d = store.day()
+        val d = store.day(date)
         store.putDay(d.copy(expenses = d.expenses + Expense(System.currentTimeMillis(), cat, v, note.text.toString().trim().take(60))))
         syncSoon()
         toast("Gasto de ${Fmt.money(v)} lançado"); true

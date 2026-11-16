@@ -7,7 +7,7 @@
 Lê a oferta do **iFood, 99, Keeta, Uber e inDrive** e mostra na hora se a corrida compensa,<br>
 com **R$/km, R$/h e lucro líquido** calculados com os **seus** custos.
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-6.10.8-C8F23C?style=for-the-badge&labelColor=17191C)
+![versão](https://img.shields.io/badge/vers%C3%A3o-6.10.9-C8F23C?style=for-the-badge&labelColor=17191C)
 ![android](https://img.shields.io/badge/Android-8%2B-C8F23C?style=for-the-badge&logo=android&logoColor=white&labelColor=17191C)
 ![kotlin](https://img.shields.io/badge/Kotlin-100%25-C8F23C?style=for-the-badge&logo=kotlin&logoColor=white&labelColor=17191C)
 ![testes](https://img.shields.io/badge/testes-104%20%2B%20102%20reais%20%2B%2012%20emulador-C8F23C?style=for-the-badge&labelColor=17191C)
@@ -242,6 +242,7 @@ docs/lgpd/            registro das operações, RIPD, incidentes, atendimento
 
 | Versão | Principais mudanças |
 |---|---|
+| 6.10.9 | Exceção ao congelamento (pedido do Carlos em 16/11): no Financeiro, escolher o dia (‹ › ou o calendário) e ver ganhos, líquido, km e R$/km daquele dia, com os botões de corrigir turno e ganhos e os gastos do dia escolhido |
 | 6.10.8 | Correção: o diário sobe para a conta logo depois de cada ganho lido (o agendador do Android chegava a segurar o envio por horas) |
 | 6.10.7 | Correção: Histórico de corridas da 99 lido mesmo com a lista cortada na borda da tela; privacidade: endereço lido pela imagem com o ícone do mapa colado ("O Rua…", "OR.…"), CEP com "O" ou cortado e nome/código do cliente na "Retirada concluída" da 99 passam a ser mascarados no celular e no servidor |
 | 6.10.6 | Correção: ganhos da 99 também pelo "Histórico de corridas" (cada entrega e bônus com data e hora; a tela inicial nem sempre mostra o valor); janela de oferta de outro app por cima da 99 não vira oferta falsa da 99 |

@@ -220,6 +220,16 @@ class VisualPreviewTest {
         scrolled(DashboardActivity::class.java, "Regiões", "27-analises-regioes")
         setTab("corridas")
         scrolled(DashboardActivity::class.java, "Lançar corrida", "28-corridas-lancar")
+        // 6.10.9: Financeiro com um dia anterior escolhido
+        setTab("financeiro")
+        runCatching {
+            ActivityScenario.launch(DashboardActivity::class.java).use { sc ->
+                Thread.sleep(1200)
+                sc.onActivity { a -> a.finDay = JournalStore(ctx).dateOf(System.currentTimeMillis() - 86_400_000L); a.render() }
+                Thread.sleep(800)
+                shot("29-financeiro-dia-anterior")
+            }
+        }
         setTab("inicio")
         st.fuelType = "etanol"
         scrolled(SettingsActivity::class.java, "Seus custos", "16-ajustes-aba-etanol")

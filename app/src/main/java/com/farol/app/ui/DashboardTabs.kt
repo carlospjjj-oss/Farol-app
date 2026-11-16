@@ -52,8 +52,9 @@ internal fun DashboardActivity.renderTab(day: DayRecord) {
             deliveriesCard()
         }
         Tab.FINANCEIRO -> {
+            dayPickerCard()
+            expensesCard(store.day(financeDate()))
             periodCard()
-            expensesCard(day)
             fuelCard()
             footer()
         }
