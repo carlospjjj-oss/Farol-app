@@ -222,6 +222,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 | Marcelo | carro: só 99 | ainda na 6.3.1 (o bot avisa); custos zerados (R$ 0,05/km), faixas baixas, km do turno de 13/11 errado; compartilhamento ligado |
 
 - [x] Bot do Telegram criado, token renovado e vinculado (16/11)
+- [ ] Próxima correção: a caixa "Completei o tanque" do abastecimento quase não aparece marcada no tema escuro (deixar a marcação bem visível)
 - [ ] Marcelo: atualizar para a 6.10.11 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
 - [x] Conectar o Notion e criar a cópia deste documento
