@@ -30,3 +30,14 @@ class Release6110Test {
         assertEquals(159.2 / 2.86, ok.realKmPerLiter!!, 0.01)
     }
 }
+
+/** 17/11: relançar o abastecimento de 16/11 (58.269,2) depois do turno que fechou em 58.395,8. */
+class Release61011Test {
+    @Test fun ultimoAbastecimentoIgnoraKmErrado() {
+        val f = listOf(FuelEntry(1L, 58110.0, 5.4, 31.28, true), FuelEntry(2L, 582692.0, 2.86, 19.71, true, "gasolina"))
+        assertEquals(58110.0, JournalMath.lastFuelKm(f, 58395.8)!!, 0.001)
+        assertEquals(58110.0, JournalMath.lastFuelKm(f.take(1), 58395.8)!!, 0.001)
+    }
+    @Test fun digitoAMaisCorrigeContraOUltimoAbastecimento() =
+        assertEquals(58269.2, JournalMath.odometerFix(582692.0, 58110.0)!!, 0.001)
+}

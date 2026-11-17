@@ -164,6 +164,10 @@ object JournalMath {
         return tenth.takeIf { it >= lastKnown - 1 && it - lastKnown <= MAX_FUEL_SEGMENT_KM }
     }
 
+    /** Km do último abastecimento confiável (sem os digitados com um dígito a mais). */
+    fun lastFuelKm(fuel: List<FuelEntry>, lastKnown: Double?): Double? =
+        fuel.map { it.odometer }.filter { it > 0 && (lastKnown == null || it <= lastKnown + MAX_FUEL_SEGMENT_KM) }.maxOrNull()
+
     /** Último km confiável: km dos turnos e dos abastecimentos, sem os valores fora da curva (digitação errada). */
     fun lastKnownKm(days: List<DayRecord>, fuel: List<FuelEntry>): Double? {
         val all = (days.flatMap { listOfNotNull(it.kmStart, it.kmEnd) } + fuel.map { it.odometer }).filter { it > 0 }

@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 16/11/2026 · versão **6.10.10** (versionCode 65)
+Atualizado em 16/11/2026 · versão **6.10.11** (versionCode 66)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -84,7 +84,7 @@ contado duas vezes.
 | Painel web: quem vê o quê | cada conta vê só os próprios números (ganhos, ofertas, diário), o administrador também. Das outras contas o admin vê só o técnico: versão, último sinal, leitura de hoje por app, avisos e travamentos (desde 16/11/2026) | `panelApi`, `/v1/admin/users` |
 | Alertas das contas | desatualizado, pausado, ajustes fora do normal, turno aberto > 20 h, leitura caindo, sem sinal 3+ dias. No app: uma linha curta só com os avisos da própria conta (detalhe ao tocar). No painel web: não aparecem (o admin recebe no bot do Telegram, desde 16/11/2026) | `accountAlerts`, `/v1/me/alertas`, `AlertsClient`, `DashboardAlerts` |
 | Manutenção e caixinha | itens com intervalo em km (sugestões para conferir no manual) e km da última troca; aviso amarelo faltando 10% ou 300 km, vermelho quando passa. Caixinha = km rodados × "outros custos"/km − gastos de manutenção | `Maintenance`, `MaintenanceStore`, `DashboardCare` |
-| Consumo real | de tanque cheio a tanque cheio, separado por combustível (abastecimentos antigos: etanol se até R\$ 4,80/L); trecho com tanque misturado não conta; trecho impossível (mais de 3.000 km ou de 90 km/l, km digitado errado) também não; o km do abastecimento é conferido contra o último km conhecido (6.10.10) | `JournalMath.fuelStats` |
+| Consumo real | de tanque cheio a tanque cheio, separado por combustível (abastecimentos antigos: etanol se até R\$ 4,80/L); trecho com tanque misturado não conta; trecho impossível (mais de 3.000 km ou de 90 km/l, km digitado errado) também não; o km do abastecimento é conferido: dígito a mais é corrigido no campo (6.10.10), km menor que o último abastecimento bloqueia e menor que o último turno pede confirmação (abastecimento lançado depois, 6.10.11) | `JournalMath.fuelStats` |
 | Indicadores | ticket médio, entregas/hora (dias com entregas lidas), R\$/hora; por app; por faixa (almoço 11–15, tarde 15–18, jantar 18–23) só com 10+ entregas | `Indicators` |
 | Caixinhas | manutenção (km × outros custos − trocas), combustível (km × combustível/km − abastecimentos) e emergência (valores guardados à mão), cada uma com meta opcional | `Boxes`, `BoxesStore` |
 | Regiões de coleta | por região: ofertas, R\$/km médio, % verdes e melhor janela de 3 h; mínimo 5 ofertas; 30 dias; só no celular | `RegionStats` |
@@ -198,7 +198,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 
 | Quando | O quê |
 | --- | --- |
-| Agora (até dezembro) | congelamento: só correções (exceção pedida em 16/11: escolher o dia no Financeiro, 6.10.9). Validar a 6.6 a 6.10.10 na rua. Auditoria técnica de 16/11: 7 de 8 módulos feitos (backend 12 correções, cálculo 6.10.2, sincronização 6.10.3, Android sem defeitos, painel, testes e publicação); falta a leitura OCR: em 16/11 a 99 mudou a tela inicial (corrigido de 6.10.4 a 6.10.6) e passou a mostrar ofertas na lista "Solicitações de Pedidos", que ainda não gera card (espera o texto/print da lista) |
+| Agora (até dezembro) | congelamento: só correções (exceção pedida em 16/11: escolher o dia no Financeiro, 6.10.9). Validar a 6.6 a 6.10.11 na rua. Auditoria técnica de 16/11: 7 de 8 módulos feitos (backend 12 correções, cálculo 6.10.2, sincronização 6.10.3, Android sem defeitos, painel, testes e publicação); falta a leitura OCR: em 16/11 a 99 mudou a tela inicial (corrigido de 6.10.4 a 6.10.6) e passou a mostrar ofertas na lista "Solicitações de Pedidos", que ainda não gera card (espera o texto/print da lista) |
 | Fase 3 (confiabilidade) | concluída: alertas e checagem dos ajustes (6.5.5); leitor de ganhos separado e testado, banco de telas reais, canal de teste (6.6) |
 | Com as telas do Marcelo | etapas e ganho da corrida da 99 Motorista (carro) |
 | ~3 semanas de dados (início de dez/2026) | previsão de ganho por horário, faixas que se ajustam sozinhas, "Pergunte ao Farol" no painel |
@@ -222,7 +222,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 | Marcelo | carro: só 99 | ainda na 6.3.1 (o bot avisa); custos zerados (R$ 0,05/km), faixas baixas, km do turno de 13/11 errado; compartilhamento ligado |
 
 - [x] Bot do Telegram criado, token renovado e vinculado (16/11)
-- [ ] Marcelo: atualizar para a 6.10.10 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
+- [ ] Marcelo: atualizar para a 6.10.11 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
 - [x] Conectar o Notion e criar a cópia deste documento
 - [x] Leitura do Saldo da 99 pela imagem confirmada (13/11: entregas das 23h48 e 23h57 e bônus)

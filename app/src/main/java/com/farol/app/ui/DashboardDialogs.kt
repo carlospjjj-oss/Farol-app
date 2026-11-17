@@ -117,15 +117,23 @@ internal fun DashboardActivity.askFuel() {
         addView(k.text("Completar o tanque toda vez é o que permite medir o consumo real.", 12, Palette.MUTED), k.lp(top = 2))
     }
     var confirmed = false
+    var olderOk = false
     val known = lastKnownKm()
+    val lastFuel = JournalMath.lastFuelKm(store.fuel(), known)
     dialog("Abastecimento", box, "Registrar") {
         val o = odo.num() ?: return@dialog fail("Digite o km do painel")
-        // Km fora da curva (ex.: 582692 em vez de 58269,2): corrige no campo e pede para conferir
-        if (known != null && (o < known - 1 || o - known > JournalMath.MAX_FUEL_SEGMENT_KM)) {
-            val fix = JournalMath.odometerFix(o, known)
+        // Km com um dígito a mais (ex.: 582692 em vez de 58269,2): corrige no campo e pede para conferir
+        if (known != null && o - known > JournalMath.MAX_FUEL_SEGMENT_KM) {
+            val fix = JournalMath.odometerFix(o, lastFuel ?: known)
             if (fix != null) { odo.setText(fmtKm(fix)); return@dialog fail("Parece que faltou a vírgula: corrigi para ${fmtKm(fix)}. Confira e toque em Registrar.") }
-            return@dialog fail(if (o < known) "Km menor que o último registrado (${fmtKm(known)}). Confira o km do painel."
-                else "Km muito acima do último registrado (${fmtKm(known)}). Confira o km do painel.")
+            return@dialog fail("Km muito acima do último registrado (${fmtKm(known)}). Confira o km do painel.")
+        }
+        // Menor que o último abastecimento: não pode (o consumo é medido de um tanque para o outro)
+        if (lastFuel != null && o < lastFuel - 1) return@dialog fail("Km menor que o último abastecimento (${fmtKm(lastFuel)}). Confira o km do painel.")
+        // Menor que o km do último turno: pode ser um abastecimento lançado depois. Pede para confirmar uma vez.
+        if (known != null && o < known - 1 && !olderOk) {
+            olderOk = true
+            return@dialog fail("Km menor que o do último turno (${fmtKm(known)}). Se é um abastecimento feito antes, toque em Registrar de novo.")
         }
         val l = liters.num()?.takeIf { it > 0 } ?: return@dialog fail("Digite os litros")
         val t = total.num()?.takeIf { it > 0 } ?: return@dialog fail("Digite o valor pago")
