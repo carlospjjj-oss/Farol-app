@@ -223,6 +223,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 
 - [x] Bot do Telegram criado, token renovado e vinculado (16/11)
 - [ ] Próxima correção: a caixa "Completei o tanque" do abastecimento quase não aparece marcada no tema escuro (deixar a marcação bem visível)
+- [ ] Próxima correção: o abastecimento sempre grava a data de hoje; permitir escolher a data (abastecimento lançado depois)
 - [ ] Marcelo: atualizar para a 6.10.11 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
 - [x] Conectar o Notion e criar a cópia deste documento
