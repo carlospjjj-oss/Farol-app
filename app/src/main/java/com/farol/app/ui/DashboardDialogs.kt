@@ -61,7 +61,7 @@ internal fun DashboardActivity.labeled(label: String, field: EditText) = k.vbox(
     addView(field, k.lp(top = 6))
 }
 
-internal fun DashboardActivity.lastKnownKm(): Double? = (store.days().mapNotNull { it.kmEnd } + store.fuel().map { it.odometer }).maxOrNull()
+internal fun DashboardActivity.lastKnownKm(): Double? = JournalMath.lastKnownKm(store.days(), store.fuel())
 
 internal fun DashboardActivity.fail(msg: String): Boolean { toast(msg); return false }
 
@@ -117,8 +117,16 @@ internal fun DashboardActivity.askFuel() {
         addView(k.text("Completar o tanque toda vez é o que permite medir o consumo real.", 12, Palette.MUTED), k.lp(top = 2))
     }
     var confirmed = false
+    val known = lastKnownKm()
     dialog("Abastecimento", box, "Registrar") {
         val o = odo.num() ?: return@dialog fail("Digite o km do painel")
+        // Km fora da curva (ex.: 582692 em vez de 58269,2): corrige no campo e pede para conferir
+        if (known != null && (o < known - 1 || o - known > JournalMath.MAX_FUEL_SEGMENT_KM)) {
+            val fix = JournalMath.odometerFix(o, known)
+            if (fix != null) { odo.setText(fmtKm(fix)); return@dialog fail("Parece que faltou a vírgula: corrigi para ${fmtKm(fix)}. Confira e toque em Registrar.") }
+            return@dialog fail(if (o < known) "Km menor que o último registrado (${fmtKm(known)}). Confira o km do painel."
+                else "Km muito acima do último registrado (${fmtKm(known)}). Confira o km do painel.")
+        }
         val l = liters.num()?.takeIf { it > 0 } ?: return@dialog fail("Digite os litros")
         val t = total.num()?.takeIf { it > 0 } ?: return@dialog fail("Digite o valor pago")
         // Preço com cara do outro combustível (ex.: R$ 5,79 marcado como etanol): pede para conferir uma vez

@@ -150,6 +150,28 @@ object JournalMath {
      * combustível (o tanque cheio do começo do trecho e os parciais no meio, todos do mesmo tipo):
      * misturar gasolina e etanol daria um consumo que não é de nenhum dos dois.
      */
+    const val MAX_FUEL_SEGMENT_KM = 3000.0
+    const val MAX_KM_PER_LITER = 90.0
+
+    /**
+     * Km do painel digitado no abastecimento, conferido contra o último km conhecido (16/11: "58269,2" virou 582692).
+     * Retorna null se está ok, ou o valor provável quando parece ter um dígito a mais (décimo sem vírgula ou ponto de milhar).
+     */
+    fun odometerFix(typed: Double, lastKnown: Double?): Double? {
+        if (lastKnown == null || lastKnown <= 0) return null
+        if (typed >= lastKnown - 1 && typed - lastKnown <= MAX_FUEL_SEGMENT_KM) return null
+        val tenth = typed / 10
+        return tenth.takeIf { it >= lastKnown - 1 && it - lastKnown <= MAX_FUEL_SEGMENT_KM }
+    }
+
+    /** Último km confiável: km dos turnos e dos abastecimentos, sem os valores fora da curva (digitação errada). */
+    fun lastKnownKm(days: List<DayRecord>, fuel: List<FuelEntry>): Double? {
+        val all = (days.flatMap { listOfNotNull(it.kmStart, it.kmEnd) } + fuel.map { it.odometer }).filter { it > 0 }
+        if (all.isEmpty()) return null
+        val med = all.sorted()[all.size / 2]
+        return all.filter { it <= med + MAX_FUEL_SEGMENT_KM * 3 && it >= med / 3 }.maxOrNull()
+    }
+
     fun fuelStats(entries: List<FuelEntry>, fuel: String? = null): FuelStats {
         val sorted = entries.sortedBy { it.odometer }
         var km = 0.0
@@ -166,7 +188,9 @@ object JournalMath {
             if (!f.fullTank && f.fuelType != lastFull.fuelType) mixed = true
             if (f.fullTank) {
                 val d = f.odometer - lastFull.odometer
-                val ok = !mixed && (fuel == null || lastFull.fuelType == fuel)
+                // km digitado errado (ex.: 582692 em vez de 58269,2): trecho impossível não entra na média
+                val sane = d <= MAX_FUEL_SEGMENT_KM && d / pendingLiters <= MAX_KM_PER_LITER
+                val ok = sane && !mixed && (fuel == null || lastFull.fuelType == fuel)
                 if (ok && d > 0 && pendingLiters > 0) { km += d; liters += pendingLiters }
                 lastFull = f
                 pendingLiters = 0.0
