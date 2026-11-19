@@ -89,9 +89,13 @@ object LogSanitizer {
     }
 
     /** Tudo o que sai do celular passa por aqui. null = a tela não deve ser registrada. */
+    // Endereço de página com parâmetros (19/11: a 99 mostrou uma URL com localização e chaves da sessão):
+    // fica só o endereço, os parâmetros saem.
+    private val URL_QUERY = Regex("""\?[^\s|]*=[^\s|]*""")
+
     fun forServer(text: String, maskAddresses: Boolean = true): String? {
         if (isChat(text)) return null
-        val t = maskPeople(text)
+        val t = maskPeople(text).replace(URL_QUERY, "?[parâmetros]")
         return if (maskAddresses) mask(t) else t
     }
 }

@@ -101,11 +101,12 @@ class JournalStore(context: Context, private val suffix: String? = null) : com.f
         }, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
-    /** Apaga o último abastecimento (marca como apagado, para a sincronização apagar também na conta). */
+    /** Apaga o último abastecimento lançado (marca como apagado, para a sincronização apagar também na conta).
+     *  "Último" = o lançado por último, não o de data mais nova (6.10.12: dá para lançar com data antiga). */
     @Synchronized
     fun removeLastFuel() {
         val w = db.writableDatabase
-        val at = w.rawQuery("SELECT at FROM fuel WHERE deleted = 0 ORDER BY at DESC LIMIT 1", null).use { if (it.moveToFirst()) it.getLong(0) else null } ?: return
+        val at = w.rawQuery("SELECT at FROM fuel WHERE deleted = 0 ORDER BY updated_at DESC, at DESC LIMIT 1", null).use { if (it.moveToFirst()) it.getLong(0) else null } ?: return
         w.update("fuel", ContentValues().apply { put("deleted", 1); put("updated_at", System.currentTimeMillis()) }, "at = ?", arrayOf(at.toString()))
     }
 

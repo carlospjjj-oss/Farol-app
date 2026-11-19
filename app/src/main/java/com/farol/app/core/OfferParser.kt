@@ -58,8 +58,16 @@ object OfferParser {
     )
 
     /** Palavras que indicam que existe uma oferta aberta (botão de aceitar etc.). */
+    /**
+     * Telas com cara de oferta que não são oferta (19/11): o aviso da 99 depois de recusar ("Sua taxa de aceitação
+     * está baixa ... Recusar / Aceitar pedido") e o calendário do histórico ("Selecionar data"). Não contam como perdidas.
+     */
+    val NOT_OFFER = Regex("""taxa de aceita[çc][ãa]o est[áa] baixa|rejeitar muitas vezes|selecionar data""", RegexOption.IGNORE_CASE)
+
+    fun looksLikeOffer(text: String): Boolean = OFFER_HINTS.containsMatchIn(text) && !NOT_OFFER.containsMatchIn(text)
+
     val OFFER_HINTS = Regex(
-        """\baceitar\b(?!\s+(?:corridas|automaticamente))|n[aã]o afeta a ta|\baccept\b|\brecusar\b|\bselecionar\b|\bpegar\b|oferecer|toque para|pedido de viagem|pre[çc]o justo|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
+        """\baceitar\b(?!\s+(?:corridas|automaticamente))|n[aã]o afeta a ta|\baccept\b|\brecusar\b|\bselecionar\b(?!\s+data)|\bpegar\b|oferecer|toque para|pedido de viagem|pre[çc]o justo|nova (?:corrida|entrega|viagem|rota|solicita[çc][ãa]o)""",
         RegexOption.IGNORE_CASE
     )
 

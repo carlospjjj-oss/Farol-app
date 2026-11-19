@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 16/11/2026 · versão **6.10.11** (versionCode 66)
+Atualizado em 16/11/2026 · versão **6.10.12** (versionCode 67)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -136,7 +136,7 @@ consentimento do usuário, e dados de clientes nunca saem.
   padrão, exportar e excluir dados no app. Documentos de DPO em [`docs/lgpd/`](lgpd/) (registro, RIPD, incidentes,
   atendimento).
 - **Retenção:** textos apagados em 90 dias, telas em 1 ano, erros do app em 180 dias (rotina diária no servidor).
-- **Dados de terceiros:** chat com cliente nunca sai do celular; nome do cliente vira "[cliente]" no app e de novo no Em 16/11 (6.10.7): endereço lido pela imagem com o ícone do mapa colado ("O Rua…", "OR.…"), CEP com "O" ou cortado e o nome e o código de verificação do cliente na "Retirada concluída" da 99 passaram a ser mascarados no celular e no servidor; o que tinha sido guardado foi limpo (banco e cópia no GitHub, com o histórico reescrito).
+- **Dados de terceiros:** chat com cliente nunca sai do celular; nome do cliente vira "[cliente]" no app e de novo no Em 16/11 (6.10.7): endereço lido pela imagem com o ícone do mapa colado ("O Rua…", "OR.…"), CEP com "O" ou cortado e o nome e o código de verificação do cliente na "Retirada concluída" da 99 passaram a ser mascarados no celular e no servidor; o que tinha sido guardado foi limpo (banco e cópia no GitHub, com o histórico reescrito). Em 19/11 (6.10.12): endereço de página com parâmetros (localização e chaves da sessão da 99) passa a ir sem os parâmetros, no celular e no servidor; o que tinha sido guardado foi limpo.
   servidor (protege versões antigas); endereço mascarado; nome de restaurante só no celular. Em 14/11 o que já estava
   guardado foi limpo e o histórico da cópia no GitHub foi reescrito.
 - **Pendência:** trocar `CONTATO_PRIVACIDADE` (hoje um e-mail de teste) por um e-mail real antes de outras pessoas usarem.
@@ -198,7 +198,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 
 | Quando | O quê |
 | --- | --- |
-| Agora (até dezembro) | congelamento: só correções (exceção pedida em 16/11: escolher o dia no Financeiro, 6.10.9). Validar a 6.6 a 6.10.11 na rua. Auditoria técnica de 16/11: 7 de 8 módulos feitos (backend 12 correções, cálculo 6.10.2, sincronização 6.10.3, Android sem defeitos, painel, testes e publicação); falta a leitura OCR: em 16/11 a 99 mudou a tela inicial (corrigido de 6.10.4 a 6.10.6) e passou a mostrar ofertas na lista "Solicitações de Pedidos", que ainda não gera card (espera o texto/print da lista) |
+| Agora (até dezembro) | congelamento: só correções (exceção pedida em 16/11: escolher o dia no Financeiro, 6.10.9). Validar a 6.6 a 6.10.12 na rua. Auditoria técnica de 16/11: 7 de 8 módulos feitos (backend 12 correções, cálculo 6.10.2, sincronização 6.10.3, Android sem defeitos, painel, testes e publicação); falta a leitura OCR: em 16/11 a 99 mudou a tela inicial (corrigido de 6.10.4 a 6.10.6) e passou a mostrar ofertas na lista "Solicitações de Pedidos", que ainda não gera card (espera o texto/print da lista) |
 | Fase 3 (confiabilidade) | concluída: alertas e checagem dos ajustes (6.5.5); leitor de ganhos separado e testado, banco de telas reais, canal de teste (6.6) |
 | Com as telas do Marcelo | etapas e ganho da corrida da 99 Motorista (carro) |
 | ~3 semanas de dados (início de dez/2026) | previsão de ganho por horário, faixas que se ajustam sozinhas, "Pergunte ao Farol" no painel |
@@ -222,9 +222,8 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 | Marcelo | carro: só 99 | ainda na 6.3.1 (o bot avisa); custos zerados (R$ 0,05/km), faixas baixas, km do turno de 13/11 errado; compartilhamento ligado |
 
 - [x] Bot do Telegram criado, token renovado e vinculado (16/11)
-- [ ] Próxima correção: a caixa "Completei o tanque" do abastecimento quase não aparece marcada no tema escuro (deixar a marcação bem visível)
-- [ ] Próxima correção: o abastecimento sempre grava a data de hoje; permitir escolher a data (abastecimento lançado depois)
-- [ ] Marcelo: atualizar para a 6.10.11 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
+- [x] Caixa "Completei o tanque" visível no tema escuro e data do abastecimento escolhida (6.10.12)
+- [ ] Marcelo: atualizar para a 6.10.12 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
 - [x] Conectar o Notion e criar a cópia deste documento
 - [x] Leitura do Saldo da 99 pela imagem confirmada (13/11: entregas das 23h48 e 23h57 e bônus)

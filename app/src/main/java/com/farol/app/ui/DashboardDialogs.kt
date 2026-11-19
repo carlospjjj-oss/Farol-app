@@ -92,7 +92,30 @@ internal fun DashboardActivity.askFuel() {
     val odo = k.field("Km do painel", lastKnownKm()?.let { fmtKm(it) } ?: "")
     val liters = k.field("Litros")
     val total = k.field("R$ pago")
-    val full = CheckBox(this).apply { text = "Completei o tanque"; isChecked = true; setTextColor(Palette.TEXT) }
+    // 19/11: no tema escuro a marcação quase não aparecia; agora fica na cor de destaque
+    val full = CheckBox(this).apply {
+        text = "Completei o tanque"; isChecked = true; setTextColor(Palette.TEXT); textSize = 15f
+        buttonTintList = android.content.res.ColorStateList(
+            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+            intArrayOf(Palette.ACCENT, Palette.MUTED))
+    }
+    // Data do abastecimento (19/11): hoje por padrão; dá para escolher outro dia para lançar depois
+    var fuelDate: String? = null
+    val dateRow = k.text("", 14, Palette.ACCENT, k.medium).apply { isClickable = true; setPadding(0, k.dp(6), 0, k.dp(6)) }
+    fun renderDate() {
+        dateRow.text = "📅  Data: " + (fuelDate?.let { "${it.substring(8)}/${it.substring(5, 7)}/${it.substring(0, 4)}" } ?: "hoje") + "  (tocar para mudar)"
+    }
+    renderDate()
+    dateRow.setOnClickListener {
+        val c = java.util.Calendar.getInstance()
+        fuelDate?.let { c.set(it.substring(0, 4).toInt(), it.substring(5, 7).toInt() - 1, it.substring(8).toInt()) }
+        android.app.DatePickerDialog(this, { _, y, m, d ->
+            val chosen = "%04d-%02d-%02d".format(y, m + 1, d)
+            fuelDate = chosen.takeIf { it != store.dateOf(System.currentTimeMillis()) }; renderDate()
+        }, c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH), c.get(java.util.Calendar.DAY_OF_MONTH)).apply {
+            datePicker.maxDate = System.currentTimeMillis()
+        }.show()
+    }
     val lv = labeled("Litros", liters)
     val tv = labeled("Valor pago", total)
     var fuelType = settings.fuelType
@@ -113,7 +136,8 @@ internal fun DashboardActivity.askFuel() {
         addView(seg)
         addView(labeled("Km do painel", odo), k.lp(top = 12))
         addView(k.hbox().apply { addView(lv, weighted(lv)); addView(tv, weighted(tv, 10)) }, k.lp(top = 12))
-        addView(full, k.lp(top = 10))
+        addView(dateRow, k.lp(top = 8))
+        addView(full, k.lp(top = 6))
         addView(k.text("Completar o tanque toda vez é o que permite medir o consumo real.", 12, Palette.MUTED), k.lp(top = 2))
     }
     var confirmed = false
@@ -145,7 +169,12 @@ internal fun DashboardActivity.askFuel() {
             confirmed = true
             return@dialog fail("${Fmt.money(ppl)}/L parece preço de $other. Confira o combustível marcado e toque em Registrar de novo.")
         }
-        store.addFuel(FuelEntry(System.currentTimeMillis(), o, l, t, full.isChecked, fuelType))
+        // Dia escolhido: grava naquele dia, na hora de agora (a ordem do consumo continua pelo km do painel)
+        val at = fuelDate?.let { d -> java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.YEAR, d.substring(0, 4).toInt()); set(java.util.Calendar.MONTH, d.substring(5, 7).toInt() - 1)
+            set(java.util.Calendar.DAY_OF_MONTH, d.substring(8).toInt())
+        }.timeInMillis } ?: System.currentTimeMillis()
+        store.addFuel(FuelEntry(at, o, l, t, full.isChecked, fuelType))
         // O preço pago vira o preço daquele combustível, e ele passa a ser o do tanque.
         val price = Math.round(t / l * 100) / 100.0
         settings.setFuel(fuelType, settings.fuel(fuelType).copy(price = price))

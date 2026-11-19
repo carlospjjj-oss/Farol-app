@@ -7,7 +7,7 @@
 Lê a oferta do **iFood, 99, Keeta, Uber e inDrive** e mostra na hora se a corrida compensa,<br>
 com **R$/km, R$/h e lucro líquido** calculados com os **seus** custos.
 
-![versão](https://img.shields.io/badge/vers%C3%A3o-6.10.11-C8F23C?style=for-the-badge&labelColor=17191C)
+![versão](https://img.shields.io/badge/vers%C3%A3o-6.10.12-C8F23C?style=for-the-badge&labelColor=17191C)
 ![android](https://img.shields.io/badge/Android-8%2B-C8F23C?style=for-the-badge&logo=android&logoColor=white&labelColor=17191C)
 ![kotlin](https://img.shields.io/badge/Kotlin-100%25-C8F23C?style=for-the-badge&logo=kotlin&logoColor=white&labelColor=17191C)
 ![testes](https://img.shields.io/badge/testes-104%20%2B%20102%20reais%20%2B%2012%20emulador-C8F23C?style=for-the-badge&labelColor=17191C)
@@ -242,6 +242,7 @@ docs/lgpd/            registro das operações, RIPD, incidentes, atendimento
 
 | Versão | Principais mudanças |
 |---|---|
+| 6.10.12 | Correção: data do abastecimento escolhida (lançar depois) e "desfazer" apaga o último lançado; caixa "Completei o tanque" bem visível no tema escuro; aviso de taxa de aceitação e calendário do histórico da 99 não contam mais como oferta perdida; endereço de página com parâmetros (localização, chaves) não vai para o servidor |
 | 6.10.11 | Correção: abastecimento lançado depois (km menor que o do último turno) pede só uma confirmação, em vez de bloquear; só bloqueia km menor que o último abastecimento |
 | 6.10.10 | Correção: km do painel no abastecimento conferido contra o último km (ex.: 582692 em vez de 58269,2 é corrigido no campo para conferir); km digitado errado não entra no consumo real nem vira o km sugerido |
 | 6.10.9 | Exceção ao congelamento (pedido do Carlos em 16/11): no Financeiro, escolher o dia (‹ › ou o calendário) e ver ganhos, líquido, km e R$/km daquele dia, com os botões de corrigir turno e ganhos e os gastos do dia escolhido |

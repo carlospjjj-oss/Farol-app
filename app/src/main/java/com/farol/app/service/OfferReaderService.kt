@@ -286,7 +286,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
             if (now - lastSaldoOcrAt > 8_000) { lastSaldoOcrAt = now; runOcr(snap, label, false) }
             return
         }
-        val hasHint = OfferParser.OFFER_HINTS.containsMatchIn(snap.text)
+        val hasHint = OfferParser.looksLikeOffer(snap.text)
         val looksLikeOffer = hasHint || snap.text.length < 40
         if (settings.ocrFallback && ocr.supported && looksLikeOffer && snap.pkg !in accessibleApps) {
             runOcr(snap, label, hasHint)
@@ -378,7 +378,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
             }
             // O print pega a tela inteira: só usa para ganhos/avisos/telas se o app estiver na frente
             if (snap.onTop) { earnings(label, text); readRejections(label, text) }
-            val hint = hasHint || OfferParser.OFFER_HINTS.containsMatchIn(text)
+            val hint = (hasHint || OfferParser.OFFER_HINTS.containsMatchIn(text)) && !OfferParser.NOT_OFFER.containsMatchIn(text)
             if (hint && ocrRetries < 4) {
                 ocrRetries++
                 handler.removeCallbacks(ocrRetry); handler.postDelayed(ocrRetry, 800)

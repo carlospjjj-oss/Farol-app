@@ -41,3 +41,18 @@ class Release61011Test {
     @Test fun digitoAMaisCorrigeContraOUltimoAbastecimento() =
         assertEquals(58269.2, JournalMath.odometerFix(582692.0, 58110.0)!!, 0.001)
 }
+
+/** 19/11: aviso de taxa de aceitação e calendário do histórico da 99 não são oferta perdida; URL sem parâmetros. */
+class Release61012Test {
+    @Test fun avisoDeTaxaNaoEOferta() = org.junit.Assert.assertFalse(OfferParser.looksLikeOffer(
+        "baixa | COOPERATIVA | Recusar | Aceitar pedido | Sua taxa de aceitação está | Rejeitar muitas vezes pode reduzira TA e | afetar o envio de pedidos | X"))
+    @Test fun calendarioNaoEOferta() = org.junit.Assert.assertFalse(OfferParser.looksLikeOffer(
+        "< Histórico de corridas | Corridas | X | 19/11 v Taxas v | Selecionar data | nov 2026 | dom seg | Pago"))
+    @Test fun ofertaDaNoventaENoveContinua() = org.junit.Assert.assertTrue(OfferParser.looksLikeOffer(
+        "Entrega Food | R$10,17 | Distância total 6,3 km | Aceitar pedido"))
+    @Test fun selecionarDaUberContinua() = org.junit.Assert.assertTrue(OfferParser.looksLikeOffer("UberX | R$ 74,36 | Selecionar"))
+    @Test fun urlSemParametros() {
+        val t = LogSanitizer.forServer("page.didiglobal.com/global/driver-wallet/x.html?driverCityID=1&lat=-23.6&lng=-46.6&a3=WoHi2OY84p7&randomKey=m0z5eb | Pago")!!
+        org.junit.Assert.assertTrue(t, !t.contains("a3=") && !t.contains("randomKey") && t.contains("didiglobal.com/global/driver-wallet/x.html?[parâmetros]"))
+    }
+}
