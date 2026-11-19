@@ -16,7 +16,7 @@ jobs:
           echo "== S1 tecnico =="
           q "SELECT max(t) ultimo, max(versao) v FROM events WHERE user_id=1"
           q "SELECT tipo, count(*) n, min(t) a, max(t) b FROM events WHERE user_id=1 AND t >= '2026-11-19T17:40' GROUP BY tipo"
-          { q "SELECT t, tipo, json_extract(data,'$.fonte') f, json_extract(data,'$.cor') cor, json_extract(data,'$.preco') p, json_extract(data,'$.texto') texto FROM events WHERE user_id=1 AND t >= '2026-11-19T17:40' AND (tipo IN ('offer','miss','pedido') OR data LIKE '%abo%' OR data LIKE '%Aceitar%' OR data LIKE '%Coletar%' OR data LIKE '%Retirada%' OR data LIKE '%Entregar%' OR data LIKE '%cancel%' OR data LIKE '%Cancel%') ORDER BY id"; q "SELECT json_extract(data,'$.orders') o FROM user_days WHERE user_id=1 AND date='2026-11-19'"; } > out.txt
+          { q "SELECT t, tipo, json_extract(data,'$.fonte') f, json_extract(data,'$.cor') cor, json_extract(data,'$.preco') p, json_extract(data,'$.texto') texto FROM events WHERE user_id=1 AND t >= '2026-11-19T17:41:50' AND t <= '2026-11-19T17:59:40' ORDER BY id"; q "SELECT json_extract(data,'$.orders') o FROM user_days WHERE user_id=1 AND date='2026-11-19'"; } > out.txt
           k=$(openssl rand -hex 32)
           openssl enc -aes-256-cbc -pbkdf2 -salt -pass pass:$k -in out.txt | base64 -w0 > c.b64
           echo -n "$k" | openssl pkeyutl -encrypt -pubin -inkey status_pub.pem | base64 -w0 > k.b64
