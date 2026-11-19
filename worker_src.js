@@ -101,7 +101,7 @@ function protegerTerceiros(e) {
   for (const k of ["texto", "texto_acessibilidade"]) {
     if (typeof e[k] !== "string") continue;
     if (CHAT_RE.test(e[k])) { if (e.tipo === "tela") return false; delete e[k]; continue; }
-    e[k] = maskOcr(maskPeople(e[k]).replace(LEFTOVER_STREET_RE, "[endereço]"));
+    e[k] = maskOcr(maskPeople(e[k]).replace(LEFTOVER_STREET_RE, "[endereço]")).replace(/\?[^\s|]*=[^\s|]*/g, "?[parâmetros]");
   }
   if (e.tipo === "pedido") delete e.restaurante;   // nome do restaurante fica só no celular
   return true;
