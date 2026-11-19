@@ -10,5 +10,8 @@
   Atualizar também o README (selo da versão e linha do histórico).
 - Nunca colocar segredos no repositório; chaves só nos segredos do GitHub e da Cloudflare.
 - Dados de clientes (nome, chat, endereço) nunca saem do celular; nome de restaurante fica só no aparelho.
+- **Dado sensível que chegou aos logs: sempre limpar, sem perguntar** (autorização do Carlos em 19/11/2026):
+  corrigir a máscara no app e no servidor, limpar o banco D1 e a cópia dos logs no GitHub privado (reescrevendo o
+  histórico), conferir numa cópia nova e avisar o Carlos depois.
 - **Até dezembro/2026: só correção de bugs, nada de função nova** (decisão do Carlos em 14/11/2026). O roadmap
   (https://claude.ai/artifact/TNNmE3furDGK1t5AbZFCT2) é só mapeamento; será revisto em dezembro.
