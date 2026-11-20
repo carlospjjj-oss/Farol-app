@@ -241,6 +241,8 @@ class OverlayCard(private val svc: AccessibilityService, private val settings: S
                 body.addView(t("$icon ${c.text}", 12f, col, k.medium).apply { maxWidth = d(250f) }, k.lp(w = -2, top = d(6f)))
             }
         }
+        // 6.11: voltando para casa com destino definido (99)
+        r.homeNote?.let { body.addView(t(it, 12f, Palette.ACCENT, k.medium).apply { maxWidth = d(260f) }, k.lp(w = -2, top = d(6f))) }
         if (r.favorites.isNotEmpty() && why?.plus?.none { it.startsWith("⭐") } != false)
             body.addView(t("⭐ " + r.favorites.joinToString(" • "), 13f, Palette.GREEN), k.lp(w = -2, top = d(6f)))
         extras.forEach { body.addView(t(it.text, 12f, it.color, k.medium), k.lp(w = -2, top = d(6f))) }

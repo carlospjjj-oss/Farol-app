@@ -25,6 +25,20 @@ class GpsService : Service(), LocationListener {
         @Volatile var running = false
             private set
 
+        /** Última posição boa do turno (só na memória do celular). */
+        @Volatile var lastFix: Location? = null
+            private set
+
+        /** Posição atual: a do GPS do turno, ou a última conhecida pelo Android. Null sem permissão. */
+        fun currentLocation(ctx: Context): Location? {
+            lastFix?.takeIf { System.currentTimeMillis() - it.time < 10 * 60_000L }?.let { return it }
+            if (!hasPermission(ctx)) return null
+            val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            return try {
+                lm.getProviders(true).mapNotNull { lm.getLastKnownLocation(it) }.maxByOrNull { it.time }
+            } catch (e: SecurityException) { null }
+        }
+
         fun hasPermission(ctx: Context) =
             ctx.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
@@ -68,6 +82,7 @@ class GpsService : Service(), LocationListener {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
 
     override fun onLocationChanged(loc: Location) {
+        if (loc.accuracy <= GpsMath.MAX_ACCURACY_M) lastFix = loc
         val prev = last
         if (prev != null) {
             val secs = (loc.time - prev.time) / 1000.0

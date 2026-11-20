@@ -255,6 +255,20 @@ class Settings(context: Context, private val modeOverride: String? = null) {
         return if (autoSpeed && l != null) p.copy(avgSpeedKmh = l) else p
     }
 
+    /** Voltando para casa (6.11): considerar os km no caminho quando a 99 está com destino definido. Só no celular. */
+    var homeEnabled: Boolean
+        get() = prefs.getBoolean("homeEnabled", false)
+        set(v) = prefs.edit().putBoolean("homeEnabled", v).apply()
+
+    /** Casa (lat,lng arredondados a ~100 m). Nunca vai para o servidor. */
+    var homeLatLng: Pair<Double, Double>?
+        get() = prefs.getString("homeLatLng", null)?.split(',')?.takeIf { it.size == 2 }
+            ?.let { (a, b) -> a.toDoubleOrNull()?.let { la -> b.toDoubleOrNull()?.let { lo -> la to lo } } }
+        set(v) = prefs.edit().apply {
+            if (v == null) remove("homeLatLng")
+            else putString("homeLatLng", String.format(java.util.Locale.US, "%.3f,%.3f", v.first, v.second))
+        }.apply()
+
     /** Mede km e velocidade pelo GPS durante o turno (só sugere; nada muda sem confirmar). */
     var gpsEnabled: Boolean
         get() = prefs.getBoolean("gpsEnabled", false)

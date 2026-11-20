@@ -1,6 +1,6 @@
 # Farol — Documento mestre do projeto
 
-Atualizado em 16/11/2026 · versão **6.10.12** (versionCode 67)
+Atualizado em 16/11/2026 · versão **6.11** (versionCode 68)
 
 > Este documento existe em três cópias, atualizadas juntas a cada versão: aqui (`docs/PROJETO.md`), no
 > [documento do Claude](https://claude.ai/artifact/6CZzyRGabUH5TiHcsch2SE) e no [Notion](https://www.notion.so/41819e43f6b18192ab72e0f481010611).
@@ -87,6 +87,7 @@ contado duas vezes.
 | Consumo real | de tanque cheio a tanque cheio, separado por combustível (abastecimentos antigos: etanol se até R\$ 4,80/L); trecho com tanque misturado não conta; trecho impossível (mais de 3.000 km ou de 90 km/l, km digitado errado) também não; o km do abastecimento é conferido: dígito a mais é corrigido no campo (6.10.10), km menor que o último abastecimento bloqueia e menor que o último turno pede confirmação (abastecimento lançado depois, 6.10.11) | `JournalMath.fuelStats` |
 | Indicadores | ticket médio, entregas/hora (dias com entregas lidas), R\$/hora; por app; por faixa (almoço 11–15, tarde 15–18, jantar 18–23) só com 10+ entregas | `Indicators` |
 | Caixinhas | manutenção (km × outros custos − trocas), combustível (km × combustível/km − abastecimentos) e emergência (valores guardados à mão), cada uma com meta opcional | `Boxes`, `BoxesStore` |
+| Voltando para casa (6.11, teste) | com a 99 mostrando "Destino definido" nos últimos 20 min, Ajustes ligado e casa marcada: km no caminho = mínimo entre metade dos km da oferta e a distância até casa (linha reta × 1,3); a oferta é avaliada com esses km a menos e o mesmo tempo; o cartão mostra o lucro e a cor sem o desconto. Casa e posição só no celular | `HomeRoute`, `OfferReaderService.homeAdjusted` |
 | Regiões de coleta | por região: ofertas, R\$/km médio, % verdes e melhor janela de 3 h; mínimo 5 ofertas; 30 dias; só no celular | `RegionStats` |
 | Corrida à mão | chave `app#m…` com hora; soma na família das entregas do app (nunca com o painel); pode ser apagada | `askManualRide` |
 | Bot do Telegram (administração) | só problemas do app: `/avisos`, `/contas` (versão, último sinal, leitura), `/erros` (travamentos); aviso na hora de problema novo, de resolvido e de travamento novo; resumo às 8h. Nunca ganhos, telas ou clientes. Vínculo por código de 6 dígitos gerado no painel | `telegramWebhook`, `telegramTick`, `TELEGRAM_TOKEN` |
@@ -198,7 +199,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 
 | Quando | O quê |
 | --- | --- |
-| Agora (até dezembro) | congelamento: só correções (exceção pedida em 16/11: escolher o dia no Financeiro, 6.10.9). Validar a 6.6 a 6.10.12 na rua. Auditoria técnica de 16/11: 7 de 8 módulos feitos (backend 12 correções, cálculo 6.10.2, sincronização 6.10.3, Android sem defeitos, painel, testes e publicação); falta a leitura OCR: em 16/11 a 99 mudou a tela inicial (corrigido de 6.10.4 a 6.10.6) e passou a mostrar ofertas na lista "Solicitações de Pedidos", que ainda não gera card (espera o texto/print da lista) |
+| Agora (até dezembro) | congelamento: só correções (exceções pedidas: escolher o dia no Financeiro, 6.10.9; voltando para casa na 99, 6.11 em teste). Validar a 6.6 a 6.11 na rua. Auditoria técnica de 16/11: 7 de 8 módulos feitos (backend 12 correções, cálculo 6.10.2, sincronização 6.10.3, Android sem defeitos, painel, testes e publicação); falta a leitura OCR: em 16/11 a 99 mudou a tela inicial (corrigido de 6.10.4 a 6.10.6) e passou a mostrar ofertas na lista "Solicitações de Pedidos", que ainda não gera card (espera o texto/print da lista) |
 | Fase 3 (confiabilidade) | concluída: alertas e checagem dos ajustes (6.5.5); leitor de ganhos separado e testado, banco de telas reais, canal de teste (6.6) |
 | Com as telas do Marcelo | etapas e ganho da corrida da 99 Motorista (carro) |
 | ~3 semanas de dados (início de dez/2026) | previsão de ganho por horário, faixas que se ajustam sozinhas, "Pergunte ao Farol" no painel |
@@ -223,7 +224,7 @@ de rodar: validar na rua, telas do carro do Marcelo e 3 semanas de dados para a 
 
 - [x] Bot do Telegram criado, token renovado e vinculado (16/11)
 - [x] Caixa "Completei o tanque" visível no tema escuro e data do abastecimento escolhida (6.10.12)
-- [ ] Marcelo: atualizar para a 6.10.12 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
+- [ ] Marcelo: atualizar para a 6.11 (vai pedir novo aceite do aviso de privacidade), corrigir custos e faixas (e a nota mínima/verde), corrigir o km do turno de 13/11
 - [ ] Trocar `CONTATO_PRIVACIDADE` por um e-mail real
 - [x] Conectar o Notion e criar a cópia deste documento
 - [x] Leitura do Saldo da 99 pela imagem confirmada (13/11: entregas das 23h48 e 23h57 e bônus)

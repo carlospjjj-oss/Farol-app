@@ -56,6 +56,8 @@ data class OfferResult(
     val origin: RegionReader.Place? = null,
     val dest: RegionReader.Place? = null,
     val returnChance: ReturnChance.Chance? = null,
+    /** Voltando para casa com destino definido (6.11): frase com os km no caminho e o lucro sem esse desconto. */
+    val homeNote: String? = null,
 )
 
 object ProfitCalculator {

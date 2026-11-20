@@ -82,6 +82,8 @@ class SettingsActivity : Activity() {
     internal lateinit var swWeekly: Switch
     internal lateinit var swAutoSpeed: Switch
     internal lateinit var swGps: Switch
+    internal lateinit var swHome: Switch
+    internal lateinit var tvHome: TextView
     internal lateinit var tvSpeed: TextView
     internal lateinit var etAlerts: EditText
     // cartão / leitura
@@ -345,6 +347,7 @@ class SettingsActivity : Activity() {
         swWeekly.isChecked = settings.weeklySummary
         swAutoSpeed.isChecked = settings.autoSpeed
         swGps.isChecked = settings.gpsEnabled
+        swHome.isChecked = settings.homeEnabled
         tvSpeed.text = listOf("Keeta", "99", "iFood").joinToString("\n") { app ->
             val n = settings.speedSamples(app).size
             val l = settings.learnedSpeed(app)
@@ -439,6 +442,7 @@ class SettingsActivity : Activity() {
         settings.autoSpeed = swAutoSpeed.isChecked
         val gpsWas = settings.gpsEnabled
         settings.gpsEnabled = swGps.isChecked
+        settings.homeEnabled = swHome.isChecked
         if (gpsWas && !swGps.isChecked) com.farol.app.service.GpsService.stop(this)
         settings.fuelType = activeFuel
         settings.setFuel("gasolina", Settings.Fuel(etFuel.num(6.0), etKml.num(10.0)))

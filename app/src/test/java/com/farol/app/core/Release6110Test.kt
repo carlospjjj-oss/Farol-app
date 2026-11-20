@@ -56,3 +56,25 @@ class Release61012Test {
         org.junit.Assert.assertTrue(t, !t.contains("a3=") && !t.contains("randomKey") && t.contains("didiglobal.com/global/driver-wallet/x.html?[parâmetros]"))
     }
 }
+
+/** 6.11 (teste): voltando para casa com destino definido na 99. */
+class HomeRoute611Test {
+    @Test fun metadeDaOfertaNoMaximo() = assertEquals(3.0, HomeRoute.onWayKm(6.0, 10.0), 0.001)
+    @Test fun naoPassaDaDistanciaAteCasa() = assertEquals(1.3, HomeRoute.onWayKm(6.0, 1.0), 0.001)
+    @Test fun pertoDeCasaNaoConta() = assertEquals(0.0, HomeRoute.onWayKm(6.0, 0.1), 0.001)
+    @Test fun distanciaEmLinhaReta() = assertEquals(11.1, HomeRoute.distanceKm(-23.60, -46.60, -23.70, -46.60), 0.1)
+    @Test fun ofertaAjustadaMantemOTempo() {
+        val o = ParsedOffer("99", 10.17, 6.3, null, listOf(6.3), emptyList())
+        val a = HomeRoute.adjusted(o, 3.15, 25.0)
+        assertEquals(3.15, a.totalKm, 0.001)
+        assertEquals(6.3 / 25.0 * 60, a.totalMin!!, 0.001)
+    }
+    @Test fun amarelaViraVerdeNoCaminho() {
+        val p = CostProfile(fuelPrice = 6.69, kmPerLiter = 35.0, otherCostPerKm = 0.10, greenPerKm = 2.0, yellowPerKm = 1.5, greenPerHour = 25.0, yellowPerHour = 18.0, avgSpeedKmh = 25.0)
+        val o = ParsedOffer("99", 10.17, 6.3, null, listOf(6.3), emptyList())
+        val normal = ProfitCalculator.evaluate(o, p)
+        val adj = ProfitCalculator.evaluate(HomeRoute.adjusted(o, HomeRoute.onWayKm(6.3, 8.0), p.avgSpeedKmh), p)
+        org.junit.Assert.assertTrue(adj.net > normal.net)
+        org.junit.Assert.assertEquals(normal.minutes, adj.minutes, 0.001)
+    }
+}

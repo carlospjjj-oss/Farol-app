@@ -287,6 +287,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
             return
         }
         val hasHint = OfferParser.looksLikeOffer(snap.text)
+        if (label == "99" && com.farol.app.core.HomeRoute.MODE.containsMatchIn(snap.text)) lastHomeModeAt = SystemClock.elapsedRealtime()
         val looksLikeOffer = hasHint || snap.text.length < 40
         if (settings.ocrFallback && ocr.supported && looksLikeOffer && snap.pkg !in accessibleApps) {
             runOcr(snap, label, hasHint)
@@ -351,6 +352,8 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
     @Volatile private var lastSaldoOcrAt = 0L
     @Volatile private var lastHomeOcrAt = 0L
     @Volatile private var lastEarningsSyncAt = 0L
+    /** Última vez que a 99 mostrou "Destino definido" (6.11, voltando para casa). */
+    @Volatile private var lastHomeModeAt = 0L
 
 
     private fun minutesSinceOffer(): Int? {
@@ -379,6 +382,7 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
             // O print pega a tela inteira: só usa para ganhos/avisos/telas se o app estiver na frente
             if (snap.onTop) { earnings(label, text); readRejections(label, text) }
             val hint = (hasHint || OfferParser.OFFER_HINTS.containsMatchIn(text)) && !OfferParser.NOT_OFFER.containsMatchIn(text)
+            if (label == "99" && com.farol.app.core.HomeRoute.MODE.containsMatchIn(text)) lastHomeModeAt = SystemClock.elapsedRealtime()
             if (hint && ocrRetries < 4) {
                 ocrRetries++
                 handler.removeCallbacks(ocrRetry); handler.postDelayed(ocrRetry, 800)
@@ -429,7 +433,10 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         val wait = waits.estimate(place)?.takeIf { it.avgMin >= com.farol.app.core.WaitStats.WARN_MIN }
         offer.totalMin?.let { m -> com.farol.app.core.SpeedLearner.sample(offer.totalKm, m)?.let { settings.addSpeedSample(offer.app, it) } }
         // Cada app com a sua velocidade (só usada quando a oferta não mostra o tempo)
-        val evaluated = ProfitCalculator.evaluate(offer, settings.effectiveProfile(offer.app), wait?.avgMin, wait?.restaurant)
+        val prof = settings.effectiveProfile(offer.app)
+        val normal = ProfitCalculator.evaluate(offer, prof, wait?.avgMin, wait?.restaurant)
+        // 6.11: voltando para casa com destino definido na 99 — os km no caminho não pesam contra a oferta
+        val evaluated = homeAdjusted(offer, normal, prof, wait?.avgMin, wait?.restaurant) ?: normal
         // 6.6: de onde sai e para onde vai; chance de pegar outra corrida saindo do destino (histórico do celular)
         val (origin, dest) = runCatching { com.farol.app.core.RegionReader.parse(offer.app, raw) }.getOrDefault(null to null)
         val chance = runCatching { com.farol.app.core.ReturnChance.estimate(regionHistory(), dest, System.currentTimeMillis()) }.getOrNull()
@@ -446,6 +453,22 @@ class OfferReaderService : AccessibilityService(), SharedPreferences.OnSharedPre
         if (result.rating == Rating.GREEN && settings.vibrateOnGreen) vibrate()
         speak(result)
     }
+
+    private fun homeAdjusted(offer: ParsedOffer, normal: com.farol.app.core.OfferResult, prof: com.farol.app.core.CostProfile,
+                             waitMin: Double?, waitPlace: String?): com.farol.app.core.OfferResult? = runCatching {
+        if (offer.app != "99" || !settings.homeEnabled) return@runCatching null
+        if (SystemClock.elapsedRealtime() - lastHomeModeAt > com.farol.app.core.HomeRoute.ACTIVE_MS) return@runCatching null
+        val home = settings.homeLatLng ?: return@runCatching null
+        val here = com.farol.app.service.GpsService.currentLocation(this) ?: return@runCatching null
+        val straight = com.farol.app.core.HomeRoute.distanceKm(here.latitude, here.longitude, home.first, home.second)
+        val onWay = com.farol.app.core.HomeRoute.onWayKm(offer.totalKm, straight)
+        if (onWay <= 0.0) return@runCatching null
+        val adj = ProfitCalculator.evaluate(com.farol.app.core.HomeRoute.adjusted(offer, onWay, prof.avgSpeedKmh), prof, waitMin, waitPlace)
+        val cor = when (normal.rating) { Rating.GREEN -> "verde"; Rating.YELLOW -> "amarela"; Rating.RED -> "vermelha" }
+        adj.copy(offer = offer, homeNote = "🏠 A caminho de casa: ~${fmt1(onWay)} km você já ia rodar. Sem isso: lucro ${Fmt.money(normal.net)}, $cor")
+    }.getOrNull()
+
+    private fun fmt1(v: Double) = String.format(java.util.Locale("pt", "BR"), "%.1f", v)
 
     /** A oferta sumiu da tela (aceita, recusada ou expirada): esconde após 3 s de folga. */
     private fun maybeHide() {

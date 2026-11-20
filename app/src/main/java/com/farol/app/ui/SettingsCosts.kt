@@ -104,6 +104,28 @@ internal fun SettingsActivity.buildCostSections() {
     }
     onChange(etGreenKm, etYellowKm, etGreenH, etYellowH, etGreenStars, etMinRating) { renderBands() }
 
+    // 6.11 (teste): voltando para casa com "Destino definido" na 99
+    swHome = toggle(cLight, "🏠 Voltando para casa (99, teste)", "Com o destino definido ligado na 99, parte dos km da oferta você já ia rodar voltando. Esses km não pesam contra a oferta, e o cartão mostra também o lucro sem esse desconto. Casa e localização ficam só no celular")
+    swHome.setOnCheckedChangeListener { _, on ->
+        if (on && !com.farol.app.service.GpsService.hasPermission(this))
+            requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION), 13)
+    }
+    tvHome = k.text("", 13, Palette.MUTED).also { cLight.addView(it, k.lp(top = 6)) }
+    fun renderHome() { tvHome.text = if (settings.homeLatLng != null) "Casa marcada ✓" else "Casa ainda não marcada" }
+    renderHome()
+    cLight.addView(k.hbox().apply {
+        val a = k.ghost("📍  Estou em casa: marcar aqui") {
+            val loc = com.farol.app.service.GpsService.currentLocation(this@buildCostSections)
+            if (loc == null) {
+                if (!com.farol.app.service.GpsService.hasPermission(this@buildCostSections))
+                    requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION), 13)
+                toast("Sem localização agora. Ligue a localização do celular e tente de novo")
+            } else { settings.homeLatLng = loc.latitude to loc.longitude; renderHome(); toast("Casa marcada (fica só no celular)") }
+        }
+        val b = k.ghost("Apagar") { settings.homeLatLng = null; renderHome() }
+        addView(a, LinearLayout.LayoutParams(0, -2, 1f)); addView(b, LinearLayout.LayoutParams(0, -2, 0.45f).apply { marginStart = k.dp(10) })
+    }, k.lp(top = 8))
+
     // Condições mínimas
     val cMin = card("Condições mínimas", "Abaixo disso o cartão fica vermelho (0 = não usa)")
     etMinPrice = numRow(cMin, "Valor da corrida", "R$")
