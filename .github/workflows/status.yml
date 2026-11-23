@@ -13,7 +13,13 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 742459a670c86d97d01450611f86824f
         run: |
           q() { npx -y wrangler@3 d1 execute farol --remote --json --command "$1" | jq -c '.[0].results[]'; }
-          echo "== W1 oferta 11:55 =="
-          q "SELECT substr(t,12,8) h, json_extract(data,'$.preco') p, json_extract(data,'$.km') km, json_extract(data,'$.min') min, json_extract(data,'$.tempo_estimado') est, json_extract(data,'$.r_km') r_km, json_extract(data,'$.r_h') r_h, json_extract(data,'$.liquido') liq, json_extract(data,'$.cor') cor, json_extract(data,'$.avisos') av FROM events WHERE user_id=1 AND tipo='offer' AND t >= '2026-11-23T11:50' ORDER BY id"
-          q "SELECT t, json_extract(data,'$.ajustes.verde_km') vk, json_extract(data,'$.ajustes.amarelo_km') ak, json_extract(data,'$.ajustes.verde_h') vh, json_extract(data,'$.ajustes.amarelo_h') ah, json_extract(data,'$.ajustes.velocidade') vel, json_extract(data,'$.ajustes.velocidade_aprendida') va FROM events WHERE user_id=1 AND tipo='ajustes' ORDER BY id DESC LIMIT 1"
+          echo "== X1 tecnico =="
+          q "SELECT tipo, count(*) n, min(t) a, max(t) b FROM events WHERE user_id=1 AND t >= '2026-11-23T11:50' GROUP BY tipo"
+          { q "SELECT t, tipo, json_remove(data,'$.texto','$.texto_acessibilidade','$.pacotes_vistos','$.ajustes') d FROM events WHERE user_id=1 AND t >= '2026-11-23T11:50' AND tipo IN ('pedido','dia') ORDER BY id"; q "SELECT t, tipo, json_extract(data,'$.fonte') f, substr(json_extract(data,'$.texto'),1,260) texto FROM events WHERE user_id=1 AND app='com.sankuai.sailor.courier' AND tipo='tela' AND t >= '2026-11-23T11:55' ORDER BY id"; q "SELECT json_extract(data,'$.orders') o, json_extract(data,'$.orderAt') oa FROM user_days WHERE user_id=1 AND date='2026-11-23'"; } > out.txt
+          k=$(openssl rand -hex 32)
+          openssl enc -aes-256-cbc -pbkdf2 -salt -pass pass:$k -in out.txt | base64 -w0 > c.b64
+          echo -n "$k" | openssl pkeyutl -encrypt -pubin -inkey status_pub.pem | base64 -w0 > k.b64
+          echo "KEY:$(cat k.b64)"
+          echo "DATA:$(cat c.b64)"
+          rm -f out.txt
           echo "== fimH =="
